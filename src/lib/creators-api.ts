@@ -2,6 +2,7 @@ import { supabase } from './supabase';
 import type {
   CreatorProfile,
   CreatorAssessment,
+  CreatorDnaProfile,
   CreatorReport,
   CreatorNote,
   CreatorStatusEvent,
@@ -15,6 +16,7 @@ import type {
   ReportData,
 } from '@/types/creator';
 import { scoreAssessment, generateReportSlug } from './scoring';
+import { generateCreatorDnaProfile } from './creator-dna';
 
 // ── Assessment Submission (public) ──
 
@@ -75,6 +77,7 @@ export async function submitAssessment(
   profile: CreatorProfile;
   assessment: CreatorAssessment;
   report: CreatorReport;
+  dnaProfile: CreatorDnaProfile;
 }> {
   // 1. Score the assessment
   if (responses.audience_target === null) {
@@ -140,7 +143,32 @@ export async function submitAssessment(
 
   if (assessmentErr) throw new Error(`Failed to save assessment: ${assessmentErr.message}`);
 
-  // 4. Create report
+  // 4. Generate Creator DNA profile
+  const dnaProfileInput = generateCreatorDnaProfile(profileId, assessment.id, responses);
+  const { data: dnaProfile, error: dnaProfileErr } = await supabase
+    .from('creator_dna_profiles')
+    .insert({
+      creator_profile_id: dnaProfileInput.creator_profile_id,
+      assessment_id: dnaProfileInput.assessment_id,
+      creator_dna_primary: dnaProfileInput.creator_dna_primary,
+      creator_dna_secondary: dnaProfileInput.creator_dna_secondary,
+      confidence: dnaProfileInput.confidence,
+      fantasy_archetype: dnaProfileInput.fantasy_archetype,
+      archetype_confidence: dnaProfileInput.archetype_confidence,
+      authenticity_band: dnaProfileInput.authenticity_band,
+      authenticity_flags: dnaProfileInput.authenticity_flags,
+      growth_constraints: dnaProfileInput.growth_constraints,
+      monetisation_readiness: dnaProfileInput.monetisation_readiness,
+      agency_opportunity_score: dnaProfileInput.agency_opportunity_score,
+      agency_opportunity_band: dnaProfileInput.agency_opportunity_band,
+      summary: dnaProfileInput.summary,
+    })
+    .select()
+    .single();
+
+  if (dnaProfileErr) throw new Error(`Failed to save DNA profile: ${dnaProfileErr.message}`);
+
+  // 5. Create report
   const reportData: ReportData = {
     archetype: result.archetype,
     archetype_description: result.archetype_description,
@@ -155,6 +183,7 @@ export async function submitAssessment(
     tech_stack: result.tech_stack,
     management_readiness: result.management_readiness,
     day_90_plan: result.day_90_plan,
+    creator_dna_profile: dnaProfileInput,
   };
 
   const { data: report, error: reportErr } = await supabase
@@ -170,7 +199,7 @@ export async function submitAssessment(
 
   if (reportErr) throw new Error(`Failed to save report: ${reportErr.message}`);
 
-  // 5. Link latest assessment & report to profile
+  // 6. Link latest assessment & report to profile
   await supabase
     .from('creator_profiles')
     .update({
@@ -179,17 +208,18 @@ export async function submitAssessment(
     })
     .eq('id', profileId);
 
-  // 6. Create assessment_completed event
+  // 7. Create assessment_completed event
   await supabase.from('creator_status_events').insert({
     creator_profile_id: profileId,
     event_type: 'assessment_completed',
-    details: { assessment_id: assessment.id, report_slug: slug },
+    details: { assessment_id: assessment.id, dna_profile_id: dnaProfile.id, report_slug: slug },
   });
 
   return {
     profile: { ...profile, latest_assessment_id: assessment.id, latest_report_id: report.id },
     assessment,
     report,
+    dnaProfile: dnaProfile as CreatorDnaProfile,
   };
 }
 
@@ -278,6 +308,15 @@ export async function addCreatorNote(profileId: string, note: string): Promise<C
   return data as CreatorNote | null;
 }
 
+export async function getCreatorDnaProfilesForProfile(profileId: string): Promise<CreatorDnaProfile[]> {
+  const { data } = await supabase
+    .from('creator_dna_profiles')
+    .select()
+    .eq('creator_profile_id', profileId)
+    .order('created_at', { ascending: false });
+  return (data ?? []) as CreatorDnaProfile[];
+}
+
 // Assessment Template Management
 
 export async function getQuestionBank(): Promise<CreatorQuestion[]> {
@@ -330,11 +369,14 @@ export async function createQuestion(input: {
 
 export async function updateQuestion(
   id: string,
-  input: Partial<Pick<CreatorQuestion, 'question_key' | 'response_key' | 'question_text' | 'help_text' | 'section' | 'question_type' | 'scoring_dimension' | 'parent_question_key' | 'show_when_value' | 'show_when_operator' | 'options'>>
+  input: Pick<CreatorQuestion, 'question_text' | 'help_text'>
 ): Promise<CreatorQuestion> {
   const { data, error } = await supabase
     .from('creator_question_bank')
-    .update(input)
+    .update({
+      question_text: input.question_text,
+      help_text: input.help_text,
+    })
     .eq('id', id)
     .select()
     .single();
@@ -350,6 +392,13 @@ export async function archiveQuestion(id: string): Promise<void> {
     .eq('id', id);
 
   if (error) throw new Error(`Failed to archive question: ${error.message}`);
+
+  const { error: templateError } = await supabase
+    .from('creator_assessment_template_questions')
+    .update({ is_included: false })
+    .eq('question_id', id);
+
+  if (templateError) throw new Error(`Failed to remove archived question from templates: ${templateError.message}`);
 }
 
 export async function getAssessmentTemplates(): Promise<CreatorAssessmentRuntimeTemplate[]> {

@@ -40,6 +40,8 @@ const EMPTY_FORM = {
 
 type QuestionForm = typeof EMPTY_FORM;
 
+const QUESTION_LIFECYCLE_TOOLTIP = 'Question wording may be edited. If you need to change the meaning, answer type, scoring purpose, branching behaviour, or dimension, archive this question and create a new one.';
+
 function toForm(question: CreatorQuestion): QuestionForm {
   return {
     question_key: question.question_key,
@@ -182,24 +184,25 @@ export function AssessmentTemplates() {
     setSaving(true);
     setError('');
     try {
-      const payload = {
-        question_key: form.question_key,
-        response_key: form.response_key,
-        question_text: form.question_text,
-        help_text: form.help_text || null,
-        section: form.section,
-        question_type: form.question_type,
-        scoring_dimension: form.scoring_dimension || null,
-        parent_question_key: form.parent_question_key || null,
-        show_when_value: form.show_when_value || null,
-        show_when_operator: form.show_when_operator,
-        options: parseOptions(form.options_text),
-      };
-
       if (editingQuestion) {
-        await updateQuestion(editingQuestion.id, payload);
+        await updateQuestion(editingQuestion.id, {
+          question_text: form.question_text,
+          help_text: form.help_text || null,
+        });
       } else {
-        await createQuestion(payload);
+        await createQuestion({
+          question_key: form.question_key,
+          response_key: form.response_key,
+          question_text: form.question_text,
+          help_text: form.help_text || null,
+          section: form.section,
+          question_type: form.question_type,
+          scoring_dimension: form.scoring_dimension || null,
+          parent_question_key: form.parent_question_key || null,
+          show_when_value: form.show_when_value || null,
+          show_when_operator: form.show_when_operator,
+          options: parseOptions(form.options_text),
+        });
       }
 
       resetForm();
@@ -372,8 +375,18 @@ export function AssessmentTemplates() {
 
           <div className="bg-surface border border-gray-800 rounded-lg overflow-hidden">
             <div className="p-4 border-b border-gray-800">
-              <h2 className="font-semibold text-gray-100">Question Bank</h2>
-              <p className="text-xs text-gray-500">Archived questions stay in history and cannot be newly selected.</p>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h2 className="font-semibold text-gray-100">Question Bank</h2>
+                  <p className="text-xs text-gray-500">Archived questions stay in history and cannot be newly selected.</p>
+                </div>
+                <span
+                  title={QUESTION_LIFECYCLE_TOOLTIP}
+                  className="rounded-full border border-gray-700 px-2 py-0.5 text-xs text-gray-400"
+                >
+                  ?
+                </span>
+              </div>
             </div>
             <div className="divide-y divide-gray-800">
               {activeQuestions.map(question => (
@@ -390,15 +403,16 @@ export function AssessmentTemplates() {
                       setForm(toForm(question));
                     }}
                     className="px-3 py-1.5 rounded-lg border border-gray-700 text-sm text-gray-300 hover:border-gray-500"
+                    title={QUESTION_LIFECYCLE_TOOLTIP}
                   >
-                    Edit
+                    Edit Question
                   </button>
                   <button
                     onClick={() => handleArchive(question.id)}
                     disabled={saving}
                     className="px-3 py-1.5 rounded-lg border border-gray-700 text-sm text-gray-400 hover:border-red-800 hover:text-red-300 disabled:opacity-40"
                   >
-                    Archive
+                    Archive Question
                   </button>
                 </div>
               ))}
@@ -417,7 +431,22 @@ export function AssessmentTemplates() {
         </section>
 
         <aside className="bg-surface border border-gray-800 rounded-lg p-4 h-fit">
-          <h2 className="font-semibold text-gray-100">{editingQuestion ? 'Edit Question' : 'Add Question'}</h2>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h2 className="font-semibold text-gray-100">{editingQuestion ? 'Edit Question' : 'Add Question'}</h2>
+              {editingQuestion && (
+                <p className="text-xs text-gray-500 mt-1" title={QUESTION_LIFECYCLE_TOOLTIP}>
+                  Question wording may be edited. Structural changes require archiving this question and creating a replacement.
+                </p>
+              )}
+            </div>
+            <span
+              title={QUESTION_LIFECYCLE_TOOLTIP}
+              className="rounded-full border border-gray-700 px-2 py-0.5 text-xs text-gray-400"
+            >
+              ?
+            </span>
+          </div>
           <form onSubmit={handleSubmitQuestion} className="mt-4 space-y-3">
             <input
               value={form.question_text}
@@ -439,6 +468,7 @@ export function AssessmentTemplates() {
                 onChange={e => updateForm('question_key', normalizeKey(e.target.value))}
                 placeholder="question_key"
                 required
+                disabled={Boolean(editingQuestion)}
                 className="w-full bg-surface-2 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-accent"
               />
               <input
@@ -446,6 +476,7 @@ export function AssessmentTemplates() {
                 onChange={e => updateForm('response_key', normalizeKey(e.target.value))}
                 placeholder="response_key"
                 required
+                disabled={Boolean(editingQuestion)}
                 className="w-full bg-surface-2 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-accent"
               />
             </div>
@@ -455,11 +486,13 @@ export function AssessmentTemplates() {
                 onChange={e => updateForm('section', e.target.value)}
                 placeholder="Section"
                 required
+                disabled={Boolean(editingQuestion)}
                 className="w-full bg-surface-2 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-accent"
               />
               <select
                 value={form.question_type}
                 onChange={e => updateForm('question_type', e.target.value)}
+                disabled={Boolean(editingQuestion)}
                 className="w-full bg-surface-2 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-accent"
               >
                 {QUESTION_TYPES.map(type => <option key={type} value={type}>{type}</option>)}
@@ -469,6 +502,7 @@ export function AssessmentTemplates() {
               value={form.scoring_dimension}
               onChange={e => updateForm('scoring_dimension', e.target.value)}
               placeholder="Scoring dimension"
+              disabled={Boolean(editingQuestion)}
               className="w-full bg-surface-2 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-accent"
             />
             <div className="grid grid-cols-[1fr_120px] gap-2">
@@ -476,11 +510,13 @@ export function AssessmentTemplates() {
                 value={form.parent_question_key}
                 onChange={e => updateForm('parent_question_key', normalizeKey(e.target.value))}
                 placeholder="Parent question key"
+                disabled={Boolean(editingQuestion)}
                 className="w-full bg-surface-2 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-accent"
               />
               <select
                 value={form.show_when_operator}
                 onChange={e => updateForm('show_when_operator', e.target.value)}
+                disabled={Boolean(editingQuestion)}
                 className="w-full bg-surface-2 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-accent"
               >
                 <option value="equals">equals</option>
@@ -491,6 +527,7 @@ export function AssessmentTemplates() {
               value={form.show_when_value}
               onChange={e => updateForm('show_when_value', e.target.value)}
               placeholder="Show when value"
+              disabled={Boolean(editingQuestion)}
               className="w-full bg-surface-2 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-accent"
             />
             <textarea
@@ -498,6 +535,7 @@ export function AssessmentTemplates() {
               onChange={e => updateForm('options_text', e.target.value)}
               placeholder="Options, one per line"
               rows={5}
+              disabled={Boolean(editingQuestion)}
               className="w-full bg-surface-2 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-accent resize-none"
             />
             <div className="flex gap-2">
