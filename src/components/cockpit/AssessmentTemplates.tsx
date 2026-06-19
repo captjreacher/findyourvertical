@@ -32,6 +32,9 @@ const EMPTY_FORM = {
   section: 'Strengths',
   question_type: 'long_text' as AssessmentQuestionType,
   scoring_dimension: '',
+  parent_question_key: '',
+  show_when_value: '',
+  show_when_operator: 'equals' as 'equals' | 'includes',
   options_text: '',
 };
 
@@ -46,6 +49,9 @@ function toForm(question: CreatorQuestion): QuestionForm {
     section: question.section,
     question_type: question.question_type,
     scoring_dimension: question.scoring_dimension ?? '',
+    parent_question_key: question.parent_question_key ?? '',
+    show_when_value: question.show_when_value ?? '',
+    show_when_operator: question.show_when_operator,
     options_text: question.options.map(option => typeof option === 'string' ? option : option.label).join('\n'),
   };
 }
@@ -112,8 +118,47 @@ export function AssessmentTemplates() {
       .sort((a, b) => a.sort_order - b.sort_order || a.question_text.localeCompare(b.question_text));
   }, [questions, selectedTemplate]);
 
+  const orderedTemplateQuestions = useMemo(() => {
+    const childrenByParent = new Map<string, CreatorAssessmentQuestion[]>();
+    const topLevel: CreatorAssessmentQuestion[] = [];
+    const seen = new Set<string>();
+
+    for (const question of templateQuestions) {
+      if (question.parent_question_key) {
+        childrenByParent.set(question.parent_question_key, [
+          ...(childrenByParent.get(question.parent_question_key) ?? []),
+          question,
+        ]);
+      } else {
+        topLevel.push(question);
+      }
+    }
+
+    const ordered: CreatorAssessmentQuestion[] = [];
+    for (const question of topLevel) {
+      ordered.push(question);
+      seen.add(question.id);
+      for (const child of childrenByParent.get(question.question_key) ?? []) {
+        ordered.push(child);
+        seen.add(child.id);
+      }
+    }
+
+    for (const question of templateQuestions) {
+      if (!seen.has(question.id)) ordered.push(question);
+    }
+
+    return ordered;
+  }, [templateQuestions]);
+
   const activeQuestions = questions.filter(question => question.is_active);
   const archivedQuestions = questions.filter(question => !question.is_active);
+
+  const conditionText = (question: CreatorAssessmentQuestion | CreatorQuestion): string | null => {
+    if (!question.parent_question_key || !question.show_when_value) return null;
+    const parent = questions.find(item => item.question_key === question.parent_question_key);
+    return `Shows when ${parent?.question_text ?? question.parent_question_key} ${question.show_when_operator} ${question.show_when_value}`;
+  };
 
   const updateForm = (key: keyof QuestionForm, value: string) => {
     setForm(current => {
@@ -145,6 +190,9 @@ export function AssessmentTemplates() {
         section: form.section,
         question_type: form.question_type,
         scoring_dimension: form.scoring_dimension || null,
+        parent_question_key: form.parent_question_key || null,
+        show_when_value: form.show_when_value || null,
+        show_when_operator: form.show_when_operator,
         options: parseOptions(form.options_text),
       };
 
@@ -274,8 +322,11 @@ export function AssessmentTemplates() {
             </div>
 
             <div className="divide-y divide-gray-800">
-              {templateQuestions.map(question => (
-                <div key={question.id} className={`p-4 flex items-start gap-3 ${question.is_active ? '' : 'opacity-50'}`}>
+              {orderedTemplateQuestions.map(question => {
+                const isChild = Boolean(question.parent_question_key);
+                return (
+                <div key={question.id} className={`p-4 flex items-start gap-3 ${question.is_active ? '' : 'opacity-50'} ${isChild ? 'pl-10 bg-surface-2/40' : ''}`}>
+                  {isChild && <div className="mt-2 h-px w-5 bg-gray-700 shrink-0" />}
                   <input
                     type="checkbox"
                     checked={question.is_included}
@@ -287,8 +338,12 @@ export function AssessmentTemplates() {
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="font-medium text-gray-100">{question.question_text}</p>
                       <span className="text-[11px] uppercase tracking-wide text-gray-500">{question.section}</span>
+                      {isChild && <span className="text-[11px] text-accent">Follow-up</span>}
                       {!question.is_active && <span className="text-[11px] text-warn">Archived</span>}
                     </div>
+                    {conditionText(question) && (
+                      <p className="text-xs text-accent mt-1">{conditionText(question)}</p>
+                    )}
                     <p className="text-xs text-gray-500 mt-1">
                       {question.response_key} · {question.question_type} · {question.scoring_dimension ?? 'no dimension'}
                     </p>
@@ -310,7 +365,8 @@ export function AssessmentTemplates() {
                     </button>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
@@ -413,6 +469,28 @@ export function AssessmentTemplates() {
               value={form.scoring_dimension}
               onChange={e => updateForm('scoring_dimension', e.target.value)}
               placeholder="Scoring dimension"
+              className="w-full bg-surface-2 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-accent"
+            />
+            <div className="grid grid-cols-[1fr_120px] gap-2">
+              <input
+                value={form.parent_question_key}
+                onChange={e => updateForm('parent_question_key', normalizeKey(e.target.value))}
+                placeholder="Parent question key"
+                className="w-full bg-surface-2 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-accent"
+              />
+              <select
+                value={form.show_when_operator}
+                onChange={e => updateForm('show_when_operator', e.target.value)}
+                className="w-full bg-surface-2 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-accent"
+              >
+                <option value="equals">equals</option>
+                <option value="includes">includes</option>
+              </select>
+            </div>
+            <input
+              value={form.show_when_value}
+              onChange={e => updateForm('show_when_value', e.target.value)}
+              placeholder="Show when value"
               className="w-full bg-surface-2 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-accent"
             />
             <textarea

@@ -55,6 +55,9 @@ const FALLBACK_TEMPLATE: CreatorAssessmentRuntimeTemplate = {
       section: 'Strengths',
       question_type: 'multi_choice',
       scoring_dimension: 'creator_dna',
+      parent_question_key: null,
+      show_when_value: null,
+      show_when_operator: 'equals',
       options: ['Humor', 'Dancing', 'Public Speaking', 'Specific Sport', 'Specialized Knowledge/Astrology', 'High-Energy', 'Aesthetic/Cozy'],
       config: { required: true },
       is_active: true,
@@ -73,6 +76,9 @@ const FALLBACK_TEMPLATE: CreatorAssessmentRuntimeTemplate = {
       section: 'Strengths',
       question_type: 'scale',
       scoring_dimension: 'creator_dna',
+      parent_question_key: null,
+      show_when_value: null,
+      show_when_operator: 'equals',
       options: [],
       config: { min: 1, max: 10, required: true },
       is_active: true,
@@ -91,6 +97,9 @@ const FALLBACK_TEMPLATE: CreatorAssessmentRuntimeTemplate = {
       section: 'Strengths',
       question_type: 'long_text',
       scoring_dimension: 'consistency',
+      parent_question_key: null,
+      show_when_value: null,
+      show_when_operator: 'equals',
       options: [],
       config: { placeholder: 'E.g., astrology, vintage fashion, conspiracy theories...' },
       is_active: true,
@@ -109,6 +118,9 @@ const FALLBACK_TEMPLATE: CreatorAssessmentRuntimeTemplate = {
       section: 'Persona',
       question_type: 'single_choice',
       scoring_dimension: 'brand_identity',
+      parent_question_key: null,
+      show_when_value: null,
+      show_when_operator: 'equals',
       options: ['Struggling student', 'Professional athlete', 'Corporate rebel', 'Cosy stay-at-home mom', 'Fitness enthusiast', 'Artist / creative', 'Spiritual guide', 'Party girl', 'Other'],
       config: { required: true },
       is_active: true,
@@ -127,6 +139,9 @@ const FALLBACK_TEMPLATE: CreatorAssessmentRuntimeTemplate = {
       section: 'Persona',
       question_type: 'boolean',
       scoring_dimension: 'monetisation',
+      parent_question_key: null,
+      show_when_value: null,
+      show_when_operator: 'equals',
       options: [],
       config: { trueLabel: 'Yes', falseLabel: 'No' },
       is_active: true,
@@ -145,6 +160,9 @@ const FALLBACK_TEMPLATE: CreatorAssessmentRuntimeTemplate = {
       section: 'Persona',
       question_type: 'short_text',
       scoring_dimension: 'brand_identity',
+      parent_question_key: null,
+      show_when_value: null,
+      show_when_operator: 'equals',
       options: [],
       config: { placeholder: 'E.g., power, submission, luxury' },
       is_active: true,
@@ -156,13 +174,16 @@ const FALLBACK_TEMPLATE: CreatorAssessmentRuntimeTemplate = {
     },
     {
       id: 'fallback-nudity',
-      question_key: 'nudity_level',
+      question_key: 'content_comfort',
       response_key: 'nudity_level',
       question_text: 'Nudity comfort level',
       help_text: null,
       section: 'Boundaries',
       question_type: 'single_choice',
       scoring_dimension: 'boundaries',
+      parent_question_key: null,
+      show_when_value: null,
+      show_when_operator: 'equals',
       options: [
         { value: 'sfw_only', label: 'SFW only' },
         { value: 'teasing_only', label: 'Teasing only' },
@@ -187,6 +208,9 @@ const FALLBACK_TEMPLATE: CreatorAssessmentRuntimeTemplate = {
       section: 'Boundaries',
       question_type: 'multi_choice',
       scoring_dimension: 'content_strategy',
+      parent_question_key: null,
+      show_when_value: null,
+      show_when_operator: 'equals',
       options: ['Armpits', 'Feet', 'Fitness/Muscle', 'Roleplay', 'Daddy dynamic', 'High-Fashion'],
       config: {},
       is_active: true,
@@ -205,6 +229,9 @@ const FALLBACK_TEMPLATE: CreatorAssessmentRuntimeTemplate = {
       section: 'Goals',
       question_type: 'single_choice',
       scoring_dimension: 'monetisation',
+      parent_question_key: null,
+      show_when_value: null,
+      show_when_operator: 'equals',
       options: [
         { value: 'whales', label: 'Whales', description: 'High-spending executives seeking luxury & exclusivity. Low volume, high revenue per sub.' },
         { value: 'masses', label: 'The Masses', description: 'High-volume casual subscribers. Quantity over ticket size. Free trial + upsell model.' },
@@ -232,10 +259,45 @@ function optionDescription(option: AssessmentQuestionOption): string | undefined
   return typeof option === 'string' ? undefined : option.description;
 }
 
-function isVisible(question: CreatorAssessmentQuestion, data: AssessmentResponses): boolean {
-  const displayWhen = question.config.displayWhen as { responseKey?: string; equals?: unknown } | undefined;
-  if (!displayWhen?.responseKey) return true;
-  return data[displayWhen.responseKey] === displayWhen.equals;
+function normalizedConditionValue(value: unknown): string {
+  return String(value ?? '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '');
+}
+
+function selectedLabels(question: CreatorAssessmentQuestion, selectedValue: unknown): string[] {
+  const selected = Array.isArray(selectedValue) ? selectedValue : [selectedValue];
+
+  return selected.flatMap(value => {
+    const valueText = String(value ?? '');
+    const option = question.options.find(item => optionValue(item) === valueText || optionLabel(item) === valueText);
+    return option ? [valueText, optionLabel(option), optionValue(option)] : [valueText];
+  });
+}
+
+function conditionMatches(question: CreatorAssessmentQuestion, parent: CreatorAssessmentQuestion, data: AssessmentResponses): boolean {
+  if (!question.parent_question_key || !question.show_when_value) return true;
+
+  const parentValue = data[parent.response_key];
+  const target = normalizedConditionValue(question.show_when_value);
+  const candidates = selectedLabels(parent, parentValue).map(normalizedConditionValue);
+
+  if (question.show_when_operator === 'includes') {
+    return candidates.some(candidate => candidate.includes(target) || target.includes(candidate));
+  }
+
+  return candidates.some(candidate => candidate === target);
+}
+
+function isVisible(
+  question: CreatorAssessmentQuestion,
+  data: AssessmentResponses,
+  questions: CreatorAssessmentQuestion[]
+): boolean {
+  if (!question.parent_question_key) return true;
+  const parent = questions.find(item => item.question_key === question.parent_question_key);
+  if (!parent) return false;
+  return conditionMatches(question, parent, data);
 }
 
 function defaultValue(question: CreatorAssessmentQuestion): unknown {
@@ -303,6 +365,10 @@ export function AssessmentWizard() {
       }));
   }, [template]);
 
+  const templateQuestions = useMemo(
+    () => sections.flatMap(section => section.questions),
+    [sections]
+  );
   const steps = [...sections.map(x => x.section), 'Submit'];
   const activeSection = sections[step];
   const isSubmitStep = step === steps.length - 1;
@@ -329,7 +395,7 @@ export function AssessmentWizard() {
     }
 
     return (activeSection?.questions ?? [])
-      .filter(question => isVisible(question, data))
+      .filter(question => isVisible(question, data, templateQuestions))
       .every(question => {
         if (!question.config.required) return true;
         const value = data[question.response_key];
@@ -342,7 +408,21 @@ export function AssessmentWizard() {
     setSubmitting(true);
     setError('');
     try {
-      const result = await submitAssessment(data, template);
+      const visibleQuestions = templateQuestions.filter(question => isVisible(question, data, templateQuestions));
+      const visibleResponseKeys = new Set(visibleQuestions.map(question => question.response_key));
+      const sanitizedData = { ...data };
+
+      for (const question of templateQuestions) {
+        if (!question.parent_question_key || visibleResponseKeys.has(question.response_key)) continue;
+        delete sanitizedData[question.response_key];
+        const notesKey = question.config.notesKey as string | undefined;
+        if (notesKey) delete sanitizedData[notesKey];
+      }
+
+      const visibleTemplate = template
+        ? { ...template, questions: template.questions.filter(question => !question.is_included || visibleResponseKeys.has(question.response_key)) }
+        : template;
+      const result = await submitAssessment(sanitizedData, visibleTemplate);
       navigate(`/report/${result.report.report_slug}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Something went wrong');
@@ -351,7 +431,7 @@ export function AssessmentWizard() {
   };
 
   const renderQuestion = (question: CreatorAssessmentQuestion, firstInSection: boolean) => {
-    if (!isVisible(question, data)) return null;
+    if (!isVisible(question, data, templateQuestions)) return null;
 
     const value = data[question.response_key];
     const showAsHeading = firstInSection && question.section !== 'Boundaries';

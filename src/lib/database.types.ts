@@ -1450,12 +1450,15 @@ export type Database = {
           id: string
           is_active: boolean
           options: Json
+          parent_question_key: string | null
           question_key: string
           question_text: string
           question_type: string
           response_key: string
           scoring_dimension: string | null
           section: string
+          show_when_operator: string
+          show_when_value: string | null
           updated_at: string
         }
         Insert: {
@@ -1465,12 +1468,15 @@ export type Database = {
           id?: string
           is_active?: boolean
           options?: Json
+          parent_question_key?: string | null
           question_key: string
           question_text: string
           question_type: string
           response_key: string
           scoring_dimension?: string | null
           section: string
+          show_when_operator?: string
+          show_when_value?: string | null
           updated_at?: string
         }
         Update: {
@@ -1480,12 +1486,15 @@ export type Database = {
           id?: string
           is_active?: boolean
           options?: Json
+          parent_question_key?: string | null
           question_key?: string
           question_text?: string
           question_type?: string
           response_key?: string
           scoring_dimension?: string | null
           section?: string
+          show_when_operator?: string
+          show_when_value?: string | null
           updated_at?: string
         }
         Relationships: []

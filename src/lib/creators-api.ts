@@ -299,6 +299,9 @@ export async function createQuestion(input: {
   section: string;
   question_type: AssessmentQuestionType;
   scoring_dimension?: string | null;
+  parent_question_key?: string | null;
+  show_when_value?: string | null;
+  show_when_operator?: 'equals' | 'includes';
   options?: unknown[];
 }): Promise<CreatorQuestion> {
   const { data, error } = await supabase
@@ -311,6 +314,9 @@ export async function createQuestion(input: {
       section: input.section,
       question_type: input.question_type,
       scoring_dimension: input.scoring_dimension ?? null,
+      parent_question_key: input.parent_question_key ?? null,
+      show_when_value: input.show_when_value ?? null,
+      show_when_operator: input.show_when_operator ?? 'equals',
       options: input.options ?? [],
       config: {},
       is_active: true,
@@ -324,7 +330,7 @@ export async function createQuestion(input: {
 
 export async function updateQuestion(
   id: string,
-  input: Partial<Pick<CreatorQuestion, 'question_key' | 'response_key' | 'question_text' | 'help_text' | 'section' | 'question_type' | 'scoring_dimension' | 'options'>>
+  input: Partial<Pick<CreatorQuestion, 'question_key' | 'response_key' | 'question_text' | 'help_text' | 'section' | 'question_type' | 'scoring_dimension' | 'parent_question_key' | 'show_when_value' | 'show_when_operator' | 'options'>>
 ): Promise<CreatorQuestion> {
   const { data, error } = await supabase
     .from('creator_question_bank')

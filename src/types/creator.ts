@@ -100,6 +100,9 @@ export interface CreatorQuestion {
   section: string;
   question_type: AssessmentQuestionType;
   scoring_dimension: string | null;
+  parent_question_key: string | null;
+  show_when_value: string | null;
+  show_when_operator: 'equals' | 'includes';
   options: AssessmentQuestionOption[];
   config: Record<string, unknown>;
   is_active: boolean;
