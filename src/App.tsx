@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { HashRouter, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
+import { HashRouter, Routes, Route } from 'react-router-dom';
 import { AssessmentWizard } from './components/wizard/AssessmentWizard';
 import { ReportPage } from './components/report/ReportPage';
 import { CockpitLayout } from './components/cockpit/CockpitLayout';
@@ -10,94 +10,77 @@ import { AuthGate } from './components/cockpit/AuthGate';
 import { AssessmentTemplates } from './components/cockpit/AssessmentTemplates';
 import {
   consumeAuthRedirectPath,
-  getStoredAuthRedirectPath,
+  normalizeCockpitPath,
   supabase,
 } from './lib/supabase';
-import type { EmailOtpType } from '@supabase/supabase-js';
 
-function routeWithSearch(pathname: string, search: string) {
-  return `${pathname}${search}`;
-}
-
-function AuthSessionBridge() {
-  const location = useLocation();
-  const navigate = useNavigate();
-
+function AuthCallback() {
   useEffect(() => {
     let mounted = true;
-    const routeParams = new URLSearchParams(location.search);
-    const rawHash = window.location.hash;
-    const hasAuthParams = routeParams.has('code') || routeParams.has('token_hash');
-    const hasRawAuthFragment = /(?:access_token|refresh_token|error_code)=/.test(rawHash);
-    const hasStoredRedirect = Boolean(getStoredAuthRedirectPath());
-    const shouldHandleAuthRedirect = hasAuthParams || hasRawAuthFragment || hasStoredRedirect;
-    const currentRoute = hasAuthParams
-      ? location.pathname
-      : routeWithSearch(location.pathname, location.search);
-    const destination = getStoredAuthRedirectPath()
-      ?? (location.pathname.startsWith('/cockpit') ? currentRoute : '/cockpit');
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('code');
+    const nextParam = params.get('next');
+    const next = normalizeCockpitPath(nextParam ?? consumeAuthRedirectPath() ?? '/cockpit');
 
-    const finishAuthRedirect = () => {
-      const next = consumeAuthRedirectPath() ?? destination;
-      navigate(next, { replace: true });
-    };
+    console.log('[auth callback] URL received', window.location.href);
+    console.log('[auth callback] next param', nextParam);
 
-    const exchangeAuthParams = async () => {
-      const code = routeParams.get('code');
-      const tokenHash = routeParams.get('token_hash');
-      const type = routeParams.get('type') as EmailOtpType | null;
-
+    const finishAuthRedirect = async () => {
       if (code) {
         const { error } = await supabase.auth.exchangeCodeForSession(code);
-        if (!error && mounted) finishAuthRedirect();
-        return;
+        if (error) {
+          console.error('[auth callback] exchangeCodeForSession error', error);
+        }
       }
 
-      if (tokenHash && type) {
-        const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type });
-        if (!error && mounted) finishAuthRedirect();
-        return;
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (error) {
+        console.error('[auth callback] getSession error', error);
       }
 
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session && shouldHandleAuthRedirect && mounted) {
-        finishAuthRedirect();
+      const finalRedirectPath = `/#${next}`;
+      console.log('[auth callback] session exists after callback', Boolean(session));
+      console.log('[auth callback] final redirect path', finalRedirectPath);
+
+      if (mounted) {
+        window.location.replace(`${window.location.origin}${finalRedirectPath}`);
       }
     };
 
-    void exchangeAuthParams();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'SIGNED_IN' && shouldHandleAuthRedirect && mounted) {
-        finishAuthRedirect();
-      }
-    });
+    void finishAuthRedirect();
 
     return () => {
       mounted = false;
-      subscription.unsubscribe();
     };
-  }, [location.pathname, location.search, navigate]);
+  }, []);
 
-  return null;
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-950">
+      <div className="animate-pulse text-gray-500">Signing you in...</div>
+    </div>
+  );
 }
 
 export default function App() {
+  if (window.location.pathname === '/auth/callback') {
+    return <AuthCallback />;
+  }
+
   return (
     <HashRouter>
-      <AuthSessionBridge />
       <Routes>
         {/* Public */}
         <Route path="/" element={<AssessmentWizard />} />
         <Route path="/report/:slug" element={<ReportPage />} />
 
         {/* Cockpit (authenticated) */}
-        <Route path="/cockpit" element={<AuthGate><CockpitLayout /></AuthGate>}>
+        <Route path="/cockpit/*" element={<AuthGate><CockpitLayout /></AuthGate>}>
           <Route index element={<AgencyDashboard />} />
           <Route path="creators" element={<CreatorPipeline />} />
           <Route path="creators/:profileId" element={<CreatorProfileView />} />
           <Route path="settings/assessment-templates" element={<AssessmentTemplates />} />
         </Route>
+        <Route path="*" element={<AssessmentWizard />} />
       </Routes>
     </HashRouter>
   );

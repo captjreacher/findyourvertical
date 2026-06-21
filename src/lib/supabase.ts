@@ -11,7 +11,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 const AUTH_REDIRECT_KEY = 'ikigai.auth.redirectPath';
 
-function normalizeCockpitPath(path: string | null | undefined): string {
+export function normalizeCockpitPath(path: string | null | undefined): string {
   if (!path) return '/cockpit';
   const normalized = path.startsWith('/') ? path : `/${path}`;
   return normalized.startsWith('/cockpit') ? normalized : '/cockpit';
@@ -38,18 +38,20 @@ export function getStoredAuthRedirectPath(): string | null {
   return path ? normalizeCockpitPath(path) : null;
 }
 
-export function cockpitRedirectUrl(path = getRequestedCockpitPath()): string {
-  return `${window.location.origin}/#${normalizeCockpitPath(path)}`;
+export function authCallbackUrl(path = getRequestedCockpitPath()): string {
+  const destination = normalizeCockpitPath(path);
+  return `${window.location.origin}/auth/callback?next=${encodeURIComponent(destination)}`;
 }
 
-export async function signInWithOTP(email: string, redirectPath = getRequestedCockpitPath()) {
+export async function signInWithOtp(email: string, redirectPath = getRequestedCockpitPath()) {
   const destination = normalizeCockpitPath(redirectPath);
   storeAuthRedirectPath(destination);
 
   return supabase.auth.signInWithOtp({
     email,
     options: {
-      emailRedirectTo: cockpitRedirectUrl(destination),
+      emailRedirectTo: authCallbackUrl(destination),
+      shouldCreateUser: false,
     },
   });
 }
