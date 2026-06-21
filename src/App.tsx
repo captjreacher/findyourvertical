@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { HashRouter, Routes, Route } from 'react-router-dom';
 import { AssessmentWizard } from './components/wizard/AssessmentWizard';
 import { ReportPage } from './components/report/ReportPage';
 import { CockpitLayout } from './components/cockpit/CockpitLayout';
@@ -10,7 +10,7 @@ import { AssessmentTemplates } from './components/cockpit/AssessmentTemplates';
 
 export default function App() {
   return (
-    <BrowserRouter>
+    <HashRouter>
       <Routes>
         {/* Public */}
         <Route path="/" element={<AssessmentWizard />} />
@@ -24,6 +24,6 @@ export default function App() {
           <Route path="settings/assessment-templates" element={<AssessmentTemplates />} />
         </Route>
       </Routes>
-    </BrowserRouter>
+    </HashRouter>
   );
 }

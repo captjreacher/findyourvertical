@@ -258,7 +258,7 @@ export function CreatorProfileView() {
                 {reports.map(r => (
                   <a
                     key={r.id}
-                    href={`/report/${r.report_slug}`}
+                    href={`#/report/${r.report_slug}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="block bg-surface-2 rounded-lg px-4 py-3 hover:bg-surface-3 transition-colors"

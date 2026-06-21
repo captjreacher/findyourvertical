@@ -471,7 +471,7 @@ export function AssessmentWizard() {
         )}
 
         {question.question_type === 'multi_choice' && (
-          <div className={question.section === 'Boundaries' ? 'grid grid-cols-2 gap-2' : 'flex flex-wrap gap-2'}>
+          <div className={question.section === 'Boundaries' ? 'grid grid-cols-1 sm:grid-cols-2 gap-2' : 'flex flex-wrap gap-2'}>
             {activeOptions(question).map(option => {
               const optionKey = optionValue(option);
               const selected = Array.isArray(value) && value.includes(optionKey);
@@ -493,7 +493,7 @@ export function AssessmentWizard() {
         )}
 
         {question.question_type === 'single_choice' && question.config.variant === 'audience_cards' && (
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             {activeOptions(question).map(option => {
               const optionKey = optionValue(option);
               return (
@@ -517,7 +517,7 @@ export function AssessmentWizard() {
         )}
 
         {question.question_type === 'single_choice' && question.config.variant !== 'audience_cards' && (
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {activeOptions(question).map(option => {
               const optionKey = optionValue(option);
               return (
@@ -561,7 +561,7 @@ export function AssessmentWizard() {
         )}
 
         {question.question_type === 'scale' && (
-          <div className="flex items-center gap-3">
+          <div className="flex min-w-0 items-center gap-3">
             <span className="text-xs text-gray-500">{String(question.config.min ?? 1)}</span>
             <input
               type="range"
@@ -622,16 +622,16 @@ export function AssessmentWizard() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4">
-      <div className="w-full max-w-xl">
-        <div className="text-center mb-10">
+    <div className="min-h-[100dvh] w-full overflow-y-auto px-4 py-6 sm:py-10">
+      <div className="w-full max-w-xl mx-auto">
+        <div className="text-center mb-6 sm:mb-10">
           <h1 className="font-display text-3xl font-bold mb-2">Creator Ikigai</h1>
           <p className="text-gray-500 text-sm">Brand Strategy Wizard</p>
         </div>
 
-        <div className="flex gap-2 mb-10">
+        <div className="flex gap-2 mb-6 sm:mb-10 overflow-x-auto pb-1">
           {steps.map((label, i) => (
-            <div key={label} className="flex-1">
+            <div key={label} className="min-w-20 flex-1">
               <div className={`h-1 rounded-full transition-colors ${i <= step ? 'bg-accent' : 'bg-surface-3'}`} />
               <span className={`text-xs mt-1 block ${i <= step ? 'text-accent' : 'text-gray-600'}`}>{label}</span>
             </div>

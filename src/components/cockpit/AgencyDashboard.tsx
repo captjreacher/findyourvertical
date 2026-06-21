@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { getDashboardMetrics } from '@/lib/creators-api';
 import type { DashboardMetrics } from '@/lib/creators-api';
 
@@ -39,8 +40,8 @@ export function AgencyDashboard() {
 
       {/* Quick Links */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <a
-          href="/cockpit/creators"
+        <Link
+          to="/cockpit/creators"
           className="bg-surface border border-gray-800 rounded-xl p-5 hover:border-accent/30 transition-colors group"
         >
           <div className="flex items-center justify-between">
@@ -50,9 +51,9 @@ export function AgencyDashboard() {
             </div>
             <span className="text-2xl">→</span>
           </div>
-        </a>
+        </Link>
         <a
-          href="/"
+          href="/#/"
           target="_blank"
           rel="noopener noreferrer"
           className="bg-surface border border-gray-800 rounded-xl p-5 hover:border-accent/30 transition-colors group"
