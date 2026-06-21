@@ -259,6 +259,14 @@ function optionDescription(option: AssessmentQuestionOption): string | undefined
   return typeof option === 'string' ? undefined : option.description;
 }
 
+function optionIsActive(option: AssessmentQuestionOption): boolean {
+  return typeof option === 'string' ? true : option.is_active ?? true;
+}
+
+function activeOptions(question: CreatorAssessmentQuestion): AssessmentQuestionOption[] {
+  return question.options.filter(optionIsActive);
+}
+
 function normalizedConditionValue(value: unknown): string {
   return String(value ?? '')
     .toLowerCase()
@@ -270,7 +278,7 @@ function selectedLabels(question: CreatorAssessmentQuestion, selectedValue: unkn
 
   return selected.flatMap(value => {
     const valueText = String(value ?? '');
-    const option = question.options.find(item => optionValue(item) === valueText || optionLabel(item) === valueText);
+    const option = activeOptions(question).find(item => optionValue(item) === valueText || optionLabel(item) === valueText);
     return option ? [valueText, optionLabel(option), optionValue(option)] : [valueText];
   });
 }
@@ -350,7 +358,8 @@ export function AssessmentWizard() {
     const grouped = new Map<string, CreatorAssessmentQuestion[]>();
 
     for (const question of includedQuestions) {
-      grouped.set(question.section, [...(grouped.get(question.section) ?? []), question]);
+      const section = question.section?.trim() || 'Other';
+      grouped.set(section, [...(grouped.get(section) ?? []), { ...question, section }]);
     }
 
     return Array.from(grouped.entries())
@@ -420,7 +429,12 @@ export function AssessmentWizard() {
       }
 
       const visibleTemplate = template
-        ? { ...template, questions: template.questions.filter(question => !question.is_included || visibleResponseKeys.has(question.response_key)) }
+        ? {
+            ...template,
+            questions: template.questions
+              .filter(question => !question.is_included || visibleResponseKeys.has(question.response_key))
+              .map(question => ({ ...question, options: activeOptions(question) })),
+          }
         : template;
       const result = await submitAssessment(sanitizedData, visibleTemplate);
       navigate(`/report/${result.report.report_slug}`);
@@ -458,7 +472,7 @@ export function AssessmentWizard() {
 
         {question.question_type === 'multi_choice' && (
           <div className={question.section === 'Boundaries' ? 'grid grid-cols-2 gap-2' : 'flex flex-wrap gap-2'}>
-            {question.options.map(option => {
+            {activeOptions(question).map(option => {
               const optionKey = optionValue(option);
               const selected = Array.isArray(value) && value.includes(optionKey);
               return (
@@ -480,7 +494,7 @@ export function AssessmentWizard() {
 
         {question.question_type === 'single_choice' && question.config.variant === 'audience_cards' && (
           <div className="grid grid-cols-2 gap-4">
-            {question.options.map(option => {
+            {activeOptions(question).map(option => {
               const optionKey = optionValue(option);
               return (
                 <button
@@ -504,7 +518,7 @@ export function AssessmentWizard() {
 
         {question.question_type === 'single_choice' && question.config.variant !== 'audience_cards' && (
           <div className="grid grid-cols-2 gap-2">
-            {question.options.map(option => {
+            {activeOptions(question).map(option => {
               const optionKey = optionValue(option);
               return (
                 <button

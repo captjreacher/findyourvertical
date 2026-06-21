@@ -89,6 +89,7 @@ export type AssessmentQuestionOption =
       value: string;
       label: string;
       description?: string;
+      is_active?: boolean;
     };
 
 export interface CreatorQuestion {

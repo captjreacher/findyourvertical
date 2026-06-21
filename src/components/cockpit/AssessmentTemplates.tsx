@@ -9,6 +9,7 @@ import {
   upsertTemplateQuestion,
 } from '@/lib/creators-api';
 import type {
+  AssessmentQuestionOption,
   AssessmentQuestionType,
   CreatorAssessmentQuestion,
   CreatorAssessmentRuntimeTemplate,
@@ -35,10 +36,16 @@ const EMPTY_FORM = {
   parent_question_key: '',
   show_when_value: '',
   show_when_operator: 'equals' as 'equals' | 'includes',
-  options_text: '',
+  options: [] as EditableOption[],
 };
 
 type QuestionForm = typeof EMPTY_FORM;
+type EditableOption = {
+  value: string;
+  label: string;
+  description?: string;
+  is_active: boolean;
+};
 
 const QUESTION_LIFECYCLE_TOOLTIP = 'Question wording may be edited. If you need to change the meaning, answer type, scoring purpose, branching behaviour, or dimension, archive this question and create a new one.';
 
@@ -54,15 +61,46 @@ function toForm(question: CreatorQuestion): QuestionForm {
     parent_question_key: question.parent_question_key ?? '',
     show_when_value: question.show_when_value ?? '',
     show_when_operator: question.show_when_operator,
-    options_text: question.options.map(option => typeof option === 'string' ? option : option.label).join('\n'),
+    options: normalizeOptionsForEditing(question.options),
   };
 }
 
-function parseOptions(text: string): string[] {
-  return text
-    .split('\n')
-    .map(x => x.trim())
-    .filter(Boolean);
+function optionValueFromLabel(label: string): string {
+  return normalizeKey(label) || `option_${Date.now()}`;
+}
+
+function normalizeOptionsForEditing(options: AssessmentQuestionOption[]): EditableOption[] {
+  return options.map(option => {
+    if (typeof option === 'string') {
+      return {
+        value: option,
+        label: option,
+        is_active: true,
+      };
+    }
+
+    return {
+      value: option.value,
+      label: option.label,
+      description: option.description,
+      is_active: option.is_active ?? true,
+    };
+  });
+}
+
+function serializeOptions(options: EditableOption[]): AssessmentQuestionOption[] {
+  return options
+    .map(option => ({
+      value: option.value || optionValueFromLabel(option.label),
+      label: option.label.trim(),
+      ...(option.description ? { description: option.description } : {}),
+      is_active: option.is_active,
+    }))
+    .filter(option => option.label);
+}
+
+function supportsOptions(questionType: AssessmentQuestionType): boolean {
+  return ['single_choice', 'multi_choice', 'scale'].includes(questionType);
 }
 
 function normalizeKey(value: string): string {
@@ -188,6 +226,7 @@ export function AssessmentTemplates() {
         await updateQuestion(editingQuestion.id, {
           question_text: form.question_text,
           help_text: form.help_text || null,
+          options: supportsOptions(form.question_type) ? serializeOptions(form.options) : editingQuestion.options,
         });
       } else {
         await createQuestion({
@@ -201,7 +240,7 @@ export function AssessmentTemplates() {
           parent_question_key: form.parent_question_key || null,
           show_when_value: form.show_when_value || null,
           show_when_operator: form.show_when_operator,
-          options: parseOptions(form.options_text),
+          options: supportsOptions(form.question_type) ? serializeOptions(form.options) : [],
         });
       }
 
@@ -212,6 +251,63 @@ export function AssessmentTemplates() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const updateOption = (index: number, value: string) => {
+    setForm(current => ({
+      ...current,
+      options: current.options.map((option, optionIndex) => (
+        optionIndex === index
+          ? {
+              ...option,
+              label: value,
+              value: option.value || optionValueFromLabel(value),
+            }
+          : option
+      )),
+    }));
+  };
+
+  const addOption = () => {
+    setForm(current => ({
+      ...current,
+      options: [
+        ...current.options,
+        {
+          value: '',
+          label: '',
+          is_active: true,
+        },
+      ],
+    }));
+  };
+
+  const archiveOption = (index: number) => {
+    setForm(current => ({
+      ...current,
+      options: current.options.map((option, optionIndex) => (
+        optionIndex === index ? { ...option, is_active: false } : option
+      )),
+    }));
+  };
+
+  const restoreOption = (index: number) => {
+    setForm(current => ({
+      ...current,
+      options: current.options.map((option, optionIndex) => (
+        optionIndex === index ? { ...option, is_active: true } : option
+      )),
+    }));
+  };
+
+  const moveOption = (index: number, direction: -1 | 1) => {
+    setForm(current => {
+      const target = index + direction;
+      if (target < 0 || target >= current.options.length) return current;
+      const options = [...current.options];
+      [options[index], options[target]] = [options[target], options[index]];
+      return { ...current, options };
+    });
   };
 
   const handleArchive = async (questionId: string) => {
@@ -362,6 +458,13 @@ export function AssessmentTemplates() {
                       title={QUESTION_LIFECYCLE_TOOLTIP}
                     >
                       Edit Question
+                    </button>
+                    <button
+                      onClick={() => handleArchive(question.id)}
+                      disabled={saving || !question.is_active}
+                      className="px-2 py-1 rounded border border-gray-700 text-gray-400 text-sm hover:border-red-800 hover:text-red-300 disabled:opacity-30"
+                    >
+                      Archive Question
                     </button>
                     <button
                       onClick={() => handleMove(question, -1)}
@@ -541,14 +644,70 @@ export function AssessmentTemplates() {
               disabled={Boolean(editingQuestion)}
               className="w-full bg-surface-2 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-accent"
             />
-            <textarea
-              value={form.options_text}
-              onChange={e => updateForm('options_text', e.target.value)}
-              placeholder="Options, one per line"
-              rows={5}
-              disabled={Boolean(editingQuestion)}
-              className="w-full bg-surface-2 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-accent resize-none"
-            />
+            {supportsOptions(form.question_type) && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs uppercase tracking-wide text-gray-500">Options</p>
+                  <button
+                    type="button"
+                    onClick={addOption}
+                    className="px-2 py-1 rounded border border-gray-700 text-gray-300 text-xs hover:border-gray-500"
+                  >
+                    Add Option
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  {form.options.map((option, index) => (
+                    <div key={`${option.value}-${index}`} className={`grid grid-cols-[1fr_auto] gap-2 ${option.is_active ? '' : 'opacity-50'}`}>
+                      <input
+                        value={option.label}
+                        onChange={e => updateOption(index, e.target.value)}
+                        placeholder="Option label"
+                        className="w-full bg-surface-2 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-accent"
+                      />
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => moveOption(index, -1)}
+                          disabled={index === 0}
+                          className="px-2 py-2 rounded border border-gray-700 text-gray-400 text-xs disabled:opacity-30"
+                        >
+                          Up
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => moveOption(index, 1)}
+                          disabled={index === form.options.length - 1}
+                          className="px-2 py-2 rounded border border-gray-700 text-gray-400 text-xs disabled:opacity-30"
+                        >
+                          Down
+                        </button>
+                        {option.is_active ? (
+                          <button
+                            type="button"
+                            onClick={() => archiveOption(index)}
+                            className="px-2 py-2 rounded border border-gray-700 text-gray-400 text-xs hover:border-red-800 hover:text-red-300"
+                          >
+                            Archive
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => restoreOption(index)}
+                            className="px-2 py-2 rounded border border-gray-700 text-gray-300 text-xs hover:border-gray-500"
+                          >
+                            Restore
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  {form.options.length === 0 && (
+                    <p className="text-xs text-gray-500">No options yet.</p>
+                  )}
+                </div>
+              </div>
+            )}
             <div className="flex gap-2">
               <button
                 type="submit"
