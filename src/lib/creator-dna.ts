@@ -51,6 +51,35 @@ function arrayValue(value: unknown): string[] {
   return Array.isArray(value) ? value.map(item => String(item)) : [];
 }
 
+function strengthSignals(value: unknown): string[] {
+  if (Array.isArray(value)) return value.map(item => String(item));
+
+  const source = text(value);
+  if (!source.trim()) return [];
+
+  const signals: string[] = [];
+  const addSignal = (signal: string, terms: string[]) => {
+    if (terms.some(term => source.includes(term))) signals.push(signal);
+  };
+
+  addSignal('My confidence', ['confidence', 'confident', 'camera']);
+  addSignal('My communication skills', ['communication', 'communicate', 'chat', 'talk']);
+  addSignal('My energy', ['energy', 'energetic', 'high energy']);
+  addSignal('My ability to entertain', ['entertain', 'perform', 'funny', 'humor', 'humour']);
+  addSignal('My creativity', ['creative', 'creativity', 'ideas']);
+  addSignal('My storytelling ability', ['story', 'storytelling']);
+  addSignal('My fashion / beauty style', ['fashion', 'beauty', 'style']);
+  addSignal('My authenticity', ['authentic', 'real', 'genuine']);
+  addSignal('My consistency', ['consistent', 'consistency', 'routine']);
+  addSignal('My work ethic', ['work ethic', 'discipline', 'hard work']);
+
+  return [...new Set(signals)];
+}
+
+function hasAny(values: string[], candidates: string[]): boolean {
+  return values.some(value => candidates.includes(value));
+}
+
 function determineCreatorDna(r: AssessmentResponses): Pick<CreatorDnaProfile, 'creator_dna_primary' | 'creator_dna_secondary' | 'confidence'> {
   const motivation = `${text(r.creator_motivation)} ${text(r.passion_topic)}`;
   const scores: WeightedScore = Object.fromEntries(DNA_LABELS.map(label => [label, 0]));
@@ -68,8 +97,8 @@ function determineCreatorDna(r: AssessmentResponses): Pick<CreatorDnaProfile, 'c
   if (r.comfort_level >= 8) add(scores, 'Attention Driven', 8);
   if (r.comfort_level <= 4) add(scores, 'Validation Seeking', 6);
   if (r.nudity_level === 'fetish' || r.nudity_level === 'full_nude') add(scores, 'Sexual Exploration', 10);
-  if (arrayValue(r.strengths).some(item => ['Dancing', 'Public Speaking', 'High-Energy'].includes(item))) add(scores, 'Attention Driven', 8);
-  if (arrayValue(r.strengths).some(item => ['Aesthetic/Cozy', 'Specialized Knowledge/Astrology'].includes(item))) add(scores, 'Creative Expression', 8);
+  if (strengthSignals(r.strengths).some(item => ['My confidence', 'My communication skills', 'My energy', 'My ability to entertain', 'Dancing', 'Public Speaking', 'High-Energy'].includes(item))) add(scores, 'Attention Driven', 8);
+  if (strengthSignals(r.strengths).some(item => ['My creativity', 'My storytelling ability', 'My fashion / beauty style', 'Aesthetic/Cozy', 'Specialized Knowledge/Astrology'].includes(item))) add(scores, 'Creative Expression', 8);
   if (text(r.sexual_connection_to_content).includes('business')) add(scores, 'Money First', 10);
   if (text(r.sexual_connection_to_content).includes('strong')) add(scores, 'Sexual Exploration', 12);
   if (text(r.sexual_connection_to_content).includes('some')) add(scores, 'Validation Seeking', 6);
@@ -83,7 +112,8 @@ function determineCreatorDna(r: AssessmentResponses): Pick<CreatorDnaProfile, 'c
 }
 
 function determineFantasyArchetype(r: AssessmentResponses): Pick<CreatorDnaProfile, 'fantasy_archetype' | 'archetype_confidence'> {
-  const fantasy = `${text(r.desired_fantasy_image)} ${text(r.fantasy_keywords)} ${text(r.fetish_description)} ${text(r.creator_motivation)}`;
+  const archetypes = arrayValue(r.persona_occupation);
+  const fantasy = `${text(r.desired_fantasy_image)} ${text(r.fantasy_keywords)} ${text(r.fetish_description)} ${text(r.creator_motivation)} ${archetypes.join(' ')}`;
   const scores: WeightedScore = {
     'Girl Next Door': 0,
     'Innocent Tease': 0,
@@ -110,8 +140,13 @@ function determineFantasyArchetype(r: AssessmentResponses): Pick<CreatorDnaProfi
   if (arrayValue(r.niche_interests).includes('High-Fashion')) add(scores, 'Luxury Muse', 14);
   if (arrayValue(r.niche_interests).includes('Roleplay')) add(scores, 'Fetish Specialist', 8);
   if (arrayValue(r.niche_interests).includes('Fitness/Muscle')) add(scores, 'Confident Bombshell', 8);
-  if (arrayValue(r.strengths).includes('Aesthetic/Cozy')) add(scores, 'Girl Next Door', 10);
-  if (arrayValue(r.strengths).includes('High-Energy')) add(scores, 'Playful Exhibitionist', 8);
+  if (hasAny(archetypes, ['Girl Next Door', 'Soft Girlfriend Experience'])) add(scores, 'Girl Next Door', 16);
+  if (hasAny(archetypes, ['Luxury Muse', 'Rich Girl', 'Trophy Wife', 'High-Class Escort Fantasy'])) add(scores, 'Luxury Muse', 16);
+  if (hasAny(archetypes, ['Dominatrix', 'Brat', 'Boss Babe'])) add(scores, 'Dominant Temptress', 16);
+  if (hasAny(archetypes, ['Alternative / Tattooed', 'Gamer Girl', 'Cosplayer'])) add(scores, 'Alternative Rebel', 14);
+  if (hasAny(archetypes, ['Bimbo', 'Party Girl', 'Seductress'])) add(scores, 'Playful Exhibitionist', 14);
+  if (strengthSignals(r.strengths).includes('My authenticity') || strengthSignals(r.strengths).includes('Aesthetic/Cozy')) add(scores, 'Girl Next Door', 10);
+  if (strengthSignals(r.strengths).includes('My energy') || strengthSignals(r.strengths).includes('High-Energy')) add(scores, 'Playful Exhibitionist', 8);
 
   const ranked = sortedScores(scores);
   return {
@@ -156,7 +191,7 @@ function determineGrowthConstraints(r: AssessmentResponses): string[] {
   if (!r.parasocial_comfort) add(scores, 'Communication', 8);
   if (r.nudity_level === 'sfw_only') add(scores, 'Monetisation Knowledge', 6);
   if (!r.passion_topic || r.passion_topic.length < 20) add(scores, 'Planning', 8);
-  if (arrayValue(r.strengths).length < 3) add(scores, 'Content Volume', 6);
+  if (strengthSignals(r.strengths).length < 3) add(scores, 'Content Volume', 6);
 
   const fallbacks = ['Planning', 'Consistency', 'Content Volume'];
   return sortedScores(scores)
@@ -175,7 +210,7 @@ function determineMonetisationReadiness(r: AssessmentResponses, authenticityBand
   if (r.comfort_level >= 8) score += 18;
   else if (r.comfort_level >= 5) score += 10;
   if (r.audience_target) score += 14;
-  if (r.persona_occupation && r.persona_occupation !== 'Other') score += 10;
+  if (arrayValue(r.persona_occupation).some(value => value !== 'Other')) score += 10;
   if (r.fantasy_keywords || r.desired_fantasy_image) score += 12;
   if (r.parasocial_comfort) score += 10;
   if (arrayValue(r.niche_interests).length >= 2) score += 8;
@@ -194,10 +229,10 @@ function determineAgencyScore(
   growthConstraints: string[]
 ): Pick<CreatorDnaProfile, 'agency_opportunity_score' | 'agency_opportunity_band'> {
   const coachability = r.consent ? 16 : 6;
-  const consistency = (arrayValue(r.strengths).includes('High-Energy') ? 8 : 0) + (r.passion_topic && r.passion_topic.length > 20 ? 10 : 4);
+  const consistency = (hasAny(strengthSignals(r.strengths), ['My work ethic', 'My consistency', 'My energy', 'High-Energy']) ? 8 : 0) + (r.passion_topic && r.passion_topic.length > 20 ? 10 : 4);
   const professionalism = (r.full_name && r.email && r.country ? 14 : 5) + (growthConstraints.includes('Communication') ? -4 : 4);
   const growthPotential = (r.comfort_level >= 7 ? 14 : r.comfort_level >= 5 ? 9 : 4) + (arrayValue(r.niche_interests).length > 0 ? 6 : 2);
-  const brandClarity = (r.persona_occupation && r.persona_occupation !== 'Other' ? 12 : 4) + (r.fantasy_keywords || r.desired_fantasy_image ? 8 : 2);
+  const brandClarity = (arrayValue(r.persona_occupation).some(value => value !== 'Other') ? 12 : 4) + (r.fantasy_keywords || r.desired_fantasy_image ? 8 : 2);
   const readinessBonus = { Low: 0, Developing: 4, Ready: 8, Advanced: 12 }[monetisationReadiness];
   const authenticityPenalty = authenticityBand === 'Potential Conflict' ? -10 : authenticityBand === 'Moderate Authenticity' ? -3 : 5;
   const score = Math.max(0, Math.min(100, Math.round(coachability + consistency + professionalism + growthPotential + brandClarity + readinessBonus + authenticityPenalty)));

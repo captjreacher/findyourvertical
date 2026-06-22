@@ -116,11 +116,11 @@ export function CreatorProfileView() {
   if (!profile) return <div className="text-gray-500 p-4">Creator not found.</div>;
 
   const scoreCards: Array<[string, number]> = [
-    ['Creator DNA', profile.creator_dna_score],
-    ['Brand Clarity', profile.brand_clarity_score],
-    ['Monetisation', profile.monetisation_score],
-    ['Consistency', profile.consistency_score],
-    ['Agency Opportunity', profile.agency_opportunity_score],
+    ['Creator DNA', profile.creator_dna_score ?? 0],
+    ['Brand Clarity', profile.brand_clarity_score ?? 0],
+    ['Monetisation', profile.monetisation_score ?? 0],
+    ['Consistency', profile.consistency_score ?? 0],
+    ['Agency Opportunity', profile.agency_opportunity_score ?? 0],
   ];
   const latestDna = dnaProfiles[0];
 

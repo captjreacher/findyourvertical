@@ -1445,14 +1445,22 @@ export type Database = {
           creator_dna_score: number | null
           creator_stage: string
           email: string | null
+          city: string | null
+          consent_at: string | null
+          consent_to_contact: boolean
+          first_name: string | null
           full_name: string
           id: string
           latest_assessment_id: string | null
           latest_report_id: string | null
+          last_name: string | null
+          mailing_list_opt_out: boolean
           management_readiness: string | null
+          model_name: string | null
           monetisation_score: number | null
           notes: string | null
           ofmanager_creator_id: string | null
+          onlyfans_handle: string | null
           recommended_pricing_model: string | null
           status: string
           top_vertical_1: string | null
@@ -1471,14 +1479,22 @@ export type Database = {
           creator_dna_score?: number | null
           creator_stage?: string
           email?: string | null
+          city?: string | null
+          consent_at?: string | null
+          consent_to_contact?: boolean
+          first_name?: string | null
           full_name: string
           id?: string
           latest_assessment_id?: string | null
           latest_report_id?: string | null
+          last_name?: string | null
+          mailing_list_opt_out?: boolean
           management_readiness?: string | null
+          model_name?: string | null
           monetisation_score?: number | null
           notes?: string | null
           ofmanager_creator_id?: string | null
+          onlyfans_handle?: string | null
           recommended_pricing_model?: string | null
           status?: string
           top_vertical_1?: string | null
@@ -1497,14 +1513,22 @@ export type Database = {
           creator_dna_score?: number | null
           creator_stage?: string
           email?: string | null
+          city?: string | null
+          consent_at?: string | null
+          consent_to_contact?: boolean
+          first_name?: string | null
           full_name?: string
           id?: string
           latest_assessment_id?: string | null
           latest_report_id?: string | null
+          last_name?: string | null
+          mailing_list_opt_out?: boolean
           management_readiness?: string | null
+          model_name?: string | null
           monetisation_score?: number | null
           notes?: string | null
           ofmanager_creator_id?: string | null
+          onlyfans_handle?: string | null
           recommended_pricing_model?: string | null
           status?: string
           top_vertical_1?: string | null
