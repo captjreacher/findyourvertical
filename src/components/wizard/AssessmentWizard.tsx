@@ -9,32 +9,43 @@ import type {
 } from '@/types/creator';
 
 const INITIAL: AssessmentResponses = {
-  strengths: [],
+  strengths: '',
   comfort_level: 5,
   passion_topic: '',
-  persona_occupation: '',
+  persona_occupation: [],
   parasocial_comfort: false,
   fantasy_keywords: '',
   nudity_level: '',
   niche_interests: [],
   audience_target: null,
+  first_name: '',
+  last_name: '',
+  onlyfans_handle: '',
+  model_name: '',
+  city: '',
   full_name: '',
   email: '',
   country: '',
-  consent: false,
+  consent: true,
+  mailing_list_opt_out: false,
+  aspirational_creators: '',
+  alternative_content_ideas: '',
+  future_improvements: [],
+  future_improvements_other: '',
 };
 
-const SECTION_ORDER = ['Strengths', 'Persona', 'Boundaries', 'Goals'];
-const SECTION_TITLES: Record<string, string> = {
-  Strengths: 'What are your top three natural ingredients?',
-  Persona: "Identify your persona's backstory",
-  Boundaries: 'Set your boundaries',
-  Goals: 'Define your audience',
+const SECTION_ORDER = ['About You', 'Current Approach', 'Exploring Content Possibilities', 'Options for the Future'];
+const LEGACY_SECTION_MAP: Record<string, string> = {
+  Strengths: 'About You',
+  Boundaries: 'Current Approach',
+  Persona: 'Exploring Content Possibilities',
+  Goals: 'Options for the Future',
 };
-
-const SECTION_HELP: Record<string, string> = {
-  Persona: 'What\'s your character\'s "occupation" or storyline?',
-  Goals: 'This shapes your entire monetisation strategy',
+const SECTION_DESCRIPTIONS: Record<string, string> = {
+  'About You': 'Tell us a little about yourself, your creator identity, and what makes your content unique.',
+  'Current Approach': 'Help us understand how you currently create, engage with fans, and approach content creation.',
+  'Exploring Content Possibilities': "Let's explore the content styles, personas, and opportunities that may align with your strengths.",
+  'Options for the Future': "Share where you'd like your creator journey to go and how success looks for you.",
 };
 
 const FALLBACK_TEMPLATE: CreatorAssessmentRuntimeTemplate = {
@@ -50,16 +61,16 @@ const FALLBACK_TEMPLATE: CreatorAssessmentRuntimeTemplate = {
       id: 'fallback-strengths',
       question_key: 'strengths',
       response_key: 'strengths',
-      question_text: 'What are your top three natural ingredients?',
-      help_text: 'Select all that apply',
+      question_text: 'Briefly describe the three top reasons why you will be successful as a creator on OnlyFans.',
+      help_text: 'Tell us the three strongest reasons you believe you can succeed. For example: confidence on camera, strong fan connection, consistency, unique look, storytelling, niche expertise.',
       section: 'Strengths',
-      question_type: 'multi_choice',
+      question_type: 'long_text',
       scoring_dimension: 'creator_dna',
       parent_question_key: null,
       show_when_value: null,
       show_when_operator: 'equals',
-      options: ['Humor', 'Dancing', 'Public Speaking', 'Specific Sport', 'Specialized Knowledge/Astrology', 'High-Energy', 'Aesthetic/Cozy'],
-      config: { required: true },
+      options: [],
+      config: { required: true, rows: 4 },
       is_active: true,
       created_at: '',
       updated_at: '',
@@ -113,15 +124,15 @@ const FALLBACK_TEMPLATE: CreatorAssessmentRuntimeTemplate = {
       id: 'fallback-persona',
       question_key: 'persona_occupation',
       response_key: 'persona_occupation',
-      question_text: "Identify your persona's backstory",
-      help_text: 'What\'s your character\'s "occupation" or storyline?',
+      question_text: 'Select any creator archetypes that resonate with you.',
+      help_text: 'What role, fantasy, identity or character best represents your content?',
       section: 'Persona',
-      question_type: 'single_choice',
+      question_type: 'multi_choice',
       scoring_dimension: 'brand_identity',
       parent_question_key: null,
       show_when_value: null,
       show_when_operator: 'equals',
-      options: ['Struggling student', 'Professional athlete', 'Corporate rebel', 'Cosy stay-at-home mom', 'Fitness enthusiast', 'Artist / creative', 'Spiritual guide', 'Party girl', 'Other'],
+      options: ['Girl Next Door', 'Hot Teacher', 'Naughty Librarian', 'Nurse', 'Doctor', 'Corporate Rebel', 'Fitness Goddess', 'Dominatrix', 'Brat', 'Submissive', 'Trophy Wife', 'Rich Girl', 'Luxury Muse', 'Alternative / Tattooed', 'Gamer Girl', 'Cosplayer', 'Spiritual Goddess', 'MILF', 'Single Mom', 'College Girl', 'Party Girl', 'Boss Babe', 'Country Girl', 'Bimbo', 'Soft Girlfriend Experience', 'High-Class Escort Fantasy', 'Seductress', 'Artist / Creative Muse', 'Other'],
       config: { required: true },
       is_active: true,
       created_at: '',
@@ -244,31 +255,92 @@ const FALLBACK_TEMPLATE: CreatorAssessmentRuntimeTemplate = {
       is_included: true,
       sort_order: 90,
     },
+    {
+      id: 'fallback-aspirational-creators',
+      question_key: 'aspirational_creators',
+      response_key: 'aspirational_creators',
+      question_text: 'Are there any OnlyFans creators that you aspire to?',
+      help_text: 'Add their OnlyFans handles below.',
+      section: 'Goals',
+      question_type: 'long_text',
+      scoring_dimension: 'agency_signal',
+      parent_question_key: null,
+      show_when_value: null,
+      show_when_operator: 'equals',
+      options: [],
+      config: {},
+      is_active: true,
+      created_at: '',
+      updated_at: '',
+      template_id: 'legacy-fallback',
+      is_included: true,
+      sort_order: 100,
+    },
+    {
+      id: 'fallback-alternative-content-ideas',
+      question_key: 'alternative_content_ideas',
+      response_key: 'alternative_content_ideas',
+      question_text: 'Have you had any ideas for a different approach to your content?',
+      help_text: 'If so, describe it below.',
+      section: 'Goals',
+      question_type: 'long_text',
+      scoring_dimension: 'agency_signal',
+      parent_question_key: null,
+      show_when_value: null,
+      show_when_operator: 'equals',
+      options: [],
+      config: {},
+      is_active: true,
+      created_at: '',
+      updated_at: '',
+      template_id: 'legacy-fallback',
+      is_included: true,
+      sort_order: 110,
+    },
+    {
+      id: 'fallback-future-improvements',
+      question_key: 'future_improvements',
+      response_key: 'future_improvements',
+      question_text: 'What would you most like to improve in the future?',
+      help_text: 'Select as many as apply.',
+      section: 'Goals',
+      question_type: 'multi_choice',
+      scoring_dimension: 'agency_signal',
+      parent_question_key: null,
+      show_when_value: null,
+      show_when_operator: 'equals',
+      options: ['Financial Resources (more income)', 'Lifestyle (better balance, fewer hours)', 'Personal Fulfilment (better alignment with goals and values)', 'Channel Expansion (additional platforms and revenue streams)', 'Content Direction (changes to content style or positioning)', 'Moderation & Compliance (classification, restrictions, platform concerns)', 'Skills Match (better use of strengths and abilities)', 'Long-Term Goals', 'Audience Growth', 'Subscriber Retention', 'Other'],
+      config: {},
+      is_active: true,
+      created_at: '',
+      updated_at: '',
+      template_id: 'legacy-fallback',
+      is_included: true,
+      sort_order: 120,
+    },
+    {
+      id: 'fallback-future-improvements-other',
+      question_key: 'future_improvements_other',
+      response_key: 'future_improvements_other',
+      question_text: 'Please describe.',
+      help_text: null,
+      section: 'Goals',
+      question_type: 'long_text',
+      scoring_dimension: 'agency_signal',
+      parent_question_key: 'future_improvements',
+      show_when_value: 'Other',
+      show_when_operator: 'includes',
+      options: [],
+      config: {},
+      is_active: true,
+      created_at: '',
+      updated_at: '',
+      template_id: 'legacy-fallback',
+      is_included: true,
+      sort_order: 130,
+    },
   ],
 };
-
-const REQUIRED_FALLBACK_QUESTION_KEYS = ['strengths'];
-
-function withRequiredFallbackQuestions(
-  template: CreatorAssessmentRuntimeTemplate
-): CreatorAssessmentRuntimeTemplate {
-  const questionKeys = new Set(template.questions.map(question => question.question_key));
-  const missingFallbackQuestions = FALLBACK_TEMPLATE.questions
-    .filter(question => REQUIRED_FALLBACK_QUESTION_KEYS.includes(question.question_key))
-    .filter(question => !questionKeys.has(question.question_key))
-    .map(question => ({
-      ...question,
-      template_id: template.id,
-    }));
-
-  if (missingFallbackQuestions.length === 0) return template;
-
-  return {
-    ...template,
-    questions: [...template.questions, ...missingFallbackQuestions]
-      .sort((a, b) => a.sort_order - b.sort_order),
-  };
-}
 
 function optionValue(option: AssessmentQuestionOption): string {
   return typeof option === 'string' ? option : option.value;
@@ -338,6 +410,37 @@ function defaultValue(question: CreatorAssessmentQuestion): unknown {
   return '';
 }
 
+function textValue(value: unknown): string {
+  return String(value ?? '').trim();
+}
+
+function maxSelections(question: CreatorAssessmentQuestion): number | null {
+  const value = question.config.maxSelections;
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function displaySectionName(section: string): string {
+  return LEGACY_SECTION_MAP[section] ?? section;
+}
+
+function normalizeRuntimeTemplate(template: CreatorAssessmentRuntimeTemplate): CreatorAssessmentRuntimeTemplate {
+  return {
+    ...template,
+    questions: template.questions.map(question => {
+      if (question.question_key !== 'strengths') return question;
+
+      return {
+        ...question,
+        question_text: 'Briefly describe the three top reasons why you will be successful as a creator on OnlyFans.',
+        help_text: 'Tell us the three strongest reasons you believe you can succeed. For example: confidence on camera, strong fan connection, consistency, unique look, storytelling, niche expertise.',
+        question_type: 'long_text',
+        options: [],
+        config: { ...question.config, required: true, rows: 4 },
+      };
+    }),
+  };
+}
+
 export function AssessmentWizard() {
   const [step, setStep] = useState(0);
   const [data, setData] = useState<AssessmentResponses>(INITIAL);
@@ -353,7 +456,7 @@ export function AssessmentWizard() {
     getDefaultAssessmentTemplate()
       .then(runtimeTemplate => {
         if (!mounted) return;
-        const nextTemplate = withRequiredFallbackQuestions(runtimeTemplate ?? FALLBACK_TEMPLATE);
+        const nextTemplate = normalizeRuntimeTemplate(runtimeTemplate ?? FALLBACK_TEMPLATE);
         setTemplate(nextTemplate);
         setData(current => {
           const next = { ...current };
@@ -367,7 +470,7 @@ export function AssessmentWizard() {
           return next;
         });
       })
-      .catch(() => setTemplate(withRequiredFallbackQuestions(FALLBACK_TEMPLATE)))
+      .catch(() => setTemplate(FALLBACK_TEMPLATE))
       .finally(() => {
         if (mounted) setLoading(false);
       });
@@ -382,7 +485,7 @@ export function AssessmentWizard() {
     const grouped = new Map<string, CreatorAssessmentQuestion[]>();
 
     for (const question of includedQuestions) {
-      const section = question.section?.trim() || 'Other';
+      const section = displaySectionName(question.section?.trim() || 'Other');
       grouped.set(section, [...(grouped.get(section) ?? []), { ...question, section }]);
     }
 
@@ -402,32 +505,29 @@ export function AssessmentWizard() {
     () => sections.flatMap(section => section.questions),
     [sections]
   );
-  const steps = [...sections.map(x => x.section), 'Submit'];
-  const activeSection = sections[step];
+  const steps = ['Details', ...sections.map(x => x.section), 'Submit'];
+  const isDetailsStep = step === 0;
+  const activeSection = sections[step - 1];
   const isSubmitStep = step === steps.length - 1;
   const visibleActiveSectionQuestions = useMemo(() => {
     if (!activeSection) return [];
 
-    return activeSection.questions.filter(question => {
-      console.log(
-        question.question_key,
-        question.question_type,
-        isVisible(question, data, templateQuestions)
-      );
-      return isVisible(question, data, templateQuestions);
-    });
+    return activeSection.questions.filter(question => isVisible(question, data, templateQuestions));
   }, [activeSection, data, templateQuestions]);
 
   const update = (key: string, value: unknown) => {
     setData(d => ({ ...d, [key]: value }));
   };
 
-  const toggleArray = (key: string, value: string) => {
+  const toggleArray = (question: CreatorAssessmentQuestion, value: string) => {
     setData(d => {
-      const existing = Array.isArray(d[key]) ? d[key] as string[] : [];
+      const existing = Array.isArray(d[question.response_key]) ? d[question.response_key] as string[] : [];
+      const limit = maxSelections(question);
+      if (!existing.includes(value) && limit !== null && existing.length >= limit) return d;
+
       return {
         ...d,
-        [key]: existing.includes(value)
+        [question.response_key]: existing.includes(value)
           ? existing.filter(x => x !== value)
           : [...existing, value],
       };
@@ -435,8 +535,19 @@ export function AssessmentWizard() {
   };
 
   const canNext = (): boolean => {
+    if (isDetailsStep) {
+      return Boolean(
+        textValue(data.first_name)
+        && textValue(data.last_name)
+        && textValue(data.onlyfans_handle)
+        && textValue(data.city)
+        && textValue(data.country)
+        && textValue(data.email)
+      );
+    }
+
     if (isSubmitStep) {
-      return data.full_name !== '' && data.email !== '' && data.country !== '' && data.consent;
+      return canNextDetails();
     }
 
     return (activeSection?.questions ?? [])
@@ -449,13 +560,35 @@ export function AssessmentWizard() {
       });
   };
 
+  const canNextDetails = (): boolean => Boolean(
+    textValue(data.first_name)
+    && textValue(data.last_name)
+    && textValue(data.onlyfans_handle)
+    && textValue(data.city)
+    && textValue(data.country)
+    && textValue(data.email)
+  );
+
   const handleSubmit = async () => {
     setSubmitting(true);
     setError('');
     try {
       const visibleQuestions = templateQuestions.filter(question => isVisible(question, data, templateQuestions));
       const visibleResponseKeys = new Set(visibleQuestions.map(question => question.response_key));
-      const sanitizedData = { ...data };
+      const firstName = textValue(data.first_name);
+      const lastName = textValue(data.last_name);
+      const sanitizedData: AssessmentResponses = {
+        ...data,
+        first_name: firstName,
+        last_name: lastName,
+        full_name: [firstName, lastName].filter(Boolean).join(' '),
+        onlyfans_handle: textValue(data.onlyfans_handle),
+        model_name: textValue(data.model_name),
+        city: textValue(data.city),
+        country: textValue(data.country),
+        email: textValue(data.email).toLowerCase(),
+        consent: !data.mailing_list_opt_out,
+      };
 
       for (const question of templateQuestions) {
         if (!question.parent_question_key || visibleResponseKeys.has(question.response_key)) continue;
@@ -476,52 +609,119 @@ export function AssessmentWizard() {
       navigate(`/report/${result.report.report_slug}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Something went wrong');
+    } finally {
       setSubmitting(false);
     }
   };
 
-  const renderQuestion = (question: CreatorAssessmentQuestion, firstInSection: boolean) => {
+  const renderDetailsStep = () => (
+    <div className="mx-auto max-w-2xl space-y-6 animate-in">
+      <div className="space-y-3">
+        <h2 className="font-display text-xl font-semibold">Find Your Vertical – Modelling Creator Talent</h2>
+        <p className="text-sm leading-6 text-gray-400">
+          Find Your Vertical is designed to identify your strongest creator positioning, content opportunities, monetisation potential, and long-term growth paths.
+        </p>
+        <p className="text-sm leading-6 text-gray-400">
+          Your responses help generate a personalised creator report and may be reviewed for creator management opportunities.
+        </p>
+        <p className="text-sm leading-6 text-gray-400">
+          Your information is treated confidentially and used only for assessment and creator contact purposes.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <input
+          type="text"
+          value={String(data.first_name ?? '')}
+          onChange={e => update('first_name', e.target.value)}
+          placeholder="First Name"
+          className="w-full bg-surface-2 border border-gray-700 rounded-lg px-4 py-3 text-gray-100 placeholder-gray-500 focus:outline-none focus:border-accent"
+        />
+        <input
+          type="text"
+          value={String(data.last_name ?? '')}
+          onChange={e => update('last_name', e.target.value)}
+          placeholder="Last Name"
+          className="w-full bg-surface-2 border border-gray-700 rounded-lg px-4 py-3 text-gray-100 placeholder-gray-500 focus:outline-none focus:border-accent"
+        />
+        <input
+          type="text"
+          value={String(data.onlyfans_handle ?? '')}
+          onChange={e => update('onlyfans_handle', e.target.value)}
+          placeholder="OnlyFans handle"
+          className="w-full bg-surface-2 border border-gray-700 rounded-lg px-4 py-3 text-gray-100 placeholder-gray-500 focus:outline-none focus:border-accent"
+        />
+        <input
+          type="text"
+          value={String(data.model_name ?? '')}
+          onChange={e => update('model_name', e.target.value)}
+          placeholder="Model name / stage name (optional)"
+          className="w-full bg-surface-2 border border-gray-700 rounded-lg px-4 py-3 text-gray-100 placeholder-gray-500 focus:outline-none focus:border-accent"
+        />
+        <input
+          type="text"
+          value={String(data.city ?? '')}
+          onChange={e => update('city', e.target.value)}
+          placeholder="City"
+          className="w-full bg-surface-2 border border-gray-700 rounded-lg px-4 py-3 text-gray-100 placeholder-gray-500 focus:outline-none focus:border-accent"
+        />
+        <input
+          type="text"
+          value={String(data.country ?? '')}
+          onChange={e => update('country', e.target.value)}
+          placeholder="Country"
+          className="w-full bg-surface-2 border border-gray-700 rounded-lg px-4 py-3 text-gray-100 placeholder-gray-500 focus:outline-none focus:border-accent"
+        />
+        <input
+          type="email"
+          value={String(data.email ?? '')}
+          onChange={e => update('email', e.target.value)}
+          placeholder="Email"
+          className="w-full bg-surface-2 border border-gray-700 rounded-lg px-4 py-3 text-gray-100 placeholder-gray-500 focus:outline-none focus:border-accent sm:col-span-2"
+        />
+      </div>
+
+      <label className="flex items-start gap-3 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={data.mailing_list_opt_out}
+          onChange={e => update('mailing_list_opt_out', e.target.checked)}
+          className="mt-1 accent-accent"
+        />
+        <span className="text-sm text-gray-400">Opt out of mailing list updates</span>
+      </label>
+    </div>
+  );
+
+  const renderQuestion = (question: CreatorAssessmentQuestion) => {
     if (!isVisible(question, data, templateQuestions)) return null;
 
     const value = data[question.response_key];
-    const showAsHeading = firstInSection && question.section !== 'Boundaries';
-    const headingText = SECTION_TITLES[question.section] === question.question_text
-      ? SECTION_TITLES[question.section]
-      : question.question_text;
-
     return (
       <div key={question.id}>
-        {showAsHeading ? (
-          <>
-            <h2 className="font-display text-xl font-semibold">
-              {headingText}
-            </h2>
-            {(question.help_text || SECTION_HELP[question.section]) && (
-              <p className="text-gray-500 text-sm mt-2">{question.help_text ?? SECTION_HELP[question.section]}</p>
-            )}
-          </>
-        ) : (
-          <>
-            <label className="block text-sm font-medium mb-2 text-gray-300">
-              {question.question_text}
-            </label>
-            {question.help_text && <p className="text-gray-500 text-xs mb-3">{question.help_text}</p>}
-          </>
-        )}
+        <label className="block text-sm font-medium mb-2 text-gray-300">
+          {question.question_text}
+        </label>
+        {question.help_text && <p className="text-gray-500 text-xs mb-3">{question.help_text}</p>}
 
         {question.question_type === 'multi_choice' && (
-          <div className={question.section === 'Boundaries' ? 'grid max-w-xl grid-cols-1 gap-2 sm:grid-cols-2' : 'flex max-w-lg flex-wrap gap-2'}>
+          <div className={question.section === 'Current Approach' || question.section === 'Options for the Future' ? 'grid max-w-xl grid-cols-1 gap-2 sm:grid-cols-2' : 'flex max-w-lg flex-wrap gap-2'}>
             {activeOptions(question).map(option => {
               const optionKey = optionValue(option);
               const selected = Array.isArray(value) && value.includes(optionKey);
+              const limit = maxSelections(question);
+              const atLimit = !selected && limit !== null && Array.isArray(value) && value.length >= limit;
               return (
                 <button
                   key={optionKey}
-                  onClick={() => toggleArray(question.response_key, optionKey)}
-                  className={`${question.section === 'Boundaries' ? 'px-4 py-3 rounded-lg text-left' : 'max-w-full px-4 py-2 rounded-full'} text-sm font-medium border transition-all ${
+                  disabled={atLimit}
+                  onClick={() => toggleArray(question, optionKey)}
+                  className={`${question.section === 'Current Approach' || question.section === 'Options for the Future' ? 'px-4 py-3 rounded-lg text-left' : 'max-w-full px-4 py-2 rounded-full'} text-sm font-medium border transition-all ${
                     selected
                       ? 'bg-accent/20 border-accent text-accent'
-                      : 'border-gray-700 text-gray-400 hover:border-gray-500'
+                      : atLimit
+                        ? 'border-gray-800 text-gray-600 cursor-not-allowed'
+                        : 'border-gray-700 text-gray-400 hover:border-gray-500'
                   }`}
                 >
                   {optionLabel(option)}
@@ -565,7 +765,7 @@ export function AssessmentWizard() {
                   onClick={() => update(question.response_key, optionKey)}
                   className={`px-4 py-3 rounded-lg text-sm font-medium border transition-all text-left ${
                     value === optionKey
-                      ? question.section === 'Boundaries'
+                      ? question.section === 'Current Approach'
                         ? 'bg-pink/20 border-pink text-pink'
                         : 'bg-accent/20 border-accent text-accent'
                       : 'border-gray-700 text-gray-400 hover:border-gray-500'
@@ -625,12 +825,12 @@ export function AssessmentWizard() {
           />
         )}
 
-        {question.question_type === 'long_text' && (
+        {(question.question_type === 'long_text' || question.question_type === 'textarea') && (
           <textarea
             value={String(value ?? '')}
             onChange={e => update(question.response_key, e.target.value)}
             placeholder={String(question.config.placeholder ?? '')}
-            rows={3}
+            rows={Number(question.config.rows ?? 3)}
             className="w-full max-w-lg bg-surface-2 border border-gray-700 rounded-lg px-4 py-3 text-gray-100 placeholder-gray-500 focus:outline-none focus:border-accent resize-none"
           />
         )}
@@ -664,8 +864,8 @@ export function AssessmentWizard() {
     <div className="min-h-[100dvh] w-full overflow-x-hidden px-4 py-8 sm:px-6 sm:py-10">
       <div className="mx-auto w-full max-w-2xl">
         <div className="text-center mb-6 sm:mb-10">
-          <h1 className="font-display text-3xl font-bold mb-2">Creator Ikigai</h1>
-          <p className="text-gray-500 text-sm">Brand Strategy Wizard</p>
+          <h1 className="font-display text-3xl font-bold mb-2">Find Your Vertical</h1>
+          <p className="text-gray-500 text-sm">Creator Vertical Assessment</p>
         </div>
 
         <div className="mx-auto mb-6 flex max-w-xl gap-2 overflow-x-auto pb-1 sm:mb-10">
@@ -683,52 +883,26 @@ export function AssessmentWizard() {
           </div>
         )}
 
-        {!isSubmitStep && activeSection && (
+        {isDetailsStep && renderDetailsStep()}
+
+        {!isDetailsStep && !isSubmitStep && activeSection && (
           <div className="mx-auto max-w-2xl space-y-6 animate-in">
-            {activeSection.section === 'Boundaries' && (
-              <h2 className="font-display text-xl font-semibold">{SECTION_TITLES.Boundaries}</h2>
-            )}
-            {visibleActiveSectionQuestions.map((question, index) => renderQuestion(question, index === 0))}
+            <div>
+              <h2 className="font-display text-xl font-semibold">{activeSection.section}</h2>
+              {SECTION_DESCRIPTIONS[activeSection.section] && (
+                <p className="mt-2 text-sm leading-6 text-gray-500">{SECTION_DESCRIPTIONS[activeSection.section]}</p>
+              )}
+            </div>
+            {visibleActiveSectionQuestions.map(question => renderQuestion(question))}
           </div>
         )}
 
         {isSubmitStep && (
           <div className="mx-auto max-w-lg space-y-6 animate-in">
-            <h2 className="font-display text-xl font-semibold">Almost done - who are you?</h2>
-            <div className="space-y-4">
-              <input
-                type="text"
-                value={data.full_name}
-                onChange={e => update('full_name', e.target.value)}
-                placeholder="Full name / stage name"
-                className="w-full bg-surface-2 border border-gray-700 rounded-lg px-4 py-3 text-gray-100 placeholder-gray-500 focus:outline-none focus:border-accent"
-              />
-              <input
-                type="email"
-                value={data.email}
-                onChange={e => update('email', e.target.value)}
-                placeholder="Email address"
-                className="w-full bg-surface-2 border border-gray-700 rounded-lg px-4 py-3 text-gray-100 placeholder-gray-500 focus:outline-none focus:border-accent"
-              />
-              <input
-                type="text"
-                value={data.country}
-                onChange={e => update('country', e.target.value)}
-                placeholder="Country"
-                className="w-full bg-surface-2 border border-gray-700 rounded-lg px-4 py-3 text-gray-100 placeholder-gray-500 focus:outline-none focus:border-accent"
-              />
-              <label className="flex items-start gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={data.consent}
-                  onChange={e => update('consent', e.target.checked)}
-                  className="mt-1 accent-accent"
-                />
-                <span className="text-sm text-gray-400">
-                  I consent to being contacted regarding creator management services.
-                </span>
-              </label>
-            </div>
+            <h2 className="font-display text-xl font-semibold">Ready to generate your report?</h2>
+            <p className="text-sm leading-6 text-gray-400">
+              We will create your creator profile and assessment report from the details and answers you provided.
+            </p>
           </div>
         )}
 
@@ -755,7 +929,7 @@ export function AssessmentWizard() {
               disabled={!canNext() || submitting}
               className="ml-auto px-6 py-2.5 rounded-lg bg-accent hover:bg-accent-2 text-gray-950 font-semibold text-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              {submitting ? 'Generating report...' : 'Get my Brand Strategy Report'}
+              {submitting ? 'Generating report...' : 'Get my Vertical Report'}
             </button>
           )}
         </div>

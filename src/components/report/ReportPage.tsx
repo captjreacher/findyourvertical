@@ -1,7 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { getReportBySlug } from '@/lib/creators-api';
+import { getReportBySlug, requestStrategyDiscussion, trackAgencyCalendarClick } from '@/lib/creators-api';
 import type { CreatorReport, ReportData } from '@/types/creator';
+
+const CALENDLY_URL = 'https://calendly.com/mikegrobinson/20-min';
+const AGENCY_PROMPT_COPY = 'Would you like to discuss what this result could mean for your creator growth?';
+
+type ReportAction = 'print' | 'email' | 'share' | 'discuss';
+type AgencyAnswer = 'yes' | 'no';
 
 function ScoreBar({ label, score }: { label: string; score: number }) {
   const color = score >= 70 ? 'bg-success' : score >= 45 ? 'bg-warn' : 'bg-pink';
@@ -49,10 +55,20 @@ export function ReportPage() {
   const { slug } = useParams<{ slug: string }>();
   const [report, setReport] = useState<CreatorReport | null>(null);
   const [loading, setLoading] = useState(true);
+  const [pendingAction, setPendingAction] = useState<ReportAction | null>(null);
+  const [agencyAnswer, setAgencyAnswer] = useState<AgencyAnswer | null>(null);
+  const [promptWorking, setPromptWorking] = useState(false);
+  const [actionMessage, setActionMessage] = useState('');
+  const [actionError, setActionError] = useState('');
 
   useEffect(() => {
     if (!slug) return;
-    getReportBySlug(slug).then(r => { setReport(r); setLoading(false); });
+    getReportBySlug(slug).then(r => {
+      setReport(r);
+      const storedAnswer = window.sessionStorage.getItem(`agencyPrompt:${slug}`);
+      if (storedAnswer === 'yes' || storedAnswer === 'no') setAgencyAnswer(storedAnswer);
+      setLoading(false);
+    });
   }, [slug]);
 
   if (loading) {
@@ -74,6 +90,92 @@ export function ReportPage() {
   }
 
   const d = report.report_json as unknown as ReportData;
+  const publicScores = Object.fromEntries(
+    Object.entries(d.scores).filter(([key]) => key !== 'agency_opportunity')
+  ) as Record<string, number>;
+
+  const performReportAction = async (action: ReportAction) => {
+    setActionError('');
+    setActionMessage('');
+
+    if (action === 'print') {
+      window.print();
+      return;
+    }
+
+    if (action === 'email') {
+      const subject = encodeURIComponent('My Find Your Vertical Report');
+      const body = encodeURIComponent(`Here is my Find Your Vertical report: ${window.location.href}`);
+      window.location.href = `mailto:?subject=${subject}&body=${body}`;
+      return;
+    }
+
+    if (action === 'share') {
+      const shareData = {
+        title: 'Find Your Vertical Report',
+        text: 'My Find Your Vertical creator assessment report',
+        url: window.location.href,
+      };
+
+      if (navigator.share) {
+        await navigator.share(shareData);
+        return;
+      }
+
+      await navigator.clipboard.writeText(window.location.href);
+      setActionMessage('Report link copied.');
+      return;
+    }
+  };
+
+  const startReportAction = async (action: ReportAction) => {
+    if (!agencyAnswer) {
+      setPendingAction(action);
+      return;
+    }
+
+    if (action === 'discuss') {
+      setPendingAction(action);
+      return;
+    }
+
+    await performReportAction(action);
+  };
+
+  const continueWithoutAgency = async () => {
+    if (!slug || !pendingAction) return;
+    const action = pendingAction;
+    window.sessionStorage.setItem(`agencyPrompt:${slug}`, 'no');
+    setAgencyAnswer('no');
+    setPendingAction(null);
+
+    if (action !== 'discuss') {
+      await performReportAction(action);
+    }
+  };
+
+  const requestDiscussionAndRedirect = async () => {
+    if (!slug) return;
+    setPromptWorking(true);
+    setActionError('');
+
+    try {
+      await requestStrategyDiscussion({
+        profileId: report.creator_profile_id,
+        reportSlug: report.report_slug,
+      });
+      await trackAgencyCalendarClick({
+        profileId: report.creator_profile_id,
+        reportSlug: report.report_slug,
+      });
+      window.sessionStorage.setItem(`agencyPrompt:${slug}`, 'yes');
+      setAgencyAnswer('yes');
+      window.location.href = CALENDLY_URL;
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : 'Something went wrong');
+      setPromptWorking(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-950">
@@ -93,7 +195,42 @@ export function ReportPage() {
 
       <div className="max-w-4xl mx-auto px-6 py-10 space-y-10">
         {/* Scores */}
-        <ScoreCard title="Creator Scores" scores={d.scores} />
+        <ScoreCard title="Creator Signals" scores={publicScores} />
+
+        {d.why_this_result && (
+          <section>
+            <h2 className="font-display text-xl font-semibold mb-4">Why This Result?</h2>
+            <div className="bg-surface border border-gray-800 rounded-xl p-5 space-y-5">
+              <p className="text-sm text-gray-300 leading-relaxed">{d.why_this_result.summary}</p>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                <div>
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-accent mb-2">Top Signals</h3>
+                  <ul className="space-y-1.5">
+                    {d.why_this_result.top_signals.map(signal => (
+                      <li key={signal} className="text-sm text-gray-400">{signal}</li>
+                    ))}
+                  </ul>
+                </div>
+                <div>
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-accent mb-2">Strongest Answers</h3>
+                  <ul className="space-y-1.5">
+                    {d.why_this_result.strongest_answers.map(answer => (
+                      <li key={answer} className="text-sm text-gray-400">{answer}</li>
+                    ))}
+                  </ul>
+                </div>
+                <div>
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-accent mb-2">Key Differentiators</h3>
+                  <ul className="space-y-1.5">
+                    {d.why_this_result.key_differentiators.map(item => (
+                      <li key={item} className="text-sm text-gray-400">{item}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
 
         {/* Archetype Deep Dive */}
         <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -114,7 +251,7 @@ export function ReportPage() {
         {/* Top 3 Verticals */}
         <section>
           <h2 className="font-display text-xl font-semibold mb-4">Top 3 Content Verticals</h2>
-          <p className="text-sm text-gray-500 mb-4">Test these over a 6-week period to find your highest-converting format.</p>
+          <p className="text-sm text-gray-500 mb-4">These are recommended directions to explore, not a fixed content plan.</p>
           <div className="space-y-3">
             {d.top_verticals.map((v, i) => (
               <div key={v.name} className="bg-surface border border-gray-800 rounded-xl p-5 flex gap-4">
@@ -130,7 +267,7 @@ export function ReportPage() {
 
         {/* Pricing */}
         <section>
-          <h2 className="font-display text-xl font-semibold mb-4">Pricing & Monetisation Strategy</h2>
+          <h2 className="font-display text-xl font-semibold mb-4">Monetisation Opportunity</h2>
           <div className="bg-surface border border-accent/20 rounded-xl p-5">
             <p className="text-sm text-gray-300 leading-relaxed">{d.pricing_strategy}</p>
           </div>
@@ -138,7 +275,7 @@ export function ReportPage() {
 
         {/* Winning 10 */}
         <section>
-          <h2 className="font-display text-xl font-semibold mb-4">The Winning 10 Framework</h2>
+          <h2 className="font-display text-xl font-semibold mb-4">Content Testing Opportunity</h2>
           <div className="bg-surface border border-gray-800 rounded-xl p-5">
             <p className="text-sm text-gray-300 leading-relaxed">{d.winning_10_framework}</p>
           </div>
@@ -146,7 +283,7 @@ export function ReportPage() {
 
         {/* Growth Strategy */}
         <section>
-          <h2 className="font-display text-xl font-semibold mb-4">Growth Strategy: Viral Billboards</h2>
+          <h2 className="font-display text-xl font-semibold mb-4">Growth Opportunity</h2>
           <div className="bg-surface border border-gray-800 rounded-xl p-5">
             <p className="text-sm text-gray-300 leading-relaxed">{d.growth_strategy}</p>
           </div>
@@ -154,7 +291,7 @@ export function ReportPage() {
 
         {/* Tech Stack */}
         <section>
-          <h2 className="font-display text-xl font-semibold mb-4">Recommended Tech Stack</h2>
+          <h2 className="font-display text-xl font-semibold mb-4">Support Systems to Consider</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {d.tech_stack.map(t => (
               <div key={t.tool} className="bg-surface border border-gray-800 rounded-xl p-4">
@@ -165,9 +302,9 @@ export function ReportPage() {
           </div>
         </section>
 
-        {/* 90-Day Plan */}
+        {/* Opportunity Roadmap */}
         <section>
-          <h2 className="font-display text-xl font-semibold mb-4">90-Day Action Plan</h2>
+          <h2 className="font-display text-xl font-semibold mb-4">Opportunity Roadmap</h2>
           <div className="space-y-4">
             {d.day_90_plan.map((phase, i) => (
               <div key={phase.phase} className="bg-surface border border-gray-800 rounded-xl p-5">
@@ -186,13 +323,73 @@ export function ReportPage() {
           </div>
         </section>
 
-        {/* Share CTA */}
-        <div className="text-center py-6 border-t border-gray-800">
-          <p className="text-xs text-gray-600">
-            Share this report: {window.location.href}
-          </p>
+        {/* Next CTA */}
+        <section>
+          <h2 className="font-display text-xl font-semibold mb-4">What's Next?</h2>
+          <div className="bg-surface border border-accent/20 rounded-xl p-5 space-y-4">
+            <p className="text-sm text-gray-300 leading-relaxed">
+              Your assessment highlights several opportunities that could significantly improve growth, monetisation, and positioning.
+            </p>
+            <p className="text-sm text-gray-300 leading-relaxed">
+              A personalised strategy discussion can help identify which opportunities are most relevant to your goals and whether creator management support would accelerate your progress.
+            </p>
+            <button
+              onClick={() => startReportAction('discuss')}
+              className="inline-flex rounded-lg bg-accent px-5 py-2.5 text-sm font-semibold text-gray-950 hover:bg-accent-2"
+            >
+              Book a Strategy Discussion with MGRNZ
+            </button>
+          </div>
+        </section>
+
+        {/* Report Actions */}
+        <div className="border-t border-gray-800 py-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:justify-center">
+            <button onClick={() => startReportAction('print')} className="rounded-lg border border-gray-700 px-4 py-2 text-sm font-medium text-gray-300 hover:border-gray-500">
+              Print / Save
+            </button>
+            <button onClick={() => startReportAction('email')} className="rounded-lg border border-gray-700 px-4 py-2 text-sm font-medium text-gray-300 hover:border-gray-500">
+              Email me this report
+            </button>
+            <button onClick={() => startReportAction('share')} className="rounded-lg border border-gray-700 px-4 py-2 text-sm font-medium text-gray-300 hover:border-gray-500">
+              Share report
+            </button>
+            <button onClick={() => startReportAction('discuss')} className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-gray-950 hover:bg-accent-2">
+              Discuss my results
+            </button>
+          </div>
+          {actionMessage && <p className="mt-3 text-center text-xs text-success">{actionMessage}</p>}
+          {actionError && <p className="mt-3 text-center text-xs text-pink">{actionError}</p>}
         </div>
       </div>
+
+      {pendingAction && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-950/80 px-4">
+          <div className="w-full max-w-md rounded-xl border border-gray-800 bg-surface p-5 shadow-2xl">
+            <h2 className="font-display text-xl font-semibold">{AGENCY_PROMPT_COPY}</h2>
+            <p className="mt-3 text-sm leading-6 text-gray-400">
+              A short MGRNZ strategy discussion can help translate your report into the most relevant next steps for your goals.
+            </p>
+            {actionError && <p className="mt-4 rounded-lg border border-pink/30 bg-pink/10 px-3 py-2 text-sm text-pink">{actionError}</p>}
+            <div className="mt-5 flex flex-col gap-3">
+              <button
+                onClick={requestDiscussionAndRedirect}
+                disabled={promptWorking}
+                className="rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold text-gray-950 hover:bg-accent-2 disabled:opacity-50"
+              >
+                {promptWorking ? 'Opening calendar...' : "Yes, I'd like to discuss my results"}
+              </button>
+              <button
+                onClick={continueWithoutAgency}
+                disabled={promptWorking}
+                className="rounded-lg border border-gray-700 px-4 py-2.5 text-sm font-medium text-gray-300 hover:border-gray-500 disabled:opacity-50"
+              >
+                Not right now, continue
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -24,6 +24,97 @@ type TemplateQuestionRow = CreatorAssessmentTemplateQuestion & {
   creator_question_bank: CreatorQuestion | null;
 };
 
+type CreatorProfileUpsertPayload = Pick<
+  CreatorProfile,
+  | 'full_name'
+  | 'email'
+  | 'country'
+  | 'status'
+  | 'archetype'
+  | 'creator_dna_score'
+  | 'brand_clarity_score'
+  | 'monetisation_score'
+  | 'consistency_score'
+  | 'agency_opportunity_score'
+  | 'management_readiness'
+  | 'audience_strategy'
+  | 'recommended_pricing_model'
+  | 'top_vertical_1'
+  | 'top_vertical_2'
+  | 'top_vertical_3'
+  | 'consent_to_contact'
+> & {
+  first_name: string | null;
+  last_name: string | null;
+  onlyfans_handle: string | null;
+  model_name: string | null;
+  city: string | null;
+  mailing_list_opt_out: boolean;
+  consent_at: string | null;
+};
+
+function normalizeNullableText(value: unknown): string | null {
+  const text = String(value ?? '').trim();
+  return text || null;
+}
+
+function normalizeEmail(value: unknown): string | null {
+  return normalizeNullableText(value)?.toLowerCase() ?? null;
+}
+
+function normalizeOnlyFansHandle(value: unknown): string | null {
+  const text = normalizeNullableText(value);
+  if (!text) return null;
+  return text.replace(/^@+/, '').trim().toLowerCase();
+}
+
+async function findExistingCreatorProfile(
+  email: string | null,
+  onlyfansHandle: string | null
+): Promise<CreatorProfile | null> {
+  const filters = [
+    email ? `email.eq.${email}` : null,
+    onlyfansHandle ? `onlyfans_handle.eq.${onlyfansHandle}` : null,
+  ].filter(Boolean);
+
+  if (filters.length === 0) return null;
+
+  const { data, error } = await supabase
+    .from('creator_profiles')
+    .select('*')
+    .or(filters.join(','))
+    .order('updated_at', { ascending: false })
+    .limit(1);
+
+  if (error) throw new Error(`Failed to find creator profile: ${error.message}`);
+  return (data?.[0] ?? null) as CreatorProfile | null;
+}
+
+async function upsertCreatorProfile(payload: CreatorProfileUpsertPayload): Promise<CreatorProfile> {
+  const existing = await findExistingCreatorProfile(payload.email, payload.onlyfans_handle);
+
+  if (existing) {
+    const { data, error } = await supabase
+      .from('creator_profiles')
+      .update(payload)
+      .eq('id', existing.id)
+      .select()
+      .single();
+
+    if (error) throw new Error(`Failed to update profile: ${error.message}`);
+    return data as CreatorProfile;
+  }
+
+  const { data, error } = await supabase
+    .from('creator_profiles')
+    .insert(payload)
+    .select()
+    .single();
+
+  if (error) throw new Error(`Failed to create profile: ${error.message}`);
+  return data as CreatorProfile;
+}
+
 function flattenTemplate(
   template: CreatorAssessmentTemplate,
   rows: TemplateQuestionRow[] | null | undefined
@@ -96,33 +187,34 @@ export async function submitAssessment(
       }
     : null;
 
-  // 2. Create creator profile
-  const { data: profile, error: profileErr } = await supabase
-    .from('creator_profiles')
-    .insert({
-      full_name: responses.full_name,
-      email: responses.email,
-      country: responses.country,
-      status: 'prospect',
-      archetype: result.archetype,
-      creator_dna_score: result.scores.creator_dna,
-      brand_clarity_score: result.scores.brand_clarity,
-      monetisation_score: result.scores.monetisation,
-      consistency_score: result.scores.consistency,
-      agency_opportunity_score: result.scores.agency_opportunity,
-      management_readiness: result.management_readiness,
-      audience_strategy: responses.audience_target,
-      recommended_pricing_model: result.pricing_strategy,
-      top_vertical_1: result.top_verticals[0]?.name ?? null,
-      top_vertical_2: result.top_verticals[1]?.name ?? null,
-      top_vertical_3: result.top_verticals[2]?.name ?? null,
-      consent_to_contact: responses.consent,
-      consent_at: responses.consent ? new Date().toISOString() : null,
-    })
-    .select()
-    .single();
-
-  if (profileErr) throw new Error(`Failed to create profile: ${profileErr.message}`);
+  // 2. Create or update creator profile
+  const consentToContact = !responses.mailing_list_opt_out && responses.consent;
+  const profile = await upsertCreatorProfile({
+    full_name: responses.full_name,
+    first_name: normalizeNullableText(responses.first_name),
+    last_name: normalizeNullableText(responses.last_name),
+    email: normalizeEmail(responses.email),
+    onlyfans_handle: normalizeOnlyFansHandle(responses.onlyfans_handle),
+    model_name: normalizeNullableText(responses.model_name),
+    city: normalizeNullableText(responses.city),
+    country: normalizeNullableText(responses.country),
+    status: 'prospect',
+    archetype: result.archetype,
+    creator_dna_score: result.scores.creator_dna,
+    brand_clarity_score: result.scores.brand_clarity,
+    monetisation_score: result.scores.monetisation,
+    consistency_score: result.scores.consistency,
+    agency_opportunity_score: result.scores.agency_opportunity,
+    management_readiness: result.management_readiness,
+    audience_strategy: responses.audience_target,
+    recommended_pricing_model: result.pricing_strategy,
+    top_vertical_1: result.top_verticals[0]?.name ?? null,
+    top_vertical_2: result.top_verticals[1]?.name ?? null,
+    top_vertical_3: result.top_verticals[2]?.name ?? null,
+    mailing_list_opt_out: responses.mailing_list_opt_out,
+    consent_to_contact: consentToContact,
+    consent_at: consentToContact ? new Date().toISOString() : null,
+  });
   const profileId = profile.id;
 
   // 3. Create assessment
@@ -184,6 +276,8 @@ export async function submitAssessment(
     management_readiness: result.management_readiness,
     day_90_plan: result.day_90_plan,
     creator_dna_profile: dnaProfileInput,
+    why_this_result: result.why_this_result,
+    internal_agency_scores: result.internal_agency_scores,
   };
 
   const { data: report, error: reportErr } = await supabase
@@ -221,6 +315,71 @@ export async function submitAssessment(
     report,
     dnaProfile: dnaProfile as CreatorDnaProfile,
   };
+}
+
+export async function requestStrategyDiscussion(input: {
+  profileId: string;
+  reportSlug: string;
+  notes?: string;
+}): Promise<void> {
+  const requestedAt = new Date().toISOString();
+  const details = {
+    report_slug: input.reportSlug,
+    agency_opportunity_flag: true,
+    requested_at: requestedAt,
+    notes: normalizeNullableText(input.notes),
+  };
+
+  const { error: eventError } = await supabase.from('creator_status_events').insert({
+    creator_profile_id: input.profileId,
+    event_type: 'agency_strategy_discussion_requested',
+    details,
+  });
+
+  if (eventError) throw new Error(`Failed to flag strategy request: ${eventError.message}`);
+
+  const { error: profileError } = await supabase
+    .from('creator_profiles')
+    .update({
+      consent_to_contact: true,
+      consent_at: requestedAt,
+      follow_up_required: true,
+      follow_up_reason: 'strategy_discussion_requested',
+    })
+    .eq('id', input.profileId);
+
+  if (profileError) throw new Error(`Failed to update contact consent: ${profileError.message}`);
+}
+
+export async function trackAgencyCalendarClick(input: {
+  profileId: string;
+  reportSlug: string;
+}): Promise<void> {
+  const clickedAt = new Date().toISOString();
+  const details = {
+    report_slug: input.reportSlug,
+    follow_up_required: true,
+    follow_up_reason: 'calendar_clicked_no_confirmed_booking',
+    clicked_at: clickedAt,
+  };
+
+  const { error: eventError } = await supabase.from('creator_status_events').insert({
+    creator_profile_id: input.profileId,
+    event_type: 'agency_calendar_clicked',
+    details,
+  });
+
+  if (eventError) throw new Error(`Failed to track calendar click: ${eventError.message}`);
+
+  const { error: profileError } = await supabase
+    .from('creator_profiles')
+    .update({
+      follow_up_required: true,
+      follow_up_reason: 'calendar_clicked_no_confirmed_booking',
+    })
+    .eq('id', input.profileId);
+
+  if (profileError) throw new Error(`Failed to set follow-up flag: ${profileError.message}`);
 }
 
 // ── Public Reads ──

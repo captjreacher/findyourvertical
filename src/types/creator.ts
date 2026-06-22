@@ -35,49 +35,68 @@ export interface CreatorProfile {
   created_at: string;
   updated_at: string;
   full_name: string;
-  email: string;
-  country: string;
+  first_name?: string | null;
+  last_name?: string | null;
+  email: string | null;
+  onlyfans_handle?: string | null;
+  model_name?: string | null;
+  city?: string | null;
+  country: string | null;
   status: CreatorStatus;
-  archetype: string;
-  creator_dna_score: number;
-  brand_clarity_score: number;
-  monetisation_score: number;
-  consistency_score: number;
-  agency_opportunity_score: number;
-  management_readiness: ManagementReadiness;
-  audience_strategy: AudienceStrategy;
-  recommended_pricing_model: string;
-  top_vertical_1: string;
-  top_vertical_2: string;
-  top_vertical_3: string;
+  archetype: string | null;
+  creator_dna_score: number | null;
+  brand_clarity_score: number | null;
+  monetisation_score: number | null;
+  consistency_score: number | null;
+  agency_opportunity_score: number | null;
+  management_readiness: ManagementReadiness | null;
+  audience_strategy: AudienceStrategy | null;
+  recommended_pricing_model: string | null;
+  top_vertical_1: string | null;
+  top_vertical_2: string | null;
+  top_vertical_3: string | null;
   latest_assessment_id: string | null;
   latest_report_id: string | null;
   ofmanager_creator_id: string | null;
   consent_to_contact: boolean;
   consent_at: string | null;
+  mailing_list_opt_out?: boolean;
+  follow_up_required?: boolean | null;
+  follow_up_reason?: string | null;
 }
 
 // ── Assessment ──
 export interface AssessmentResponses {
-  strengths: string[];
+  strengths: string[] | string;
   comfort_level: number;
   passion_topic: string;
-  persona_occupation: string;
+  persona_occupation: string[];
   parasocial_comfort: boolean;
   fantasy_keywords: string;
   nudity_level: string;
   niche_interests: string[];
   audience_target: AudienceStrategy | null;
+  first_name: string;
+  last_name: string;
+  onlyfans_handle: string;
+  model_name: string;
+  city: string;
   full_name: string;
   email: string;
   country: string;
   consent: boolean;
+  mailing_list_opt_out: boolean;
+  aspirational_creators?: string;
+  alternative_content_ideas?: string;
+  future_improvements?: string[];
+  future_improvements_other?: string;
   [key: string]: unknown;
 }
 
 export type AssessmentQuestionType =
   | 'short_text'
   | 'long_text'
+  | 'textarea'
   | 'single_choice'
   | 'multi_choice'
   | 'boolean'
@@ -203,6 +222,29 @@ export interface ReportData {
   management_readiness: ManagementReadiness;
   day_90_plan: { phase: string; focus: string; actions: string[] }[];
   creator_dna_profile?: Omit<CreatorDnaProfile, 'id' | 'created_at'>;
+  why_this_result: {
+    summary: string;
+    top_signals: string[];
+    strongest_answers: string[];
+    key_differentiators: string[];
+  };
+  internal_agency_scores: {
+    commercial_potential: number | null;
+    growth_potential: number | null;
+    monetisation_potential: number | null;
+    ambition: number | null;
+    coachability: number | null;
+    innovation: number | null;
+    retention_potential: number | null;
+    parasocial_strength: number | null;
+    audience_loyalty: number | null;
+    management_readiness: number | null;
+    brand_risk: number | null;
+    reputation_risk: number | null;
+    scalability: number | null;
+    content_consistency: number | null;
+    agency_opportunity: number | null;
+  };
 }
 
 export interface CreatorReport {
@@ -233,12 +275,33 @@ export interface CreatorStatusEvent {
 // ── Archetypes ──
 export const CREATOR_ARCHETYPES = [
   'Girl Next Door',
-  'Luxury Muse',
+  'Hot Teacher',
+  'Naughty Librarian',
+  'Nurse',
+  'Doctor',
   'Corporate Rebel',
-  'Fitness Tease',
-  'Alternative Fantasy',
-  'Soft-Girl Companion',
-  'Intellectual Seductress',
-  'Chaos Gremlin',
+  'Fitness Goddess',
+  'Dominatrix',
+  'Brat',
+  'Submissive',
+  'Trophy Wife',
+  'Rich Girl',
+  'Luxury Muse',
+  'Alternative / Tattooed',
+  'Gamer Girl',
+  'Cosplayer',
+  'Spiritual Goddess',
+  'MILF',
+  'Single Mom',
+  'College Girl',
+  'Party Girl',
+  'Boss Babe',
+  'Country Girl',
+  'Bimbo',
+  'Soft Girlfriend Experience',
+  'High-Class Escort Fantasy',
+  'Seductress',
+  'Artist / Creative Muse',
+  'Other',
 ] as const;
 export type CreatorArchetype = (typeof CREATOR_ARCHETYPES)[number];

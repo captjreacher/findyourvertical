@@ -28,34 +28,101 @@ export interface ScoringResult {
   growth_strategy: string;
   tech_stack: { tool: string; purpose: string }[];
   day_90_plan: { phase: string; focus: string; actions: string[] }[];
+  why_this_result: ReportData['why_this_result'];
+  internal_agency_scores: ReportData['internal_agency_scores'];
 }
 
-// ── Score Computation ──
+type ArchetypeDetails = Pick<ReportData, 'archetype_description' | 'archetype_strengths' | 'archetype_risks' | 'archetype_growth'>;
+
+function arrayValue(value: unknown): string[] {
+  return Array.isArray(value) ? value.map(item => String(item)) : value ? [String(value)] : [];
+}
+
+function textValue(value: unknown): string {
+  return String(value ?? '').trim();
+}
+
+function textIncludes(value: unknown, terms: string[]): boolean {
+  const source = textValue(value).toLowerCase();
+  return terms.some(term => source.includes(term));
+}
+
+function strengthSignals(value: unknown): string[] {
+  if (Array.isArray(value)) return value.map(item => String(item));
+
+  const text = textValue(value);
+  if (!text) return [];
+
+  const signals: string[] = [];
+  const addSignal = (signal: string, terms: string[]) => {
+    if (textIncludes(text, terms)) signals.push(signal);
+  };
+
+  addSignal('My appearance', ['appearance', 'look', 'looks', 'body', 'face', 'unique look']);
+  addSignal('My confidence', ['confidence', 'confident', 'camera confident', 'camera confidence']);
+  addSignal('My humour', ['humour', 'humor', 'funny', 'comedy']);
+  addSignal('My intelligence', ['intelligence', 'smart', 'knowledge', 'expertise']);
+  addSignal('My kindness', ['kind', 'kindness', 'warm']);
+  addSignal('My creativity', ['creative', 'creativity', 'ideas']);
+  addSignal('My fitness', ['fitness', 'sport', 'athletic', 'muscle']);
+  addSignal('My sensuality', ['sensual', 'sensuality', 'sexual']);
+  addSignal('My authenticity', ['authentic', 'authenticity', 'real', 'genuine']);
+  addSignal('My storytelling ability', ['story', 'storytelling', 'stories']);
+  addSignal('My communication skills', ['communication', 'communicate', 'talking', 'chat']);
+  addSignal('My ability to connect with people', ['connection', 'connect', 'fan connection', 'fans']);
+  addSignal('My fashion / beauty style', ['fashion', 'beauty', 'style']);
+  addSignal('My energy', ['energy', 'high energy', 'energetic']);
+  addSignal('My work ethic', ['work ethic', 'discipline', 'hard work']);
+  addSignal('My consistency', ['consistency', 'consistent', 'routine']);
+  addSignal('My niche expertise', ['niche', 'expertise', 'specialist']);
+  addSignal('My ability to entertain', ['entertain', 'entertaining', 'perform']);
+
+  return signals.length > 0 ? [...new Set(signals)] : text.split(/[,\n.;]+/).map(item => item.trim()).filter(Boolean).slice(0, 3);
+}
+
+function hasAny(values: string[], candidates: string[]): boolean {
+  return values.some(value => candidates.includes(value));
+}
+
+function selectedArchetypes(r: AssessmentResponses): string[] {
+  return arrayValue(r.persona_occupation).filter(value => value && value !== 'Other');
+}
+
+function scoreFrom(value: number): number {
+  return Math.min(100, Math.max(0, Math.round(value)));
+}
 
 function computeCreatorDNA(r: AssessmentResponses): number {
-  let score = 50;
-  score += r.comfort_level * 3; // 1-10 → +3 to +30
-  if (r.strengths.includes('Humor')) score += 10;
-  if (r.strengths.includes('Dancing')) score += 8;
-  if (r.strengths.includes('Public Speaking')) score += 10;
-  if (r.strengths.includes('High-Energy')) score += 8;
+  const strengths = strengthSignals(r.strengths);
+  let score = 50 + r.comfort_level * 3;
+
+  if (hasAny(strengths, ['My humour', 'Humor'])) score += 10;
+  if (hasAny(strengths, ['My confidence', 'My sensuality'])) score += 8;
+  if (hasAny(strengths, ['My communication skills', 'My ability to connect with people', 'Public Speaking'])) score += 10;
+  if (hasAny(strengths, ['My energy', 'High-Energy'])) score += 8;
+  if (hasAny(strengths, ['My creativity', 'My storytelling ability', 'My ability to entertain'])) score += 8;
   score += Math.min((r.fantasy_keywords?.split(',').length ?? 0) * 2, 10);
-  return Math.min(100, Math.max(0, score));
+
+  return scoreFrom(score);
 }
 
 function computeBrandClarity(r: AssessmentResponses): number {
+  const strengths = strengthSignals(r.strengths);
   let score = 40;
-  if (r.persona_occupation && r.persona_occupation !== 'other') score += 15;
+
+  if (selectedArchetypes(r).length > 0) score += 15;
   if (r.niche_interests.length >= 2) score += 12;
   else if (r.niche_interests.length === 1) score += 6;
   if (r.nudity_level !== 'undecided') score += 10;
-  if (r.fantasy_keywords && r.fantasy_keywords.length > 0) score += 8;
-  if (r.strengths.includes('Specialized Knowledge/Astrology')) score += 10;
-  return Math.min(100, Math.max(0, score));
+  if (r.fantasy_keywords) score += 8;
+  if (hasAny(strengths, ['My intelligence', 'My niche expertise', 'Specialized Knowledge/Astrology'])) score += 10;
+
+  return scoreFrom(score);
 }
 
 function computeMonetisation(r: AssessmentResponses): number {
   let score = 30;
+
   if (r.audience_target === 'whales') score += 20;
   else score += 10;
   if (r.parasocial_comfort) score += 15;
@@ -63,173 +130,140 @@ function computeMonetisation(r: AssessmentResponses): number {
   else if (r.nudity_level === 'topless') score += 10;
   if (r.niche_interests.includes('Roleplay') || r.niche_interests.includes('Daddy dynamic')) score += 10;
   if (r.comfort_level >= 7) score += 10;
-  return Math.min(100, Math.max(0, score));
+
+  return scoreFrom(score);
 }
 
 function computeConsistency(r: AssessmentResponses): number {
+  const strengths = strengthSignals(r.strengths);
   let score = 50;
-  if (r.strengths.includes('High-Energy')) score += 15;
+
+  if (hasAny(strengths, ['My work ethic', 'My consistency'])) score += 15;
+  if (hasAny(strengths, ['My energy', 'High-Energy'])) score += 8;
   if (r.passion_topic && r.passion_topic.length > 20) score += 10;
-  if (r.persona_occupation && r.persona_occupation !== 'other') score += 10;
+  if (selectedArchetypes(r).length > 0) score += 10;
   if (r.audience_target === 'masses') score += 10;
   if (r.consent) score += 5;
-  return Math.min(100, Math.max(0, score));
+
+  return scoreFrom(score);
 }
 
 function computeAgencyOpportunity(r: AssessmentResponses, scores: ScoreBreakdown): number {
   const avg = (scores.creator_dna + scores.brand_clarity + scores.monetisation + scores.consistency) / 4;
   let score = Math.round(avg * 0.7);
+
   if (r.consent) score += 10;
   if (r.audience_target === 'whales') score += 8;
   if (r.comfort_level >= 7) score += 7;
-  if (r.strengths.length >= 3) score += 5;
-  return Math.min(100, Math.max(0, score));
+  if (strengthSignals(r.strengths).length >= 3) score += 5;
+
+  return scoreFrom(score);
 }
-
-// ── Archetype Engine ──
-
-const ARCHETYPE_MAP: Record<string, CreatorArchetype> = {
-  'Cozy,Aesthetic/Cozy': 'Girl Next Door',
-  'High-Energy,Public Speaking': 'Corporate Rebel',
-  'Fitness/Muscle,Specific Sport': 'Fitness Tease',
-  'Roleplay,Fetish-specific': 'Alternative Fantasy',
-  'Specialized Knowledge/Astrology,Public Speaking': 'Intellectual Seductress',
-  'High-Energy,Humor': 'Chaos Gremlin',
-  'High-Fashion,Full Nude': 'Luxury Muse',
-  'Cozy,Roleplay': 'Soft-Girl Companion',
-};
-
-const ARCHETYPE_DETAILS: Record<CreatorArchetype, Omit<ReportData, 'scores' | 'top_verticals' | 'pricing_strategy' | 'winning_10_framework' | 'growth_strategy' | 'tech_stack' | 'management_readiness' | 'day_90_plan'>> = {
-  'Girl Next Door': {
-    archetype: 'Girl Next Door',
-    archetype_description: 'Authentic, relatable, approachable — the creator next door who builds deep parasocial trust through everyday intimacy and cosy content.',
-    archetype_strengths: ['Authenticity-driven engagement', 'High trust & loyalty from fans', 'Broad audience appeal', 'Low-stakes content production'],
-    archetype_risks: ['Oversaturation of niche', 'Burnout from constant parasocial demands', 'Difficulty commanding premium pricing'],
-    archetype_growth: ['Leverage cosy content into lifestyle partnerships', 'Build a private story / VIP tier for superfans', 'Expand into adjacent platforms (TikTok, YouTube)'],
-  },
-  'Luxury Muse': {
-    archetype: 'Luxury Muse',
-    archetype_description: 'Aspirational, exclusive, high-end — the creator whose content feels like a luxury brand experience.',
-    archetype_strengths: ['Premium pricing power', 'Brand partnership potential', 'Low volume, high revenue model', 'Luxury brand alignment'],
-    archetype_risks: ['Smaller total addressable audience', 'Content must maintain high production value', 'Alienating casual subscribers'],
-    archetype_growth: ['Pursue luxury brand sponsorships', 'Create exclusive high-ticket PPV content', 'Build referral networks among high-net-worth fans'],
-  },
-  'Corporate Rebel': {
-    archetype: 'Corporate Rebel',
-    archetype_description: 'Bold, provocative, anti-establishment — the creator who leverages professional expertise or corporate disillusionment into compelling content.',
-    archetype_strengths: ['Strong narrative hook', 'Polarizing content drives engagement', 'Day-to-night duality is compelling', 'Authority + rebellion dynamic'],
-    archetype_risks: ['Risk of real-world professional consequences', 'Niche may not scale indefinitely', 'Polarization can limit brand deals'],
-    archetype_growth: ['Build storytime content around workplace themes', 'Develop professional empowerment adjacent products', 'Leverage LinkedIn + OF crossover novelty'],
-  },
-  'Fitness Tease': {
-    archetype: 'Fitness Tease',
-    archetype_description: 'Athletic, disciplined, body-positive — the creator whose fitness journey is the primary content engine.',
-    archetype_strengths: ['Built-in content format (workouts)', 'High post frequency potential', 'Health & wellness brand partnerships', 'Visual progress = natural content hooks'],
-    archetype_risks: ['Body-image pressure', 'Niche ceiling without evolving content', 'Platform policy risk with athletic wear vs nudity'],
-    archetype_growth: ['Launch fitness programs or coaching upsells', 'Partner with athleisure and supplement brands', 'Build community challenges for engagement loops'],
-  },
-  'Alternative Fantasy': {
-    archetype: 'Alternative Fantasy',
-    archetype_description: 'Edgy, niche, subculture-driven — the creator who dominates a specific fantasy or fetish vertical with creative authority.',
-    archetype_strengths: ['Deep niche loyalty', 'High PPV conversion', 'Low direct competition', 'Creative freedom within niche'],
-    archetype_risks: ['Niche ceiling', 'Platform policy sensitivity', 'Difficult to pivot to mainstream'],
-    archetype_growth: ['Own the niche — become the definitive creator in the category', 'Build custom content menu for tiered access', 'Cross-promote to adjacent subculture communities'],
-  },
-  'Soft-Girl Companion': {
-    archetype: 'Soft-Girl Companion',
-    archetype_description: 'Gentle, nurturing, emotionally intelligent — the creator who provides comfort, companionship, and soft intimacy through content.',
-    archetype_strengths: ['Deep emotional connection with fans', 'Very high retention rates', 'GFE (Girlfriend Experience) premium upsells', 'Safe-for-work crossover potential'],
-    archetype_risks: ['Emotional labor burnout', 'Boundary management with parasocial fans', 'Harder to scale to large volume'],
-    archetype_growth: ['Build a cozy Patreon/Substack layer', 'Develop ASMR/comfort audio content', 'Create tiered GFE packages with clear boundaries'],
-  },
-  'Intellectual Seductress': {
-    archetype: 'Intellectual Seductress',
-    archetype_description: 'Smart, sophisticated, education-first — the creator who monetizes specialized knowledge wrapped in seductive presentation.',
-    archetype_strengths: ['Unique market positioning', 'High-value audience (educated, high-income)', 'Content is inherently educational = YouTube/Spotify crossover', 'Thought leadership potential'],
-    archetype_risks: ['Niche velocity — need consistent hot takes', 'May alienate fans seeking pure entertainment', 'Content requires research/preparation'],
-    archetype_growth: ['Launch a podcast or YouTube channel', 'Develop paid courses or workshops', 'Build expert panel / debate content for viral reach'],
-  },
-  'Chaos Gremlin': {
-    archetype: 'Chaos Gremlin',
-    archetype_description: 'Unpredictable, hilarious, chaos-maxxing — the creator whose personality is the product and whose content thrives on spontaneity.',
-    archetype_strengths: ['Highly shareable content', 'Fast audience growth potential', 'Personality-driven = hard to replicate', 'Natural viral hook generator'],
-    archetype_risks: ['Inconsistent output', 'Reputation / brand safety risk', 'Harder to convert to premium revenue', 'Potential burnout from being always-on'],
-    archetype_growth: ['Systematize chaos — capture spontaneous moments with structure', 'Build a highlights / best-of subscription tier', 'Partner with brands seeking edgy / authentic voice'],
-  },
-};
 
 function determineArchetype(r: AssessmentResponses): CreatorArchetype {
-  const keys: string[] = [];
-  if (r.strengths.includes('Cozy') || r.strengths.includes('Aesthetic/Cozy')) keys.push('Cozy,Aesthetic/Cozy');
-  if (r.strengths.includes('High-Energy') && r.strengths.includes('Public Speaking')) keys.push('High-Energy,Public Speaking');
-  if (r.niche_interests.includes('Fitness/Muscle') || r.strengths.includes('Specific Sport')) keys.push('Fitness/Muscle,Specific Sport');
-  if (r.niche_interests.includes('Roleplay') || r.nudity_level === 'fetish') keys.push('Roleplay,Fetish-specific');
-  if (r.strengths.includes('Specialized Knowledge/Astrology') && r.strengths.includes('Public Speaking')) keys.push('Specialized Knowledge/Astrology,Public Speaking');
-  if (r.strengths.includes('High-Energy') && r.strengths.includes('Humor')) keys.push('High-Energy,Humor');
-  if (r.niche_interests.includes('High-Fashion') && r.nudity_level === 'full_nude') keys.push('High-Fashion,Full Nude');
-  if ((r.strengths.includes('Cozy') || r.strengths.includes('Aesthetic/Cozy')) && r.niche_interests.includes('Roleplay')) keys.push('Cozy,Roleplay');
+  const archetypes = selectedArchetypes(r);
+  const strengths = strengthSignals(r.strengths);
 
-  for (const k of keys) {
-    if (ARCHETYPE_MAP[k]) return ARCHETYPE_MAP[k];
-  }
-  // Fallback: use strengths to guess
-  if (r.strengths.includes('Humor')) return 'Chaos Gremlin';
-  if (r.strengths.includes('Specialized Knowledge/Astrology')) return 'Intellectual Seductress';
-  if (r.niche_interests.includes('Fitness/Muscle')) return 'Fitness Tease';
+  if (archetypes.length > 0) return archetypes[0] as CreatorArchetype;
+  if (hasAny(strengths, ['My fitness', 'Specific Sport'])) return 'Fitness Goddess';
+  if (hasAny(strengths, ['My fashion / beauty style', 'My appearance'])) return 'Luxury Muse';
+  if (hasAny(strengths, ['My intelligence', 'My niche expertise', 'Specialized Knowledge/Astrology'])) return 'Hot Teacher';
+  if (hasAny(strengths, ['My kindness', 'My authenticity', 'My ability to connect with people'])) return 'Soft Girlfriend Experience';
+  if (r.nudity_level === 'fetish') return 'Dominatrix';
   if (r.nudity_level === 'sfw_only' || r.nudity_level === 'teasing_only') return 'Girl Next Door';
-  if (r.nudity_level === 'full_nude') return 'Luxury Muse';
-  return 'Chaos Gremlin';
+  return 'Seductress';
 }
 
-// ── Content Vertical Engine ──
+function detailFor(archetype: CreatorArchetype): ArchetypeDetails {
+  const details: Partial<Record<CreatorArchetype, ArchetypeDetails>> = {
+    'Girl Next Door': {
+      archetype_description: 'Relatable, approachable, and emotionally familiar. This positioning builds trust through natural intimacy and everyday access.',
+      archetype_strengths: ['High parasocial trust', 'Broad audience appeal', 'Strong retention potential', 'Easy lifestyle content fit'],
+      archetype_risks: ['Can become too generic without a clear hook', 'Requires consistent connection-building', 'May need stronger premium positioning'],
+      archetype_growth: ['Build repeatable lifestyle formats', 'Create intimacy-led retention offers', 'Use story-led short-form content to drive discovery'],
+    },
+    'Luxury Muse': {
+      archetype_description: 'Aspirational, polished, and premium. This creator identity works best when content feels selective, high-value, and visually elevated.',
+      archetype_strengths: ['Premium pricing power', 'Strong visual positioning', 'Whale audience alignment', 'Brand partnership potential'],
+      archetype_risks: ['Higher production expectations', 'Smaller but more demanding audience', 'Must maintain a consistent luxury signal'],
+      archetype_growth: ['Develop editorial shoot formats', 'Package premium PPV offers', 'Use scarcity and exclusivity in promotions'],
+    },
+    'Fitness Goddess': {
+      archetype_description: 'Body-led, disciplined, and high-energy. Fitness positioning creates a natural content engine through routines, progress, and physical confidence.',
+      archetype_strengths: ['Built-in content formats', 'Strong consistency signal', 'Visual transformation hooks', 'Brand-safe crossover potential'],
+      archetype_risks: ['Body-image pressure', 'Niche can flatten without personality', 'Requires regular content cadence'],
+      archetype_growth: ['Build challenge content', 'Create workout-adjacent verticals', 'Pair fitness authority with personality-led storylines'],
+    },
+    'Corporate Rebel': {
+      archetype_description: 'Professional polish with a rebellious edge. This identity works when authority, ambition, and controlled provocation are part of the fantasy.',
+      archetype_strengths: ['Strong narrative contrast', 'Authority-driven positioning', 'High curiosity factor', 'Clear character hook'],
+      archetype_risks: ['Reputation risk if boundaries are unclear', 'Can polarise audiences', 'Needs careful separation from real-world identity'],
+      archetype_growth: ['Use workplace-coded storylines', 'Build authority-led short-form hooks', 'Create premium fantasy sets around power and control'],
+    },
+    'Dominatrix': {
+      archetype_description: 'Commanding, controlled, and power-led. This archetype monetises through authority, boundaries, and clear fantasy structure.',
+      archetype_strengths: ['Strong niche loyalty', 'High custom content potential', 'Clear premium fantasy', 'Boundary clarity'],
+      archetype_risks: ['Requires confident delivery', 'Potential brand-safety concerns', 'Niche expectations can be specific'],
+      archetype_growth: ['Define clear menu boundaries', 'Create ritualised recurring formats', 'Use premium custom pathways for qualified fans'],
+    },
+    'Soft Girlfriend Experience': {
+      archetype_description: 'Warm, attentive, and connection-led. This creator identity is strongest when emotional intimacy and personal attention are the product.',
+      archetype_strengths: ['High retention potential', 'Strong DM monetisation fit', 'Audience loyalty', 'Natural parasocial strength'],
+      archetype_risks: ['Emotional labour load', 'Boundary management', 'Can be hard to scale without systems'],
+      archetype_growth: ['Create sustainable connection routines', 'Segment high-value fans', 'Build repeatable soft-intimacy content series'],
+    },
+    'Artist / Creative Muse': {
+      archetype_description: 'Expressive, aesthetic, and concept-led. This identity turns creativity and personal taste into a differentiated creator world.',
+      archetype_strengths: ['Distinctive visual identity', 'Strong creative hooks', 'Cross-platform potential', 'Memorable positioning'],
+      archetype_risks: ['Can overcomplicate content production', 'May need clearer monetisation offers', 'Requires consistent creative direction'],
+      archetype_growth: ['Build recurring visual themes', 'Test character-led concepts', 'Turn creative process into content'],
+    },
+  };
+
+  return details[archetype] ?? {
+    archetype_description: `${archetype} positioning gives your content a clear fantasy, role, or identity that fans can understand quickly.`,
+    archetype_strengths: ['Clear character signal', 'Strong roleplay potential', 'Differentiated creator identity', 'Audience expectation clarity'],
+    archetype_risks: ['Needs consistent execution', 'Requires clear personal boundaries', 'May need testing to find the strongest monetisation angle'],
+    archetype_growth: ['Test three recurring content formats', 'Clarify the fantasy in bio and pinned content', 'Use fan response to refine the character angle'],
+  };
+}
 
 function determineVerticals(r: AssessmentResponses, archetype: CreatorArchetype): { name: ContentVertical; rationale: string }[] {
   const results: { name: ContentVertical; rationale: string }[] = [];
+  const strengths = strengthSignals(r.strengths);
 
-  if (r.strengths.includes('Specific Sport') && r.comfort_level >= 5) {
-    results.push({ name: 'Skill-Based Challenges', rationale: 'Sport ability + camera confidence = high-engagement challenge content (e.g. Crossbar Challenge, trick shot multiplication)' });
+  if (hasAny(strengths, ['My fitness', 'Specific Sport']) || r.niche_interests.includes('Fitness/Muscle') || archetype === 'Fitness Goddess') {
+    results.push({ name: 'Fitness Journey', rationale: 'Fitness and body confidence create repeatable visual content with built-in progression hooks.' });
   }
-  if (r.strengths.includes('Specialized Knowledge/Astrology') && r.strengths.includes('High-Energy')) {
-    results.push({ name: 'Polarizing Storytimes', rationale: 'Knowledge + energy = debate-sparking storytime content that drives algorithm-friendly comment sections' });
+  if (hasAny(strengths, ['My storytelling ability', 'My communication skills', 'My humour', 'Humor'])) {
+    results.push({ name: 'Confessional Storytime', rationale: 'Communication and storytelling strengths support personality-led content that builds fan connection.' });
   }
-  if ((r.strengths.includes('Cozy') || r.strengths.includes('Aesthetic/Cozy')) && (r.nudity_level === 'sfw_only' || r.nudity_level === 'teasing_only')) {
-    results.push({ name: 'Lifestyle Vlogging / GRWM', rationale: 'Cosy aesthetic + teasing boundary = Girl Next Door authenticity through Get-Ready-With-Me and lifestyle content' });
+  if (hasAny(strengths, ['My fashion / beauty style', 'My appearance']) || r.niche_interests.includes('High-Fashion') || archetype === 'Luxury Muse') {
+    results.push({ name: 'Editorial / High-Fashion Shoots', rationale: 'A strong visual style supports premium, aspirational content and higher-value positioning.' });
   }
-  if (r.strengths.includes('Humor') && r.comfort_level >= 6) {
-    results.push({ name: 'Comedy Skits', rationale: 'Comedy + camera comfort = skit content with high shareability and viral potential on TikTok/Reels' });
+  if (r.niche_interests.includes('Roleplay') || ['Dominatrix', 'Brat', 'Submissive', 'Hot Teacher', 'Naughty Librarian', 'Nurse', 'Doctor', 'Cosplayer'].includes(archetype)) {
+    results.push({ name: 'Roleplay / Character Content', rationale: 'Character-led archetypes create reusable fantasy formats and clearer subscriber expectations.' });
   }
-  if (r.parasocial_comfort && r.passion_topic && r.passion_topic.length > 10) {
-    results.push({ name: 'Confessional Storytime', rationale: 'Parasocial comfort + deep passion topic = intimate confessional content that builds superfan loyalty' });
+  if (hasAny(strengths, ['My authenticity', 'My kindness', 'My ability to connect with people']) || archetype === 'Girl Next Door' || archetype === 'Soft Girlfriend Experience') {
+    results.push({ name: 'Cosy Authenticity', rationale: 'Authenticity and connection are strong retention signals for relationship-led creator content.' });
   }
-  if (r.niche_interests.includes('Fitness/Muscle') || r.strengths.includes('Specific Sport')) {
-    results.push({ name: 'Fitness Journey', rationale: 'Fitness/muscle niche = visual transformation content with built-in progression hooks and brand opportunities' });
-  }
-  if (r.niche_interests.includes('High-Fashion') || archetype === 'Luxury Muse') {
-    results.push({ name: 'Editorial / High-Fashion Shoots', rationale: 'Fashion interest + luxury positioning = editorial-quality shoots that command premium pricing' });
-  }
-  if (r.niche_interests.includes('Roleplay') || archetype === 'Alternative Fantasy' || archetype === 'Soft-Girl Companion') {
-    results.push({ name: 'Roleplay / Character Content', rationale: 'Roleplay interest + fantasy niche = character-driven content that creates reusable IP and deepens fetish authority' });
-  }
-  if ((r.strengths.includes('Cozy') || r.strengths.includes('Aesthetic/Cozy')) && results.length < 3) {
-    results.push({ name: 'Cosy Authenticity', rationale: 'Cosy strength = comfort-audience content that feels intimate and unfiltered, driving retention' });
+  if (hasAny(strengths, ['My energy', 'My ability to entertain', 'High-Energy'])) {
+    results.push({ name: 'Comedy Skits', rationale: 'High energy and entertainment value create short-form formats with strong discovery potential.' });
   }
 
-  // Ensure we have at least 3
   const fallbacks: { name: ContentVertical; rationale: string }[] = [
-    { name: 'Tease & Deny', rationale: 'Universal vertical — build anticipation through countdowns, previews, and limited-time unlocks that gamify the fan experience' },
-    { name: 'Confessional Storytime', rationale: 'Share personal stories to build emotional connection and parasocial investment from your audience' },
-    { name: 'Lifestyle Vlogging / GRWM', rationale: 'Document your daily routine to build authenticity and trust with your subscriber base' },
+    { name: 'Tease & Deny', rationale: 'Build anticipation through previews, countdowns, and limited-time unlocks that gamify the fan experience.' },
+    { name: 'Lifestyle Vlogging / GRWM', rationale: 'Document your routine to build familiarity, trust, and repeat viewing habits.' },
+    { name: 'Confessional Storytime', rationale: 'Use personal stories to create emotional connection and parasocial investment.' },
   ];
-  for (const fb of fallbacks) {
+
+  for (const fallback of fallbacks) {
     if (results.length >= 3) break;
-    if (!results.some(r => r.name === fb.name)) {
-      results.push(fb);
-    }
+    if (!results.some(result => result.name === fallback.name)) results.push(fallback);
   }
+
   return results.slice(0, 3);
 }
-
-// ── Management Readiness ──
 
 function determineReadiness(r: AssessmentResponses, scores: ScoreBreakdown): ManagementReadiness {
   const avg = (scores.agency_opportunity + scores.consistency + scores.brand_clarity) / 3;
@@ -239,65 +273,139 @@ function determineReadiness(r: AssessmentResponses, scores: ScoreBreakdown): Man
   return 'Hobby Creator';
 }
 
-// ── Day 90 Plan ──
-
 function generatePlan(readiness: ManagementReadiness, topVerticals: { name: ContentVertical; rationale: string }[]): { phase: string; focus: string; actions: string[] }[] {
   const vNames = topVerticals.map(v => v.name);
-  const base: { phase: string; focus: string; actions: string[] }[] = [
-    { phase: 'Days 1-30: Foundation', focus: 'Content audit, setup, and first tests',
-      actions: ['Set up content calendar in Notion', 'Film 5 variations of top vertical: ' + vNames[0], 'Post 2x daily on TikTok/Reels for 30 days', 'Set up Inflow CRM for subscriber management', 'Define your content pillars and posting schedule'] },
-    { phase: 'Days 31-60: Multiplication', focus: 'Scale what works',
-      actions: ['Identify first 10 viral hooks using the Winning 10 Framework', 'Create 200 variations of your best-performing hook', 'A/B test thumbnails, captions, and posting times', 'Launch premium tier or PPV content', 'Begin 1-on-1 DM strategy for whale conversion'] },
-    { phase: 'Days 61-90: Optimization', focus: 'Refine, automate, grow',
-      actions: ['Audit top-performing content from Days 1-60', 'Set up AI-assisted chatting (SuperCreator/Luna)', 'Establish recurring content formats (weekly series)', 'Plan first collaboration or cross-promotion', 'Review pricing and adjust based on conversion data'] },
+  const base = [
+    {
+      phase: 'Foundation Opportunity',
+      focus: 'Clarify positioning, capacity, and the first content tests.',
+      actions: ['Review which parts of your current approach create the strongest fan response', `Explore whether ${vNames[0]} could become a repeatable content lane`, 'Identify the minimum sustainable posting rhythm for your lifestyle'],
+    },
+    {
+      phase: 'Growth Opportunity',
+      focus: 'Turn early signals into clearer acquisition and retention choices.',
+      actions: ['Look for patterns in the content that attracts attention versus content that converts', 'Decide which audience segment is most worth prioritising', 'Map where premium offers, bundles, or fan conversations could fit'],
+    },
+    {
+      phase: 'Scale Opportunity',
+      focus: 'Decide what should be systemised, delegated, or developed further.',
+      actions: ['Identify which parts of the workflow are limiting growth', 'Consider whether collaborations or channel expansion would accelerate discovery', 'Review whether management support would improve consistency, monetisation, or positioning'],
+    },
   ];
+
   if (readiness === 'Scale Candidate') {
-    base[2].actions.push('Onboard agency management for operational scale');
-    base[2].actions.push('Begin scouting second creator for portfolio expansion');
+    base[2].actions.push('Explore what an agency-supported growth plan would need to prioritise first');
   }
   if (readiness === 'Needs Foundation' || readiness === 'Hobby Creator') {
-    base[0].actions.unshift('Focus on camera comfort — film 30 seconds daily, no pressure to post');
-    base[0].actions.unshift('Define your creator persona in 3 sentences');
+    base[0].actions.unshift('Clarify your creator identity before adding more complexity');
+    base[0].actions.unshift('Build confidence with small, repeatable content experiments');
   }
+
   return base;
 }
 
-// ── Main Scoring Function ──
+function internalAgencyScores(r: AssessmentResponses, scores: ScoreBreakdown): ReportData['internal_agency_scores'] {
+  const futureImprovements = arrayValue(r.future_improvements);
+  const ambitionSignals = [
+    textValue(r.aspirational_creators),
+    textValue(r.alternative_content_ideas),
+    ...futureImprovements,
+  ].filter(Boolean);
+  const ambition = scoreFrom(35 + Math.min(ambitionSignals.length * 12, 45) + (r.audience_target === 'whales' ? 10 : 5));
+  const innovation = scoreFrom(35 + Math.min(textValue(r.alternative_content_ideas).length / 3, 35) + (futureImprovements.includes('Content Direction') ? 15 : 0));
+  const coachability = scoreFrom(40 + Math.min(futureImprovements.length * 8, 35) + (r.consent ? 10 : 0));
+  const growth_potential = scoreFrom(scores.brand_clarity * 0.25 + scores.consistency * 0.25 + scores.monetisation * 0.2 + ambition * 0.3);
+
+  return {
+    commercial_potential: scores.agency_opportunity,
+    growth_potential,
+    monetisation_potential: scores.monetisation,
+    ambition,
+    coachability,
+    innovation,
+    retention_potential: scoreFrom((r.parasocial_comfort ? 65 : 40) + (r.audience_target === 'whales' ? 15 : 5)),
+    parasocial_strength: r.parasocial_comfort ? 80 : 35,
+    audience_loyalty: scoreFrom(scores.brand_clarity * 0.5 + scores.consistency * 0.5),
+    management_readiness: scores.agency_opportunity,
+    brand_risk: r.nudity_level === 'fetish' || selectedArchetypes(r).includes('Dominatrix') ? 65 : 35,
+    reputation_risk: r.nudity_level === 'full_nude' || r.nudity_level === 'fetish' ? 55 : 30,
+    scalability: scoreFrom(scores.consistency * 0.6 + scores.creator_dna * 0.4),
+    content_consistency: scores.consistency,
+    agency_opportunity: scores.agency_opportunity,
+  };
+}
+
+function whyThisResult(r: AssessmentResponses, scores: ScoreBreakdown, archetype: CreatorArchetype, topVerticals: { name: ContentVertical; rationale: string }[]): ReportData['why_this_result'] {
+  const strengths = strengthSignals(r.strengths);
+  const signals = [
+    ...(strengths.length > 0 ? strengths : ['Clear creator self-awareness']),
+    ...(selectedArchetypes(r).length > 0 ? [`${archetype} archetype resonance`] : []),
+    ...(r.comfort_level >= 7 ? ['High camera comfort'] : []),
+    ...(r.parasocial_comfort ? ['Comfort with audience connection'] : []),
+    ...(r.audience_target === 'whales' ? ['Premium audience ambition'] : ['Mass audience growth ambition']),
+  ].slice(0, 5);
+
+  const strongestAnswers = [
+    ...strengths.slice(0, 3),
+    ...selectedArchetypes(r).slice(0, 2),
+    topVerticals[0]?.name,
+  ].filter(Boolean) as string[];
+
+  const differentiators = [
+    scores.brand_clarity >= 70 ? 'Clear positioning signal' : 'Positioning can be sharpened through testing',
+    scores.monetisation >= 70 ? 'Strong monetisation fit' : 'Monetisation pathway needs staged development',
+    scores.consistency >= 70 ? 'Strong execution and consistency indicators' : 'Consistency is a key growth lever',
+  ];
+
+  return {
+    summary: `You matched most strongly with ${archetype} because your answers point toward ${signals.slice(0, 3).join(', ').toLowerCase()}. This combination creates a creator identity with clear content angles and monetisation potential.`,
+    top_signals: signals,
+    strongest_answers: strongestAnswers,
+    key_differentiators: differentiators,
+  };
+}
 
 export function scoreAssessment(r: AssessmentResponses): ScoringResult {
   const creator_dna = computeCreatorDNA(r);
   const brand_clarity = computeBrandClarity(r);
   const monetisation = computeMonetisation(r);
   const consistency = computeConsistency(r);
-  const agency_opportunity = computeAgencyOpportunity(r, { creator_dna, brand_clarity, monetisation, consistency } as ScoreBreakdown);
+  const scores = {
+    creator_dna,
+    brand_clarity,
+    monetisation,
+    consistency,
+    agency_opportunity: 0,
+  };
+  const agency_opportunity = computeAgencyOpportunity(r, scores);
+  const fullScores = { ...scores, agency_opportunity };
   const archetype = determineArchetype(r);
-  const details = ARCHETYPE_DETAILS[archetype];
+  const details = detailFor(archetype);
   const top_verticals = determineVerticals(r, archetype);
-  const management_readiness = determineReadiness(r, { creator_dna, brand_clarity, monetisation, consistency, agency_opportunity } as ScoreBreakdown);
+  const management_readiness = determineReadiness(r, fullScores);
 
   const pricing_strategy = r.audience_target === 'whales'
-    ? 'Premium Paid Page ($20-50/month) — low volume, high revenue per subscriber. Include tiered DMs and 1-on-1 personalized chatting for top fans. Focus on exclusivity and luxury positioning.'
-    : 'Volume Freemium ($0-10/month) — high subscriber count, monetize through PPV and tips. Use free page as top-of-funnel, upsell custom content and premium tiers. Run frequent promos and bundles.';
+    ? 'Premium positioning appears worth exploring: selective access, high-touch fan journeys, and carefully packaged premium offers may be stronger than broad low-ticket volume.'
+    : 'A volume-led pathway appears worth exploring: low-friction access, recurring fan engagement, and staged upsell opportunities may help turn discovery into revenue.';
 
   return {
-    scores: { creator_dna, brand_clarity, monetisation, consistency, agency_opportunity },
+    scores: fullScores,
     archetype,
-    archetype_description: details.archetype_description,
-    archetype_strengths: details.archetype_strengths,
-    archetype_risks: details.archetype_risks,
-    archetype_growth: details.archetype_growth,
+    ...details,
     top_verticals,
     management_readiness,
     pricing_strategy,
-    winning_10_framework: 'The Winning 10 Framework: (1) Identify your first viral hook — the one format that outperforms all others. (2) Extract the core elements: hook, structure, payoff. (3) Create 10 variations with different contexts, locations, outfits, or angles. (4) Post all 10 across 10 days on TikTok/Reels. (5) Measure: which variation had the highest engagement? (6) Create 200 more variations of the winner. This is the Multiplication Phase — one hook, infinite angles, exponential growth.',
-    growth_strategy: 'Deploy "Viral Billboards" — short-form content on TikTok and Reels that serves as free acquisition. Every post is a billboard for your OnlyFans storefront. Follow the 80/20 rule: 80% discoverable content (trends, hooks, value), 20% direct calls-to-action to your OF link. Build a "hook library" of 50+ proven openers and cycle them. Post minimum 2x daily. Use trending audio. Respond to every comment for the first hour after posting (algorithm boost).',
+    winning_10_framework: 'Your answers suggest there may be a repeatable content hook to uncover. The next strategic step is identifying which concepts are most natural for you, then testing them without overcommitting to one format too early.',
+    growth_strategy: 'Short-form discovery content is likely an important growth lever, but the exact platform mix, cadence, and conversion path should be shaped around your capacity, boundaries, and strongest audience response.',
     tech_stack: [
-      { tool: 'Inflow', purpose: 'CRM — subscriber management, segmentation, and lifecycle tracking' },
-      { tool: 'SuperCreator or Luna', purpose: 'AI-assisted chatting — warm subscribers, automate FAQs, identify whales' },
-      { tool: 'Notion', purpose: 'Content calendar, SOPs, idea bank, and collaboration workspace' },
-      { tool: 'Canva Pro', purpose: 'Thumbnails, promotional graphics, and visual branding' },
+      { tool: 'Fan CRM / tracking', purpose: 'Useful when subscriber volume grows enough to need clearer follow-up and segmentation.' },
+      { tool: 'Chat support tooling', purpose: 'Worth considering if DMs become a revenue driver or time bottleneck.' },
+      { tool: 'Planning workspace', purpose: 'Helpful for collecting ideas, content themes, and repeatable posting routines.' },
+      { tool: 'Lightweight design tools', purpose: 'Useful for keeping promotional assets consistent as your positioning sharpens.' },
     ],
     day_90_plan: generatePlan(management_readiness, top_verticals),
+    why_this_result: whyThisResult(r, fullScores, archetype, top_verticals),
+    internal_agency_scores: internalAgencyScores(r, fullScores),
   };
 }
 
