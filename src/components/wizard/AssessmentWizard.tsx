@@ -622,7 +622,7 @@ export function AssessmentWizard() {
   }
 
   return (
-    <div className="min-h-[100dvh] w-full overflow-y-auto px-4 py-6 sm:px-6 sm:py-10">
+    <div className="min-h-[100dvh] w-full overflow-x-hidden px-4 py-8 sm:px-6 sm:py-10">
       <div className="mx-auto w-full max-w-2xl">
         <div className="text-center mb-6 sm:mb-10">
           <h1 className="font-display text-3xl font-bold mb-2">Creator Ikigai</h1>
