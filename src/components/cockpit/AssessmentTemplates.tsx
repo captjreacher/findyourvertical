@@ -1,135 +1,165 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import {
   archiveQuestion,
+  createAssessmentTemplate,
   createQuestion,
+  deleteQuestion,
   getAssessmentTemplates,
   getQuestionBank,
+  getQuestionDeleteEligibility,
+  restoreQuestion,
+  saveTemplateItems,
   setDefaultTemplate,
+  setTemplateActive,
+  updateAssessmentTemplate,
   updateQuestion,
-  upsertTemplateQuestion,
 } from '@/lib/creators-api';
 import type {
-  AssessmentQuestionOption,
   AssessmentQuestionType,
-  CreatorAssessmentQuestion,
+  CreatorAssessmentTemplateItem,
   CreatorAssessmentRuntimeTemplate,
   CreatorQuestion,
 } from '@/types/creator';
 
-const QUESTION_TYPES: AssessmentQuestionType[] = [
-  'short_text',
-  'long_text',
-  'single_choice',
-  'multi_choice',
-  'boolean',
-  'scale',
-];
+type DraftItem = CreatorAssessmentTemplateItem;
+type DeleteEligibility = { canDelete: boolean; reason?: string };
 
-const EMPTY_FORM = {
+const QUESTION_TYPES: AssessmentQuestionType[] = ['short_text', 'long_text', 'single_choice', 'multi_choice', 'boolean', 'scale'];
+const EMPTY_QUESTION = {
   question_key: '',
   response_key: '',
   question_text: '',
   help_text: '',
-  section: 'Strengths',
+  section: 'About You',
   question_type: 'long_text' as AssessmentQuestionType,
   scoring_dimension: '',
-  parent_question_key: '',
-  show_when_value: '',
-  show_when_operator: 'equals' as 'equals' | 'includes',
-  options: [] as EditableOption[],
 };
+const EMPTY_TEMPLATE = { name: '', description: '', duplicateFromTemplateId: '' };
 
-type QuestionForm = typeof EMPTY_FORM;
-type EditableOption = {
-  value: string;
-  label: string;
-  description?: string;
-  is_active: boolean;
-};
-
-const QUESTION_LIFECYCLE_TOOLTIP = 'Question wording may be edited. If you need to change the meaning, answer type, scoring purpose, branching behaviour, or dimension, archive this question and create a new one.';
-
-function toForm(question: CreatorQuestion): QuestionForm {
-  return {
-    question_key: question.question_key,
-    response_key: question.response_key,
-    question_text: question.question_text,
-    help_text: question.help_text ?? '',
-    section: question.section,
-    question_type: question.question_type,
-    scoring_dimension: question.scoring_dimension ?? '',
-    parent_question_key: question.parent_question_key ?? '',
-    show_when_value: question.show_when_value ?? '',
-    show_when_operator: question.show_when_operator,
-    options: normalizeOptionsForEditing(question.options),
-  };
+function normalizeKey(value: string): string {
+  return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
 }
 
-function optionValueFromLabel(label: string): string {
-  return normalizeKey(label) || `option_${Date.now()}`;
-}
-
-function normalizeOptionsForEditing(options: AssessmentQuestionOption[]): EditableOption[] {
-  return options.map(option => {
-    if (typeof option === 'string') {
-      return {
-        value: option,
-        label: option,
-        is_active: true,
-      };
-    }
-
-    return {
-      value: option.value,
-      label: option.label,
-      description: option.description,
-      is_active: option.is_active ?? true,
-    };
+function ordered<T extends { is_included: boolean; sort_order: number }>(items: T[]): T[] {
+  return [...items].sort((a, b) => {
+    if (a.is_included !== b.is_included) return a.is_included ? -1 : 1;
+    return a.sort_order - b.sort_order;
   });
 }
 
-function serializeOptions(options: EditableOption[]): AssessmentQuestionOption[] {
-  return options
-    .map(option => ({
-      value: option.value || optionValueFromLabel(option.label),
-      label: option.label.trim(),
-      ...(option.description ? { description: option.description } : {}),
-      is_active: option.is_active,
-    }))
-    .filter(option => option.label);
-}
+function draftItemsFor(template: CreatorAssessmentRuntimeTemplate | null, bank: CreatorQuestion[]): DraftItem[] {
+  if (!template) return [];
+  const items = [...(template.items ?? [])] as DraftItem[];
+  const questionIds = new Set(items.filter(item => item.item_type === 'question').map(item => item.question_id));
+  const maxOrder = Math.max(0, ...items.map(item => item.sort_order));
 
-function supportsOptions(questionType: AssessmentQuestionType): boolean {
-  return ['single_choice', 'multi_choice', 'scale'].includes(questionType);
-}
+  bank.forEach((question, index) => {
+    if (!question.is_active || questionIds.has(question.id)) return;
+    items.push({
+      id: `available:${template.id}:${question.id}`,
+      template_id: template.id,
+      item_type: 'question',
+      question_id: question.id,
+      title: null,
+      description: null,
+      is_included: false,
+      sort_order: maxOrder + ((index + 1) * 10),
+      created_at: question.created_at,
+      updated_at: question.updated_at,
+      question,
+    });
+  });
 
-function normalizeKey(value: string): string {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '_')
-    .replace(/^_+|_+$/g, '');
+  return ordered(items);
 }
 
 export function AssessmentTemplates() {
   const [questions, setQuestions] = useState<CreatorQuestion[]>([]);
   const [templates, setTemplates] = useState<CreatorAssessmentRuntimeTemplate[]>([]);
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
+  const [selectedTemplateId, setSelectedTemplateId] = useState('');
+  const [templateName, setTemplateName] = useState('');
+  const [templateDescription, setTemplateDescription] = useState('');
+  const [draftItems, setDraftItems] = useState<DraftItem[]>([]);
+  const [questionForm, setQuestionForm] = useState(EMPTY_QUESTION);
   const [editingQuestion, setEditingQuestion] = useState<CreatorQuestion | null>(null);
-  const [form, setForm] = useState<QuestionForm>(EMPTY_FORM);
+  const [templateForm, setTemplateForm] = useState(EMPTY_TEMPLATE);
+  const [deleteEligibility, setDeleteEligibility] = useState<Record<string, DeleteEligibility>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
 
-  const load = async () => {
-    setError('');
-    const [questionBank, assessmentTemplates] = await Promise.all([
-      getQuestionBank(),
-      getAssessmentTemplates(),
-    ]);
-    setQuestions(questionBank);
-    setTemplates(assessmentTemplates);
-    setSelectedTemplateId(current => current || assessmentTemplates[0]?.id || '');
+  const selectedTemplate = templates.find(template => template.id === selectedTemplateId) ?? templates[0] ?? null;
+  const existingItemIds = useMemo(() => new Set(selectedTemplate?.items?.map(item => item.id) ?? []), [selectedTemplate]);
+  const includedItems = draftItems.filter(item => item.is_included);
+  const activeQuestions = questions.filter(question => question.is_active);
+  const archivedQuestions = questions.filter(question => !question.is_active);
+  const canSetDefault = Boolean(
+    selectedTemplate?.is_active
+    && includedItems.some(item => item.item_type === 'question' && item.question?.is_active)
+  );
+
+  const initialState = useMemo(() => {
+    if (!selectedTemplate) return '';
+    return JSON.stringify({
+      name: selectedTemplate.name,
+      description: selectedTemplate.description ?? '',
+      items: draftItemsFor(selectedTemplate, questions).map(item => ({
+        id: item.id,
+        item_type: item.item_type,
+        question_id: item.question_id,
+        title: item.title,
+        description: item.description,
+        is_included: item.is_included,
+        sort_order: item.sort_order,
+      })),
+    });
+  }, [selectedTemplate, questions]);
+
+  const currentState = useMemo(() => JSON.stringify({
+    name: templateName,
+    description: templateDescription,
+    items: draftItems.map(item => ({
+      id: item.id,
+      item_type: item.item_type,
+      question_id: item.question_id,
+      title: item.title,
+      description: item.description,
+      is_included: item.is_included,
+      sort_order: item.sort_order,
+    })),
+  }), [templateName, templateDescription, draftItems]);
+
+  const isDirty = Boolean(selectedTemplate) && initialState !== currentState;
+  const saveDisabledReason = !selectedTemplate
+    ? 'No template selected.'
+    : saving
+      ? 'Save already in progress.'
+      : !isDirty
+        ? 'No unsaved changes.'
+        : '';
+  const archiveDisabledReason = selectedTemplate?.is_default
+    ? 'Set another active template as default before archiving this one.'
+    : saving
+      ? 'Template update already in progress.'
+      : '';
+  const defaultDisabledReason = !selectedTemplate?.is_active
+    ? 'Restore this template before setting it as default.'
+    : selectedTemplate?.is_default
+      ? 'This template is already the default.'
+      : !canSetDefault
+        ? 'Template must include at least one active question.'
+        : saving
+          ? 'Template update already in progress.'
+          : '';
+
+  const load = async (preferredTemplateId?: string) => {
+    const [bank, loadedTemplates] = await Promise.all([getQuestionBank(), getAssessmentTemplates()]);
+    setQuestions(bank);
+    setTemplates(loadedTemplates);
+    setSelectedTemplateId(current => preferredTemplateId || current || loadedTemplates[0]?.id || '');
+    const entries = await Promise.all(bank.map(async question => [question.id, await getQuestionDeleteEligibility(question.id)] as const));
+    setDeleteEligibility(Object.fromEntries(entries));
   };
 
   useEffect(() => {
@@ -138,114 +168,132 @@ export function AssessmentTemplates() {
       .finally(() => setLoading(false));
   }, []);
 
-  const selectedTemplate = templates.find(template => template.id === selectedTemplateId) ?? templates[0] ?? null;
-
-  const templateQuestions = useMemo<CreatorAssessmentQuestion[]>(() => {
-    if (!selectedTemplate) return [];
-    const mapped = new Map(selectedTemplate.questions.map(question => [question.id, question]));
-    const maxOrder = Math.max(0, ...selectedTemplate.questions.map(question => question.sort_order));
-
-    return questions
-      .map((question, index) => {
-        const existing = mapped.get(question.id);
-        return existing ?? {
-          ...question,
-          template_id: selectedTemplate.id,
-          is_included: false,
-          sort_order: maxOrder + ((index + 1) * 10),
-        };
-      })
-      .sort((a, b) => a.sort_order - b.sort_order || a.question_text.localeCompare(b.question_text));
-  }, [questions, selectedTemplate]);
-
-  const orderedTemplateQuestions = useMemo(() => {
-    const childrenByParent = new Map<string, CreatorAssessmentQuestion[]>();
-    const topLevel: CreatorAssessmentQuestion[] = [];
-    const seen = new Set<string>();
-
-    for (const question of templateQuestions) {
-      if (question.parent_question_key) {
-        childrenByParent.set(question.parent_question_key, [
-          ...(childrenByParent.get(question.parent_question_key) ?? []),
-          question,
-        ]);
-      } else {
-        topLevel.push(question);
-      }
+  useEffect(() => {
+    if (!selectedTemplate) {
+      setTemplateName('');
+      setTemplateDescription('');
+      setDraftItems([]);
+      return;
     }
+    setTemplateName(selectedTemplate.name);
+    setTemplateDescription(selectedTemplate.description ?? '');
+    setDraftItems(draftItemsFor(selectedTemplate, questions));
+  }, [selectedTemplateId, templates, questions]);
 
-    const ordered: CreatorAssessmentQuestion[] = [];
-    for (const question of topLevel) {
-      ordered.push(question);
-      seen.add(question.id);
-      for (const child of childrenByParent.get(question.question_key) ?? []) {
-        ordered.push(child);
-        seen.add(child.id);
-      }
-    }
+  useEffect(() => {
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (!isDirty) return;
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [isDirty]);
 
-    for (const question of templateQuestions) {
-      if (!seen.has(question.id)) ordered.push(question);
-    }
-
-    return ordered;
-  }, [templateQuestions]);
-
-  const activeQuestions = questions.filter(question => question.is_active);
-  const archivedQuestions = questions.filter(question => !question.is_active);
-
-  const conditionText = (question: CreatorAssessmentQuestion | CreatorQuestion): string | null => {
-    if (!question.parent_question_key || !question.show_when_value) return null;
-    const parent = questions.find(item => item.question_key === question.parent_question_key);
-    return `Shows when ${parent?.question_text ?? question.parent_question_key} ${question.show_when_operator} ${question.show_when_value}`;
+  const selectTemplate = (templateId: string) => {
+    if (isDirty && !window.confirm('Discard unsaved template changes?')) return;
+    setError('');
+    setSuccess('');
+    setSelectedTemplateId(templateId);
   };
 
-  const updateForm = (key: keyof QuestionForm, value: string) => {
-    setForm(current => {
-      const next = { ...current, [key]: value };
-      if (key === 'question_text' && !editingQuestion) {
-        const normalized = normalizeKey(value);
-        next.question_key = normalized;
-        next.response_key = normalized;
-      }
-      return next;
-    });
-  };
-
-  const resetForm = () => {
-    setEditingQuestion(null);
-    setForm(EMPTY_FORM);
-  };
-
-  const handleSubmitQuestion = async (event: FormEvent) => {
-    event.preventDefault();
+  const saveTemplate = async () => {
+    if (!selectedTemplate) return;
     setSaving(true);
     setError('');
+    setSuccess('');
+    try {
+      await updateAssessmentTemplate(selectedTemplate.id, {
+        name: templateName,
+        description: templateDescription || null,
+      });
+      await saveTemplateItems(
+        selectedTemplate.id,
+        draftItems.filter(item => item.is_included || existingItemIds.has(item.id))
+      );
+      await load(selectedTemplate.id);
+      setSuccess('Template changes saved.');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to save template changes');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const addHeading = () => {
+    if (!selectedTemplate) {
+      setError('Select or create a template before adding a heading.');
+      return;
+    }
+    setError('');
+    setSuccess('');
+    const nextOrder = Math.max(0, ...includedItems.map(item => item.sort_order)) + 10;
+    setDraftItems(current => ordered([
+      ...current,
+      {
+        id: `new-heading-${Date.now()}`,
+        template_id: selectedTemplateId,
+        item_type: 'section_heading',
+        question_id: null,
+        title: 'New Section Heading',
+        description: '',
+        is_included: true,
+        sort_order: nextOrder,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        question: null,
+      },
+    ]));
+  };
+
+  const updateItem = (id: string, changes: Partial<DraftItem>) => {
+    setDraftItems(current => current.map(item => item.id === id ? { ...item, ...changes } : item));
+  };
+
+  const toggleItem = (item: DraftItem) => {
+    if (item.item_type === 'question' && !item.question?.is_active && !item.is_included) return;
+    updateItem(item.id, { is_included: !item.is_included });
+  };
+
+  const moveItem = (item: DraftItem, direction: -1 | 1) => {
+    const visible = [...includedItems].sort((a, b) => a.sort_order - b.sort_order);
+    const index = visible.findIndex(current => current.id === item.id);
+    const target = index + direction;
+    if (target < 0 || target >= visible.length) return;
+    [visible[index], visible[target]] = [visible[target], visible[index]];
+    const order = new Map(visible.map((current, orderIndex) => [current.id, (orderIndex + 1) * 10]));
+    setDraftItems(current => ordered(current.map(row => order.has(row.id) ? { ...row, sort_order: order.get(row.id)! } : row)));
+  };
+
+  const submitQuestion = async (event?: FormEvent) => {
+    event?.preventDefault();
+    setSaving(true);
+    setError('');
+    setSuccess('');
     try {
       if (editingQuestion) {
         await updateQuestion(editingQuestion.id, {
-          question_text: form.question_text,
-          help_text: form.help_text || null,
-          options: supportsOptions(form.question_type) ? serializeOptions(form.options) : editingQuestion.options,
+          question_text: questionForm.question_text,
+          help_text: questionForm.help_text || null,
+          options: editingQuestion.options,
         });
+        setSuccess('Question updated.');
       } else {
         await createQuestion({
-          question_key: form.question_key,
-          response_key: form.response_key,
-          question_text: form.question_text,
-          help_text: form.help_text || null,
-          section: form.section,
-          question_type: form.question_type,
-          scoring_dimension: form.scoring_dimension || null,
-          parent_question_key: form.parent_question_key || null,
-          show_when_value: form.show_when_value || null,
-          show_when_operator: form.show_when_operator,
-          options: supportsOptions(form.question_type) ? serializeOptions(form.options) : [],
+          question_key: questionForm.question_key,
+          response_key: questionForm.response_key,
+          question_text: questionForm.question_text,
+          help_text: questionForm.help_text || null,
+          section: questionForm.section,
+          question_type: questionForm.question_type,
+          scoring_dimension: questionForm.scoring_dimension || null,
+          options: [],
         });
+        setSuccess('Question created.');
       }
-
-      resetForm();
-      await load();
+      setEditingQuestion(null);
+      setQuestionForm(EMPTY_QUESTION);
+      await load(selectedTemplateId);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to save question');
     } finally {
@@ -253,119 +301,75 @@ export function AssessmentTemplates() {
     }
   };
 
-  const updateOption = (index: number, value: string) => {
-    setForm(current => ({
-      ...current,
-      options: current.options.map((option, optionIndex) => (
-        optionIndex === index
-          ? {
-              ...option,
-              label: value,
-              value: option.value || optionValueFromLabel(value),
-            }
-          : option
-      )),
-    }));
-  };
-
-  const addOption = () => {
-    setForm(current => ({
-      ...current,
-      options: [
-        ...current.options,
-        {
-          value: '',
-          label: '',
-          is_active: true,
-        },
-      ],
-    }));
-  };
-
-  const archiveOption = (index: number) => {
-    setForm(current => ({
-      ...current,
-      options: current.options.map((option, optionIndex) => (
-        optionIndex === index ? { ...option, is_active: false } : option
-      )),
-    }));
-  };
-
-  const restoreOption = (index: number) => {
-    setForm(current => ({
-      ...current,
-      options: current.options.map((option, optionIndex) => (
-        optionIndex === index ? { ...option, is_active: true } : option
-      )),
-    }));
-  };
-
-  const moveOption = (index: number, direction: -1 | 1) => {
-    setForm(current => {
-      const target = index + direction;
-      if (target < 0 || target >= current.options.length) return current;
-      const options = [...current.options];
-      [options[index], options[target]] = [options[target], options[index]];
-      return { ...current, options };
+  const editQuestion = (question: CreatorQuestion) => {
+    setEditingQuestion(question);
+    setQuestionForm({
+      question_key: question.question_key,
+      response_key: question.response_key,
+      question_text: question.question_text,
+      help_text: question.help_text ?? '',
+      section: question.section,
+      question_type: question.question_type,
+      scoring_dimension: question.scoring_dimension ?? '',
     });
   };
 
-  const handleArchive = async (questionId: string) => {
+  const createTemplate = async (event?: FormEvent) => {
+    event?.preventDefault();
     setSaving(true);
     setError('');
+    setSuccess('');
     try {
-      await archiveQuestion(questionId);
-      await load();
+      const template = await createAssessmentTemplate({
+        name: templateForm.name,
+        description: templateForm.description || null,
+        duplicateFromTemplateId: templateForm.duplicateFromTemplateId || null,
+      });
+      setTemplateForm(EMPTY_TEMPLATE);
+      await load(template.id);
+      setSuccess('Template created. It starts inactive until restored.');
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to archive question');
+      setError(e instanceof Error ? e.message : 'Failed to create template');
     } finally {
       setSaving(false);
     }
   };
 
-  const handleToggleIncluded = async (question: CreatorAssessmentQuestion) => {
+  const setTemplateStatus = async (isActive: boolean) => {
     if (!selectedTemplate) return;
     setSaving(true);
     setError('');
+    setSuccess('');
     try {
-      await upsertTemplateQuestion(selectedTemplate.id, question, { is_included: !question.is_included });
-      await load();
+      await setTemplateActive(selectedTemplate.id, isActive);
+      await load(selectedTemplate.id);
+      setSuccess(isActive ? 'Template restored.' : 'Template archived.');
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to update template');
+      setError(e instanceof Error ? e.message : 'Failed to update template status');
     } finally {
       setSaving(false);
     }
   };
 
-  const handleMove = async (question: CreatorAssessmentQuestion, direction: -1 | 1) => {
-    if (!selectedTemplate) return;
-    const included = templateQuestions.filter(item => item.is_included);
-    const index = included.findIndex(item => item.id === question.id);
-    const swap = included[index + direction];
-    if (!swap) return;
-
-    setSaving(true);
-    setError('');
-    try {
-      await Promise.all([
-        upsertTemplateQuestion(selectedTemplate.id, question, { sort_order: swap.sort_order }),
-        upsertTemplateQuestion(selectedTemplate.id, swap, { sort_order: question.sort_order }),
-      ]);
-      await load();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to reorder question');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleSetDefault = async () => {
+  const makeDefault = async () => {
     if (!selectedTemplate) return;
     setSaving(true);
     setError('');
+    setSuccess('');
     try {
+      if (isDirty) {
+        await updateAssessmentTemplate(selectedTemplate.id, {
+          name: templateName,
+          description: templateDescription || null,
+        });
+        await saveTemplateItems(
+          selectedTemplate.id,
+          draftItems.filter(item => item.is_included || existingItemIds.has(item.id))
+        );
+      }
       await setDefaultTemplate(selectedTemplate.id);
-      await load();
+      await load(selectedTemplate.id);
+      setSuccess('Default template updated.');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to set default template');
     } finally {
@@ -373,9 +377,27 @@ export function AssessmentTemplates() {
     }
   };
 
-  if (loading) {
-    return <p className="text-sm text-gray-500">Loading assessment templates...</p>;
-  }
+  const questionAction = async (question: CreatorQuestion, action: 'archive' | 'restore' | 'delete') => {
+    setSaving(true);
+    setError('');
+    setSuccess('');
+    try {
+      if (action === 'archive') await archiveQuestion(question.id);
+      if (action === 'restore') await restoreQuestion(question.id);
+      if (action === 'delete') {
+        if (!window.confirm(`Delete "${question.question_text}" permanently?`)) return;
+        await deleteQuestion(question.id);
+      }
+      await load(selectedTemplateId);
+      setSuccess(action === 'archive' ? 'Question archived.' : action === 'restore' ? 'Question restored.' : 'Question deleted.');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : `Failed to ${action} question`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) return <p className="text-sm text-gray-500">Loading assessment templates...</p>;
 
   return (
     <div className="space-y-6">
@@ -384,347 +406,198 @@ export function AssessmentTemplates() {
         <h1 className="font-display text-2xl font-bold text-gray-100">Assessment Templates</h1>
       </div>
 
-      {error && (
-        <div className="bg-red-900/20 border border-red-800 text-red-300 rounded-lg px-4 py-3 text-sm">
-          {error}
-        </div>
-      )}
+      {error && <div className="rounded-lg border border-red-800 bg-red-900/20 px-4 py-3 text-sm text-red-300">{error}</div>}
+      {success && <div className="rounded-lg border border-success/30 bg-success/10 px-4 py-3 text-sm text-success">{success}</div>}
 
-      <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_420px] gap-6">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
         <section className="space-y-4">
-          <div className="bg-surface border border-gray-800 rounded-lg overflow-hidden">
-            <div className="p-4 border-b border-gray-800 flex items-center justify-between gap-3">
-              <div>
-                <h2 className="font-semibold text-gray-100">Template Editor</h2>
-                <p className="text-xs text-gray-500">Include, exclude, and reorder active questions.</p>
+          <div className="overflow-hidden rounded-lg border border-gray-800 bg-surface">
+            <div className="border-b border-gray-800 p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h2 className="font-semibold text-gray-100">Template Editor</h2>
+                  <p className="text-xs text-gray-500">Templates contain ordered section headings and questions.</p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <select value={selectedTemplate?.id ?? ''} onChange={e => selectTemplate(e.target.value)} className="rounded-lg border border-gray-700 bg-surface-2 px-3 py-2 text-sm text-gray-100">
+                    {templates.map(template => (
+                      <option key={template.id} value={template.id}>{template.name}{template.is_default ? ' (default)' : ''}{template.is_active ? '' : ' (archived)'}</option>
+                    ))}
+                  </select>
+                  <button type="button" onClick={saveTemplate} disabled={Boolean(saveDisabledReason)} title={saveDisabledReason || undefined} className="rounded-lg bg-accent px-3 py-2 text-sm font-semibold text-gray-950 disabled:opacity-50">Save Template Changes</button>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <select
-                  value={selectedTemplateId}
-                  onChange={e => setSelectedTemplateId(e.target.value)}
-                  className="bg-surface-2 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-accent"
-                >
-                  {templates.map(template => (
-                    <option key={template.id} value={template.id}>
-                      {template.name}{template.is_default ? ' (default)' : ''}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  onClick={handleSetDefault}
-                  disabled={!selectedTemplate || selectedTemplate.is_default || saving}
-                  className="px-3 py-2 rounded-lg bg-accent text-gray-950 text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  Set Default
-                </button>
-              </div>
+              {saveDisabledReason && <p className="mt-2 text-xs text-gray-500">Save: {saveDisabledReason}</p>}
             </div>
 
-            <div className="divide-y divide-gray-800">
-              {orderedTemplateQuestions.map(question => {
-                const isChild = Boolean(question.parent_question_key);
-                return (
-                <div key={question.id} className={`p-4 flex items-start gap-3 ${question.is_active ? '' : 'opacity-50'} ${isChild ? 'pl-10 bg-surface-2/40' : ''}`}>
-                  {isChild && <div className="mt-2 h-px w-5 bg-gray-700 shrink-0" />}
-                  <input
-                    type="checkbox"
-                    checked={question.is_included}
-                    onChange={() => handleToggleIncluded(question)}
-                    disabled={saving || !question.is_active}
-                    className="mt-1 accent-accent"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-medium text-gray-100">{question.question_text}</p>
-                      <span className="text-[11px] uppercase tracking-wide text-gray-500">{question.section}</span>
-                      {isChild && <span className="text-[11px] text-accent">Follow-up</span>}
-                      {!question.is_active && <span className="text-[11px] text-warn">Archived</span>}
-                    </div>
-                    {conditionText(question) && (
-                      <p className="text-xs text-accent mt-1">{conditionText(question)}</p>
-                    )}
-                    <p className="text-xs text-gray-500 mt-1">
-                      {question.response_key} · {question.question_type} · {question.scoring_dimension ?? 'no dimension'}
-                    </p>
+            {!selectedTemplate ? (
+              <p className="p-6 text-sm text-gray-500">No templates yet.</p>
+            ) : (
+              <div className="space-y-5 p-4">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_1.5fr]">
+                  <input value={templateName} onChange={e => setTemplateName(e.target.value)} className="rounded-lg border border-gray-700 bg-surface-2 px-3 py-2 text-sm text-gray-100" />
+                  <input value={templateDescription} onChange={e => setTemplateDescription(e.target.value)} placeholder="Description" className="rounded-lg border border-gray-700 bg-surface-2 px-3 py-2 text-sm text-gray-100" />
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  <span className={`rounded-full px-3 py-1 text-xs font-semibold ${selectedTemplate.is_active ? 'bg-success/10 text-success' : 'bg-warn/10 text-warn'}`}>{selectedTemplate.is_active ? 'Active' : 'Archived'}</span>
+                  {selectedTemplate.is_default && <span className="rounded-full bg-accent/10 px-3 py-1 text-xs font-semibold text-accent">Default</span>}
+                  <button type="button" onClick={addHeading} disabled={!selectedTemplate || saving} title={!selectedTemplate ? 'Select or create a template before adding a heading.' : saving ? 'Template update already in progress.' : undefined} className="rounded-lg border border-accent/40 px-3 py-1.5 text-sm text-accent disabled:opacity-50">Add Section Heading</button>
+                  {selectedTemplate.is_active ? (
+                    <button type="button" onClick={() => setTemplateStatus(false)} disabled={Boolean(archiveDisabledReason)} title={archiveDisabledReason || undefined} className="rounded-lg border border-gray-700 px-3 py-1.5 text-sm text-gray-300 disabled:opacity-50">Archive Template</button>
+                  ) : (
+                    <button type="button" onClick={() => setTemplateStatus(true)} disabled={saving} title={saving ? 'Template update already in progress.' : undefined} className="rounded-lg border border-accent/40 px-3 py-1.5 text-sm text-accent disabled:opacity-50">Restore Template</button>
+                  )}
+                  <button type="button" onClick={makeDefault} disabled={Boolean(defaultDisabledReason)} title={defaultDisabledReason || undefined} className="rounded-lg bg-accent px-3 py-1.5 text-sm font-semibold text-gray-950 disabled:opacity-50">Set as Default</button>
+                </div>
+                {(archiveDisabledReason || defaultDisabledReason) && (
+                  <div className="space-y-1 text-xs text-gray-500">
+                    {archiveDisabledReason && <p>Archive: {archiveDisabledReason}</p>}
+                    {defaultDisabledReason && <p>Default: {defaultDisabledReason}</p>}
                   </div>
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => {
-                        setEditingQuestion(question);
-                        setForm(toForm(question));
-                      }}
-                      disabled={saving || !question.is_active}
-                      className="px-2 py-1 rounded border border-gray-700 text-gray-300 text-sm hover:border-gray-500 disabled:opacity-30"
-                      title={QUESTION_LIFECYCLE_TOOLTIP}
-                    >
-                      Edit Question
-                    </button>
-                    <button
-                      onClick={() => handleArchive(question.id)}
-                      disabled={saving || !question.is_active}
-                      className="px-2 py-1 rounded border border-gray-700 text-gray-400 text-sm hover:border-red-800 hover:text-red-300 disabled:opacity-30"
-                    >
-                      Archive Question
-                    </button>
-                    <button
-                      onClick={() => handleMove(question, -1)}
-                      disabled={saving || !question.is_included}
-                      className="px-2 py-1 rounded border border-gray-700 text-gray-400 text-sm disabled:opacity-30"
-                    >
-                      Up
-                    </button>
-                    <button
-                      onClick={() => handleMove(question, 1)}
-                      disabled={saving || !question.is_included}
-                      className="px-2 py-1 rounded border border-gray-700 text-gray-400 text-sm disabled:opacity-30"
-                    >
-                      Down
-                    </button>
+                )}
+
+                <div className="grid grid-cols-1 gap-4 2xl:grid-cols-2">
+                  <div className="rounded-lg border border-gray-800">
+                    <div className="border-b border-gray-800 px-4 py-3">
+                      <h3 className="font-semibold text-gray-100">Template Items</h3>
+                      <p className="text-xs text-gray-500">Questions sit under the preceding heading. Remove a heading without deleting questions by unchecking/removing the heading row.</p>
+                    </div>
+                    <div className="divide-y divide-gray-800">
+                      {includedItems.length === 0 && <p className="p-4 text-sm text-gray-500">No selected questions or headings yet.</p>}
+                      {includedItems.map(item => item.item_type === 'section_heading' ? (
+                        <div key={item.id} className="bg-accent/5 p-4">
+                          <div className="flex items-start gap-3">
+                            <input type="checkbox" checked={item.is_included} onChange={() => toggleItem(item)} className="mt-2 accent-accent" />
+                            <div className="min-w-0 flex-1 space-y-2">
+                              <input value={item.title ?? ''} onChange={e => updateItem(item.id, { title: e.target.value })} className="w-full rounded-lg border border-accent/30 bg-surface-2 px-3 py-2 font-semibold text-gray-100" />
+                              <textarea value={item.description ?? ''} onChange={e => updateItem(item.id, { description: e.target.value })} rows={2} placeholder="Heading description / help text" className="w-full resize-none rounded-lg border border-gray-700 bg-surface-2 px-3 py-2 text-sm text-gray-300" />
+                              <p className="text-xs uppercase tracking-wide text-accent">Section Heading</p>
+                            </div>
+                            <div className="flex shrink-0 flex-col gap-1">
+                              <button type="button" onClick={() => moveItem(item, -1)} className="rounded border border-gray-700 px-2 py-1 text-xs text-gray-300">Up</button>
+                              <button type="button" onClick={() => moveItem(item, 1)} className="rounded border border-gray-700 px-2 py-1 text-xs text-gray-300">Down</button>
+                              <button type="button" onClick={() => toggleItem(item)} className="rounded border border-gray-700 px-2 py-1 text-xs text-gray-300">Remove</button>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div key={item.id} className={`p-4 ${item.question?.is_active ? '' : 'bg-warn/5'}`}>
+                          <div className="flex items-start gap-3">
+                            <input type="checkbox" checked={item.is_included} onChange={() => toggleItem(item)} className="mt-1 accent-accent" />
+                            <div className="min-w-0 flex-1">
+                              <p className="font-medium text-gray-100">{item.question?.question_text ?? 'Missing question'}</p>
+                              <p className="mt-1 text-xs text-gray-500">{item.question?.section} · {item.question?.question_type}</p>
+                              {item.question && !item.question.is_active && <p className="mt-2 text-xs text-warn">Archived question. Remove it or restore it from the bank.</p>}
+                            </div>
+                            <div className="flex shrink-0 flex-col gap-1">
+                              <button type="button" onClick={() => moveItem(item, -1)} className="rounded border border-gray-700 px-2 py-1 text-xs text-gray-300">Up</button>
+                              <button type="button" onClick={() => moveItem(item, 1)} className="rounded border border-gray-700 px-2 py-1 text-xs text-gray-300">Down</button>
+                              <button type="button" onClick={() => toggleItem(item)} className="rounded border border-gray-700 px-2 py-1 text-xs text-gray-300">Remove</button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg border border-gray-800">
+                    <div className="border-b border-gray-800 px-4 py-3">
+                      <h3 className="font-semibold text-gray-100">Available Active Questions</h3>
+                      <p className="text-xs text-gray-500">Archived questions are not selectable for new inclusion unless restored.</p>
+                    </div>
+                    <div className="divide-y divide-gray-800">
+                      {activeQuestions.length === 0 && <p className="p-4 text-sm text-gray-500">No active questions available.</p>}
+                      {draftItems.filter(item => item.item_type === 'question' && item.question?.is_active && !item.is_included).map(item => (
+                        <label key={item.id} className="flex cursor-pointer items-start gap-3 p-4">
+                          <input type="checkbox" checked={item.is_included} onChange={() => toggleItem(item)} className="mt-1 accent-accent" />
+                          <span className="min-w-0 flex-1">
+                            <span className="block font-medium text-gray-100">{item.question?.question_text}</span>
+                            <span className="mt-1 block text-xs text-gray-500">{item.question?.section} · {item.question?.question_type}</span>
+                          </span>
+                        </label>
+                      ))}
+                      {activeQuestions.length > 0 && draftItems.filter(item => item.item_type === 'question' && item.question?.is_active && !item.is_included).length === 0 && (
+                        <p className="p-4 text-sm text-gray-500">All active bank questions are selected in this template.</p>
+                      )}
+                    </div>
                   </div>
                 </div>
-                );
-              })}
-            </div>
+              </div>
+            )}
           </div>
 
-          <div className="bg-surface border border-gray-800 rounded-lg overflow-hidden">
-            <div className="p-4 border-b border-gray-800">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h2 className="font-semibold text-gray-100">Question Bank</h2>
-                  <p className="text-xs text-gray-500">Archived questions stay in history and cannot be newly selected.</p>
-                </div>
-                <span
-                  title={QUESTION_LIFECYCLE_TOOLTIP}
-                  className="rounded-full border border-gray-700 px-2 py-0.5 text-xs text-gray-400"
-                >
-                  ?
-                </span>
-              </div>
+          <div className="overflow-hidden rounded-lg border border-gray-800 bg-surface">
+            <div className="border-b border-gray-800 p-4">
+              <h2 className="font-semibold text-gray-100">Create New Template</h2>
+              <p className="text-xs text-gray-500">New templates start archived/non-default. Restore them when ready, then set default after at least one active question is included.</p>
+            </div>
+            <form onSubmit={createTemplate} className="grid grid-cols-1 gap-3 p-4 md:grid-cols-[1fr_1fr_220px_auto]">
+              <input value={templateForm.name} onChange={e => setTemplateForm(current => ({ ...current, name: e.target.value }))} placeholder="Template name" required className="rounded-lg border border-gray-700 bg-surface-2 px-3 py-2 text-sm text-gray-100" />
+              <input value={templateForm.description} onChange={e => setTemplateForm(current => ({ ...current, description: e.target.value }))} placeholder="Description" className="rounded-lg border border-gray-700 bg-surface-2 px-3 py-2 text-sm text-gray-100" />
+              <select value={templateForm.duplicateFromTemplateId} onChange={e => setTemplateForm(current => ({ ...current, duplicateFromTemplateId: e.target.value }))} className="rounded-lg border border-gray-700 bg-surface-2 px-3 py-2 text-sm text-gray-100">
+                <option value="">Start blank</option>
+                {templates.map(template => <option key={template.id} value={template.id}>Duplicate {template.name}</option>)}
+              </select>
+              <button type="button" onClick={() => createTemplate()} disabled={saving} className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-gray-950 disabled:opacity-50">Create Template</button>
+            </form>
+          </div>
+
+          <div className="overflow-hidden rounded-lg border border-gray-800 bg-surface">
+            <div className="border-b border-gray-800 p-4">
+              <h2 className="font-semibold text-gray-100">Question Bank</h2>
+              <p className="text-xs text-gray-500">Archived questions stay in history and are not available for new templates unless restored.</p>
             </div>
             <div className="divide-y divide-gray-800">
-              {activeQuestions.map(question => (
-                <div key={question.id} className="p-4 flex items-start gap-3">
-                  <div className="min-w-0 flex-1">
+              {[...activeQuestions, ...archivedQuestions].map(question => {
+                const eligibility = deleteEligibility[question.id] ?? { canDelete: false, reason: 'Checking delete safety...' };
+                return (
+                  <div key={question.id} className={`p-4 ${question.is_active ? '' : 'bg-warn/5'}`}>
                     <p className="font-medium text-gray-100">{question.question_text}</p>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {question.question_key} · {question.section} · {question.question_type}
-                    </p>
+                    <p className="mb-3 mt-1 text-xs text-gray-500">{question.question_key} · {question.section} · {question.question_type}{question.is_active ? '' : ' · archived'}</p>
+                    <div className="flex flex-wrap gap-2">
+                      <button type="button" onClick={() => editQuestion(question)} className="rounded-lg border border-gray-700 px-3 py-1.5 text-sm text-gray-200">Edit Question</button>
+                      {question.is_active ? (
+                        <button type="button" onClick={() => questionAction(question, 'archive')} className="rounded-lg border border-gray-700 px-3 py-1.5 text-sm text-gray-300">Archive Question</button>
+                      ) : (
+                        <button type="button" onClick={() => questionAction(question, 'restore')} className="rounded-lg border border-accent/40 px-3 py-1.5 text-sm text-accent">Restore Question</button>
+                      )}
+                      <button type="button" onClick={() => questionAction(question, 'delete')} disabled={!eligibility.canDelete} title={eligibility.reason} className="rounded-lg border border-gray-700 px-3 py-1.5 text-sm text-gray-300 disabled:opacity-50">Delete Question</button>
+                      {!eligibility.canDelete && <span className="text-xs text-gray-500">{eligibility.reason}</span>}
+                    </div>
                   </div>
-                  <button
-                    onClick={() => {
-                      setEditingQuestion(question);
-                      setForm(toForm(question));
-                    }}
-                    className="px-3 py-1.5 rounded-lg border border-gray-700 text-sm text-gray-300 hover:border-gray-500"
-                    title={QUESTION_LIFECYCLE_TOOLTIP}
-                  >
-                    Edit Question
-                  </button>
-                  <button
-                    onClick={() => handleArchive(question.id)}
-                    disabled={saving}
-                    className="px-3 py-1.5 rounded-lg border border-gray-700 text-sm text-gray-400 hover:border-red-800 hover:text-red-300 disabled:opacity-40"
-                  >
-                    Archive Question
-                  </button>
-                </div>
-              ))}
-              {archivedQuestions.length > 0 && (
-                <div className="p-4">
-                  <p className="text-xs uppercase tracking-wide text-gray-500 mb-3">Archived</p>
-                  <div className="space-y-2">
-                    {archivedQuestions.map(question => (
-                      <p key={question.id} className="text-sm text-gray-500">{question.question_text}</p>
-                    ))}
-                  </div>
-                </div>
-              )}
+                );
+              })}
+              {questions.length === 0 && <p className="p-4 text-sm text-gray-500">No question bank questions yet.</p>}
             </div>
           </div>
         </section>
 
-        <aside className="bg-surface border border-gray-800 rounded-lg p-4 h-fit">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <h2 className="font-semibold text-gray-100">{editingQuestion ? 'Edit Question' : 'Add Question'}</h2>
-              {editingQuestion && (
-                <p className="text-xs text-gray-500 mt-1" title={QUESTION_LIFECYCLE_TOOLTIP}>
-                  Question wording may be edited. Structural changes require archiving this question and creating a replacement.
-                </p>
-              )}
-            </div>
-            <span
-              title={QUESTION_LIFECYCLE_TOOLTIP}
-              className="rounded-full border border-gray-700 px-2 py-0.5 text-xs text-gray-400"
-            >
-              ?
-            </span>
-          </div>
-          <form onSubmit={handleSubmitQuestion} className="mt-4 space-y-3">
-            <input
-              value={form.question_text}
-              onChange={e => updateForm('question_text', e.target.value)}
-              placeholder="Question text"
-              required
-              className="w-full bg-surface-2 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-accent"
-            />
-            <textarea
-              value={form.help_text}
-              onChange={e => updateForm('help_text', e.target.value)}
-              placeholder="Help text"
-              rows={3}
-              className="w-full bg-surface-2 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-accent resize-none"
-            />
+        <aside className="h-fit rounded-lg border border-gray-800 bg-surface p-4">
+          <h2 className="font-semibold text-gray-100">{editingQuestion ? 'Edit Question' : 'Add Question'}</h2>
+          <form onSubmit={submitQuestion} className="mt-4 space-y-3">
+            <input value={questionForm.question_text} onChange={e => {
+              const question_text = e.target.value;
+              setQuestionForm(current => {
+                const key = !editingQuestion ? normalizeKey(question_text) : current.question_key;
+                return { ...current, question_text, question_key: key, response_key: !editingQuestion ? key : current.response_key };
+              });
+            }} placeholder="Question text" required className="w-full rounded-lg border border-gray-700 bg-surface-2 px-3 py-2 text-sm text-gray-100" />
+            <textarea value={questionForm.help_text} onChange={e => setQuestionForm(current => ({ ...current, help_text: e.target.value }))} placeholder="Help text" rows={3} className="w-full resize-none rounded-lg border border-gray-700 bg-surface-2 px-3 py-2 text-sm text-gray-100" />
             <div className="grid grid-cols-2 gap-2">
-              <input
-                value={form.question_key}
-                onChange={e => updateForm('question_key', normalizeKey(e.target.value))}
-                placeholder="question_key"
-                required
-                disabled={Boolean(editingQuestion)}
-                className="w-full bg-surface-2 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-accent"
-              />
-              <input
-                value={form.response_key}
-                onChange={e => updateForm('response_key', normalizeKey(e.target.value))}
-                placeholder="response_key"
-                required
-                disabled={Boolean(editingQuestion)}
-                className="w-full bg-surface-2 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-accent"
-              />
+              <input value={questionForm.question_key} onChange={e => setQuestionForm(current => ({ ...current, question_key: normalizeKey(e.target.value) }))} disabled={Boolean(editingQuestion)} placeholder="question_key" required className="rounded-lg border border-gray-700 bg-surface-2 px-3 py-2 text-sm text-gray-100 disabled:opacity-60" />
+              <input value={questionForm.response_key} onChange={e => setQuestionForm(current => ({ ...current, response_key: normalizeKey(e.target.value) }))} disabled={Boolean(editingQuestion)} placeholder="response_key" required className="rounded-lg border border-gray-700 bg-surface-2 px-3 py-2 text-sm text-gray-100 disabled:opacity-60" />
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <input
-                value={form.section}
-                onChange={e => updateForm('section', e.target.value)}
-                placeholder="Section"
-                required
-                disabled={Boolean(editingQuestion)}
-                className="w-full bg-surface-2 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-accent"
-              />
-              <select
-                value={form.question_type}
-                onChange={e => updateForm('question_type', e.target.value)}
-                disabled={Boolean(editingQuestion)}
-                className="w-full bg-surface-2 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-accent"
-              >
+              <input value={questionForm.section} onChange={e => setQuestionForm(current => ({ ...current, section: e.target.value }))} disabled={Boolean(editingQuestion)} placeholder="Section" className="rounded-lg border border-gray-700 bg-surface-2 px-3 py-2 text-sm text-gray-100 disabled:opacity-60" />
+              <select value={questionForm.question_type} onChange={e => setQuestionForm(current => ({ ...current, question_type: e.target.value as AssessmentQuestionType }))} disabled={Boolean(editingQuestion)} className="rounded-lg border border-gray-700 bg-surface-2 px-3 py-2 text-sm text-gray-100 disabled:opacity-60">
                 {QUESTION_TYPES.map(type => <option key={type} value={type}>{type}</option>)}
               </select>
             </div>
-            <input
-              value={form.scoring_dimension}
-              onChange={e => updateForm('scoring_dimension', e.target.value)}
-              placeholder="Scoring dimension"
-              disabled={Boolean(editingQuestion)}
-              className="w-full bg-surface-2 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-accent"
-            />
-            <div className="grid grid-cols-[1fr_120px] gap-2">
-              <input
-                value={form.parent_question_key}
-                onChange={e => updateForm('parent_question_key', normalizeKey(e.target.value))}
-                placeholder="Parent question key"
-                disabled={Boolean(editingQuestion)}
-                className="w-full bg-surface-2 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-accent"
-              />
-              <select
-                value={form.show_when_operator}
-                onChange={e => updateForm('show_when_operator', e.target.value)}
-                disabled={Boolean(editingQuestion)}
-                className="w-full bg-surface-2 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-accent"
-              >
-                <option value="equals">equals</option>
-                <option value="includes">includes</option>
-              </select>
-            </div>
-            <input
-              value={form.show_when_value}
-              onChange={e => updateForm('show_when_value', e.target.value)}
-              placeholder="Show when value"
-              disabled={Boolean(editingQuestion)}
-              className="w-full bg-surface-2 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-accent"
-            />
-            {supportsOptions(form.question_type) && (
-              <div className="space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-xs uppercase tracking-wide text-gray-500">Options</p>
-                  <button
-                    type="button"
-                    onClick={addOption}
-                    className="px-2 py-1 rounded border border-gray-700 text-gray-300 text-xs hover:border-gray-500"
-                  >
-                    Add Option
-                  </button>
-                </div>
-                <div className="space-y-2">
-                  {form.options.map((option, index) => (
-                    <div key={`${option.value}-${index}`} className={`grid grid-cols-[1fr_auto] gap-2 ${option.is_active ? '' : 'opacity-50'}`}>
-                      <input
-                        value={option.label}
-                        onChange={e => updateOption(index, e.target.value)}
-                        placeholder="Option label"
-                        className="w-full bg-surface-2 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-accent"
-                      />
-                      <div className="flex items-center gap-1">
-                        <button
-                          type="button"
-                          onClick={() => moveOption(index, -1)}
-                          disabled={index === 0}
-                          className="px-2 py-2 rounded border border-gray-700 text-gray-400 text-xs disabled:opacity-30"
-                        >
-                          Up
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => moveOption(index, 1)}
-                          disabled={index === form.options.length - 1}
-                          className="px-2 py-2 rounded border border-gray-700 text-gray-400 text-xs disabled:opacity-30"
-                        >
-                          Down
-                        </button>
-                        {option.is_active ? (
-                          <button
-                            type="button"
-                            onClick={() => archiveOption(index)}
-                            className="px-2 py-2 rounded border border-gray-700 text-gray-400 text-xs hover:border-red-800 hover:text-red-300"
-                          >
-                            Archive
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => restoreOption(index)}
-                            className="px-2 py-2 rounded border border-gray-700 text-gray-300 text-xs hover:border-gray-500"
-                          >
-                            Restore
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                  {form.options.length === 0 && (
-                    <p className="text-xs text-gray-500">No options yet.</p>
-                  )}
-                </div>
-              </div>
-            )}
+            <input value={questionForm.scoring_dimension} onChange={e => setQuestionForm(current => ({ ...current, scoring_dimension: e.target.value }))} disabled={Boolean(editingQuestion)} placeholder="Scoring dimension" className="w-full rounded-lg border border-gray-700 bg-surface-2 px-3 py-2 text-sm text-gray-100 disabled:opacity-60" />
             <div className="flex gap-2">
-              <button
-                type="submit"
-                disabled={saving}
-                className="px-4 py-2 rounded-lg bg-accent text-gray-950 text-sm font-semibold disabled:opacity-40"
-              >
-                {saving ? 'Saving...' : editingQuestion ? 'Save Question' : 'Add Question'}
-              </button>
-              {editingQuestion && (
-                <button
-                  type="button"
-                  onClick={resetForm}
-                  className="px-4 py-2 rounded-lg border border-gray-700 text-gray-300 text-sm"
-                >
-                  Cancel
-                </button>
-              )}
+              <button type="button" onClick={() => submitQuestion()} disabled={saving} className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-gray-950 disabled:opacity-50">{saving ? 'Saving...' : editingQuestion ? 'Save Question' : 'Add Question'}</button>
+              {editingQuestion && <button type="button" onClick={() => { setEditingQuestion(null); setQuestionForm(EMPTY_QUESTION); }} className="rounded-lg border border-gray-700 px-4 py-2 text-sm text-gray-300">Cancel</button>}
             </div>
           </form>
         </aside>

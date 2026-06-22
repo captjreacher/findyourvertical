@@ -156,8 +156,25 @@ export interface CreatorAssessmentQuestion extends CreatorQuestion {
   sort_order: number;
 }
 
+export type CreatorAssessmentTemplateItemType = 'section_heading' | 'question';
+
+export interface CreatorAssessmentTemplateItem {
+  id: string;
+  template_id: string;
+  item_type: CreatorAssessmentTemplateItemType;
+  question_id: string | null;
+  title: string | null;
+  description: string | null;
+  is_included: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+  question?: CreatorQuestion | null;
+}
+
 export interface CreatorAssessmentRuntimeTemplate extends CreatorAssessmentTemplate {
   questions: CreatorAssessmentQuestion[];
+  items?: CreatorAssessmentTemplateItem[];
 }
 
 export interface CreatorAssessment {
@@ -180,6 +197,8 @@ export interface CreatorAssessment {
 export type AuthenticityBand = 'High Authenticity' | 'Moderate Authenticity' | 'Potential Conflict';
 export type MonetisationReadiness = 'Low' | 'Developing' | 'Ready' | 'Advanced';
 export type AgencyOpportunityBand = 'High Priority' | 'Qualified' | 'Needs Development' | 'Not Suitable Yet';
+export type AgencyPriority = 'low' | 'medium' | 'high';
+export type PremiumReportStatus = 'not_started' | 'available' | 'purchased' | 'delivered';
 
 export interface CreatorDnaProfile {
   id: string;
@@ -230,21 +249,25 @@ export interface ReportData {
   };
   internal_agency_scores: {
     commercial_potential: number | null;
-    growth_potential: number | null;
-    monetisation_potential: number | null;
-    ambition: number | null;
-    coachability: number | null;
-    innovation: number | null;
-    retention_potential: number | null;
-    parasocial_strength: number | null;
-    audience_loyalty: number | null;
     management_readiness: number | null;
+    coachability: number | null;
+    ambition: number | null;
+    innovation: number | null;
+    parasocial_strength: number | null;
     brand_risk: number | null;
-    reputation_risk: number | null;
     scalability: number | null;
-    content_consistency: number | null;
     agency_opportunity: number | null;
   };
+  agency_recommendation: {
+    agency_priority: AgencyPriority;
+    recommended_next_action: string;
+    management_fit_summary: string;
+    risk_notes: string[];
+    opportunity_notes: string[];
+  };
+  free_report_summary: string;
+  premium_report_available: boolean;
+  premium_report_status: PremiumReportStatus;
 }
 
 export interface CreatorReport {

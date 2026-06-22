@@ -11,6 +11,7 @@ import type {
   CreatorAssessmentRuntimeTemplate,
   CreatorAssessmentTemplate,
   CreatorAssessmentTemplateQuestion,
+  CreatorAssessmentTemplateItem,
   CreatorQuestion,
   AssessmentQuestionType,
   ReportData,
@@ -23,6 +24,9 @@ import { generateCreatorDnaProfile } from './creator-dna';
 type TemplateQuestionRow = CreatorAssessmentTemplateQuestion & {
   creator_question_bank: CreatorQuestion | null;
 };
+
+type TemplateQuestionJoinRow = Omit<CreatorAssessmentTemplateQuestion, 'question'>;
+type TemplateItemRow = Omit<CreatorAssessmentTemplateItem, 'question'>;
 
 type CreatorProfileUpsertPayload = Pick<
   CreatorProfile,
@@ -117,37 +121,119 @@ async function upsertCreatorProfile(payload: CreatorProfileUpsertPayload): Promi
 
 function flattenTemplate(
   template: CreatorAssessmentTemplate,
-  rows: TemplateQuestionRow[] | null | undefined
+  rows: TemplateQuestionRow[] | null | undefined,
+  itemRows?: TemplateItemRow[] | null
 ): CreatorAssessmentRuntimeTemplate {
+  const questionById = new Map(
+    (rows ?? [])
+      .filter(row => row.creator_question_bank)
+      .map(row => [row.question_id, row.creator_question_bank!] as const)
+  );
+  const legacyQuestions = (rows ?? [])
+    .filter(row => row.creator_question_bank)
+    .map(row => ({
+      ...row.creator_question_bank!,
+      template_id: row.template_id,
+      is_included: row.is_included,
+      sort_order: row.sort_order,
+    }))
+    .sort((a, b) => a.sort_order - b.sort_order);
+
+  const items = (itemRows ?? [])
+    .map(item => ({
+      id: item.id,
+      template_id: item.template_id,
+      item_type: item.item_type,
+      question_id: item.question_id,
+      title: item.title,
+      description: item.description,
+      is_included: item.is_included,
+      sort_order: item.sort_order,
+      created_at: item.created_at,
+      updated_at: item.updated_at,
+      question: item.question_id ? questionById.get(item.question_id) ?? null : null,
+    }))
+    .sort((a, b) => a.sort_order - b.sort_order);
+
+  const itemQuestions = items
+    .filter(item => item.item_type === 'question' && item.question)
+    .map(item => ({
+      ...item.question!,
+      template_id: item.template_id,
+      is_included: item.is_included,
+      sort_order: item.sort_order,
+    }));
+
   return {
     ...template,
-    questions: (rows ?? [])
-      .filter(row => row.creator_question_bank)
-      .map(row => ({
-        ...row.creator_question_bank!,
-        template_id: row.template_id,
-        is_included: row.is_included,
-        sort_order: row.sort_order,
-      }))
-      .sort((a, b) => a.sort_order - b.sort_order),
+    questions: itemQuestions.length > 0 ? itemQuestions : legacyQuestions,
+    items: items.length > 0 ? items : legacyQuestions.map(question => ({
+      id: `${question.template_id}:${question.id}`,
+      template_id: question.template_id,
+      item_type: 'question',
+      question_id: question.id,
+      title: null,
+      description: null,
+      is_included: question.is_included,
+      sort_order: question.sort_order,
+      created_at: question.created_at,
+      updated_at: question.updated_at,
+      question,
+    })),
   };
+}
+
+async function loadTemplateQuestionRows(templateIds: string[]): Promise<TemplateQuestionRow[]> {
+  if (templateIds.length === 0) return [];
+
+  const { data: joinRows, error: joinError } = await supabase
+    .from('creator_assessment_template_questions')
+    .select('template_id,question_id,is_included,sort_order,created_at,updated_at')
+    .in('template_id', templateIds);
+
+  if (joinError) throw new Error(`Failed to load template questions: ${joinError.message}`);
+
+  const questionIds = [...new Set(((joinRows ?? []) as TemplateQuestionJoinRow[]).map(row => row.question_id))];
+  const { data: questionRows, error: questionError } = questionIds.length > 0
+    ? await supabase.from('creator_question_bank').select('*').in('id', questionIds)
+    : { data: [], error: null };
+
+  if (questionError) throw new Error(`Failed to load template question bank rows: ${questionError.message}`);
+
+  const questionById = new Map(((questionRows ?? []) as CreatorQuestion[]).map(question => [question.id, question]));
+  return ((joinRows ?? []) as TemplateQuestionJoinRow[]).map(row => ({
+    ...row,
+    creator_question_bank: questionById.get(row.question_id) ?? null,
+  }));
+}
+
+async function loadTemplateItemRows(templateIds: string[]): Promise<TemplateItemRow[]> {
+  if (templateIds.length === 0) return [];
+
+  const { data, error } = await (supabase as any)
+    .from('creator_assessment_template_items')
+    .select('id,template_id,item_type,question_id,title,description,is_included,sort_order,created_at,updated_at')
+    .in('template_id', templateIds);
+
+  if (error) {
+    const message = String(error.message ?? '');
+    if (
+      message.includes('creator_assessment_template_items')
+      || message.includes('schema cache')
+      || message.includes('does not exist')
+    ) {
+      return [];
+    }
+    throw new Error(`Failed to load template items: ${message}`);
+  }
+
+  return (data ?? []) as TemplateItemRow[];
 }
 
 export async function getDefaultAssessmentTemplate(): Promise<CreatorAssessmentRuntimeTemplate | null> {
   const { data, error } = await supabase
     .from('creator_assessment_templates')
-    .select(`
-      *,
-      creator_assessment_template_questions (
-        template_id,
-        question_id,
-        is_included,
-        sort_order,
-        created_at,
-        updated_at,
-        creator_question_bank (*)
-      )
-    `)
+    .select('*')
     .eq('is_default', true)
     .eq('is_active', true)
     .single();
@@ -155,10 +241,13 @@ export async function getDefaultAssessmentTemplate(): Promise<CreatorAssessmentR
   if (error) throw new Error(`Failed to load assessment template: ${error.message}`);
   if (!data) return null;
 
-  return flattenTemplate(
-    data as CreatorAssessmentTemplate,
-    (data as { creator_assessment_template_questions?: TemplateQuestionRow[] }).creator_assessment_template_questions
-  );
+  const template = data as CreatorAssessmentTemplate;
+  const [questionRows, itemRows] = await Promise.all([
+    loadTemplateQuestionRows([template.id]),
+    loadTemplateItemRows([template.id]),
+  ]);
+
+  return flattenTemplate(template, questionRows, itemRows);
 }
 
 export async function submitAssessment(
@@ -278,6 +367,10 @@ export async function submitAssessment(
     creator_dna_profile: dnaProfileInput,
     why_this_result: result.why_this_result,
     internal_agency_scores: result.internal_agency_scores,
+    agency_recommendation: result.agency_recommendation,
+    free_report_summary: result.free_report_summary,
+    premium_report_available: result.premium_report_available,
+    premium_report_status: result.premium_report_status,
   };
 
   const { data: report, error: reportErr } = await supabase
@@ -381,6 +474,9 @@ export async function trackAgencyCalendarClick(input: {
 
   if (profileError) throw new Error(`Failed to set follow-up flag: ${profileError.message}`);
 }
+
+// TODO: Add a Calendly webhook handler that records `agency_strategy_meeting_booked`
+// and clears `follow_up_required` only after receiving a confirmed booking event.
 
 // ── Public Reads ──
 
@@ -552,37 +648,95 @@ export async function archiveQuestion(id: string): Promise<void> {
     .eq('id', id);
 
   if (error) throw new Error(`Failed to archive question: ${error.message}`);
+}
 
-  const { error: templateError } = await supabase
+export async function restoreQuestion(id: string): Promise<void> {
+  const { error } = await supabase
+    .from('creator_question_bank')
+    .update({ is_active: true })
+    .eq('id', id);
+
+  if (error) throw new Error(`Failed to restore question: ${error.message}`);
+}
+
+export async function getQuestionDeleteEligibility(id: string): Promise<{ canDelete: boolean; reason?: string }> {
+  const { count, error } = await supabase
     .from('creator_assessment_template_questions')
-    .update({ is_included: false })
+    .select('*', { count: 'exact', head: true })
     .eq('question_id', id);
 
-  if (templateError) throw new Error(`Failed to remove archived question from templates: ${templateError.message}`);
+  if (error) throw new Error(`Failed to check question references: ${error.message}`);
+
+  const { count: itemCount, error: itemError } = await (supabase as any)
+    .from('creator_assessment_template_items')
+    .select('*', { count: 'exact', head: true })
+    .eq('question_id', id);
+
+  if (itemError) {
+    const message = String(itemError.message ?? '');
+    if (
+      !message.includes('creator_assessment_template_items')
+      && !message.includes('schema cache')
+      && !message.includes('does not exist')
+    ) {
+      throw new Error(`Failed to check question item references: ${message}`);
+    }
+  }
+
+  const totalReferences = (count ?? 0) + (itemError ? 0 : itemCount ?? 0);
+  if (totalReferences > 0) {
+    return {
+      canDelete: false,
+      reason: `Cannot delete because this question is referenced by ${totalReferences} template record${totalReferences === 1 ? '' : 's'}. Archive it instead.`,
+    };
+  }
+
+  return { canDelete: true };
+}
+
+export async function deleteQuestion(id: string): Promise<void> {
+  const eligibility = await getQuestionDeleteEligibility(id);
+  if (!eligibility.canDelete) throw new Error(eligibility.reason ?? 'Question cannot be deleted safely');
+
+  const { error } = await supabase
+    .from('creator_question_bank')
+    .delete()
+    .eq('id', id);
+
+  if (error) throw new Error(`Failed to delete question: ${error.message}`);
 }
 
 export async function getAssessmentTemplates(): Promise<CreatorAssessmentRuntimeTemplate[]> {
   const { data, error } = await supabase
     .from('creator_assessment_templates')
-    .select(`
-      *,
-      creator_assessment_template_questions (
-        template_id,
-        question_id,
-        is_included,
-        sort_order,
-        created_at,
-        updated_at,
-        creator_question_bank (*)
-      )
-    `)
+    .select('*')
     .order('is_default', { ascending: false })
     .order('created_at', { ascending: true });
 
   if (error) throw new Error(`Failed to load assessment templates: ${error.message}`);
 
-  return ((data ?? []) as Array<CreatorAssessmentTemplate & { creator_assessment_template_questions?: TemplateQuestionRow[] }>)
-    .map(template => flattenTemplate(template, template.creator_assessment_template_questions));
+  const templates = (data ?? []) as CreatorAssessmentTemplate[];
+  const templateIds = templates.map(template => template.id);
+  const [questionRows, itemRows] = await Promise.all([
+    loadTemplateQuestionRows(templateIds),
+    loadTemplateItemRows(templateIds),
+  ]);
+
+  const questionsByTemplate = new Map<string, TemplateQuestionRow[]>();
+  for (const row of questionRows) {
+    questionsByTemplate.set(row.template_id, [...(questionsByTemplate.get(row.template_id) ?? []), row]);
+  }
+
+  const itemsByTemplate = new Map<string, TemplateItemRow[]>();
+  for (const row of itemRows) {
+    itemsByTemplate.set(row.template_id, [...(itemsByTemplate.get(row.template_id) ?? []), row]);
+  }
+
+  return templates.map(template => flattenTemplate(
+    template,
+    questionsByTemplate.get(template.id) ?? [],
+    itemsByTemplate.get(template.id) ?? []
+  ));
 }
 
 export async function upsertTemplateQuestion(
@@ -602,7 +756,197 @@ export async function upsertTemplateQuestion(
   if (error) throw new Error(`Failed to update template question: ${error.message}`);
 }
 
+export async function saveTemplateQuestions(
+  templateId: string,
+  questions: Array<Pick<CreatorAssessmentQuestion, 'id' | 'is_included' | 'sort_order'>>
+): Promise<void> {
+  if (questions.length === 0) return;
+
+  const { error } = await supabase
+    .from('creator_assessment_template_questions')
+    .upsert(questions.map(question => ({
+      template_id: templateId,
+      question_id: question.id,
+      is_included: question.is_included,
+      sort_order: question.sort_order,
+    })));
+
+  if (error) throw new Error(`Failed to save template questions: ${error.message}`);
+}
+
+export async function saveTemplateItems(
+  templateId: string,
+  items: Array<Pick<CreatorAssessmentTemplateItem, 'id' | 'item_type' | 'question_id' | 'title' | 'description' | 'is_included' | 'sort_order'>>
+): Promise<void> {
+  const existingIds = items
+    .filter(item => !item.id.startsWith('new-') && !item.id.includes(':'))
+    .map(item => item.id);
+
+  const { data: existingRows, error: existingError } = await (supabase as any)
+    .from('creator_assessment_template_items')
+    .select('id')
+    .eq('template_id', templateId);
+
+  if (existingError) throw new Error(`Failed to load existing template items: ${existingError.message}`);
+
+  const removeIds = ((existingRows ?? []) as Array<{ id: string }>)
+    .map(row => row.id)
+    .filter(id => !existingIds.includes(id));
+
+  if (removeIds.length > 0) {
+    const { error: deleteError } = await (supabase as any)
+      .from('creator_assessment_template_items')
+      .delete()
+      .in('id', removeIds);
+
+    if (deleteError) throw new Error(`Failed to remove template items: ${deleteError.message}`);
+  }
+
+  const rows = items.map(item => ({
+    ...(item.id.startsWith('new-') || item.id.includes(':') ? {} : { id: item.id }),
+    template_id: templateId,
+    item_type: item.item_type,
+    question_id: item.item_type === 'question' ? item.question_id : null,
+    title: item.item_type === 'section_heading' ? item.title : null,
+    description: item.item_type === 'section_heading' ? item.description : null,
+    is_included: item.is_included,
+    sort_order: item.sort_order,
+  }));
+
+  if (rows.length > 0) {
+    const { error } = await (supabase as any)
+      .from('creator_assessment_template_items')
+      .upsert(rows);
+
+    if (error) throw new Error(`Failed to save template items: ${error.message}`);
+  }
+
+  await saveTemplateQuestions(
+    templateId,
+    items
+      .filter(item => item.item_type === 'question' && item.question_id)
+      .map(item => ({
+        id: item.question_id!,
+        is_included: item.is_included,
+        sort_order: item.sort_order,
+      }))
+  );
+}
+
+export async function createAssessmentTemplate(input: {
+  name: string;
+  description?: string | null;
+  duplicateFromTemplateId?: string | null;
+}): Promise<CreatorAssessmentTemplate> {
+  const { data: template, error } = await supabase
+    .from('creator_assessment_templates')
+    .insert({
+      name: input.name,
+      description: input.description ?? null,
+      is_active: false,
+      is_default: false,
+    })
+    .select()
+    .single();
+
+  if (error) throw new Error(`Failed to create template: ${error.message}`);
+
+  if (input.duplicateFromTemplateId) {
+    const { data: itemRows, error: itemRowsError } = await (supabase as any)
+      .from('creator_assessment_template_items')
+      .select('item_type,question_id,title,description,is_included,sort_order')
+      .eq('template_id', input.duplicateFromTemplateId);
+
+    if (itemRowsError) throw new Error(`Failed to duplicate template items: ${itemRowsError.message}`);
+
+    if ((itemRows ?? []).length > 0) {
+      const { error: insertItemsError } = await (supabase as any)
+        .from('creator_assessment_template_items')
+        .insert((itemRows ?? []).map((row: any) => ({
+          template_id: template.id,
+          item_type: row.item_type,
+          question_id: row.question_id,
+          title: row.title,
+          description: row.description,
+          is_included: row.is_included,
+          sort_order: row.sort_order,
+        })));
+
+      if (insertItemsError) throw new Error(`Failed to attach duplicated template items: ${insertItemsError.message}`);
+    }
+
+    const { data: rows, error: rowsError } = await supabase
+      .from('creator_assessment_template_questions')
+      .select('question_id,is_included,sort_order')
+      .eq('template_id', input.duplicateFromTemplateId);
+
+    if (rowsError) throw new Error(`Failed to duplicate template questions: ${rowsError.message}`);
+
+    if ((rows ?? []).length > 0) {
+      const { error: insertRowsError } = await supabase
+        .from('creator_assessment_template_questions')
+        .insert((rows ?? []).map(row => ({
+          template_id: template.id,
+          question_id: row.question_id,
+          is_included: row.is_included,
+          sort_order: row.sort_order,
+        })));
+
+      if (insertRowsError) throw new Error(`Failed to attach duplicated questions: ${insertRowsError.message}`);
+    }
+  }
+
+  return template as CreatorAssessmentTemplate;
+}
+
+export async function updateAssessmentTemplate(
+  templateId: string,
+  input: Partial<Pick<CreatorAssessmentTemplate, 'name' | 'description'>>
+): Promise<void> {
+  const { error } = await supabase
+    .from('creator_assessment_templates')
+    .update(input)
+    .eq('id', templateId);
+
+  if (error) throw new Error(`Failed to update template: ${error.message}`);
+}
+
+export async function setTemplateActive(templateId: string, isActive: boolean): Promise<void> {
+  if (!isActive) {
+    const { data: template, error: loadError } = await supabase
+      .from('creator_assessment_templates')
+      .select('is_default')
+      .eq('id', templateId)
+      .single();
+
+    if (loadError) throw new Error(`Failed to load template: ${loadError.message}`);
+    if (template?.is_default) {
+      throw new Error('Set another active template as default before archiving the current default.');
+    }
+  }
+
+  const { error } = await supabase
+    .from('creator_assessment_templates')
+    .update({ is_active: isActive })
+    .eq('id', templateId);
+
+  if (error) throw new Error(`Failed to update template status: ${error.message}`);
+}
+
 export async function setDefaultTemplate(templateId: string): Promise<void> {
+  const { data: includedRows, error: includedError } = await (supabase as any)
+    .from('creator_assessment_template_items')
+    .select('question_id, is_included, creator_question_bank!inner(is_active)')
+    .eq('template_id', templateId)
+    .eq('item_type', 'question')
+    .eq('is_included', true)
+    .eq('creator_question_bank.is_active', true);
+
+  if (includedError) throw new Error(`Failed to validate template questions: ${includedError.message}`);
+  if ((includedRows ?? []).length === 0) {
+    throw new Error('A template needs at least one included active question before it can be set as default.');
+  }
+
   const { error: clearError } = await supabase
     .from('creator_assessment_templates')
     .update({ is_default: false })

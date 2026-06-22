@@ -30,6 +30,10 @@ export interface ScoringResult {
   day_90_plan: { phase: string; focus: string; actions: string[] }[];
   why_this_result: ReportData['why_this_result'];
   internal_agency_scores: ReportData['internal_agency_scores'];
+  agency_recommendation: ReportData['agency_recommendation'];
+  free_report_summary: string;
+  premium_report_available: boolean;
+  premium_report_status: ReportData['premium_report_status'];
 }
 
 type ArchetypeDetails = Pick<ReportData, 'archetype_description' | 'archetype_strengths' | 'archetype_risks' | 'archetype_growth'>;
@@ -158,6 +162,15 @@ function computeAgencyOpportunity(r: AssessmentResponses, scores: ScoreBreakdown
   if (strengthSignals(r.strengths).length >= 3) score += 5;
 
   return scoreFrom(score);
+}
+
+function scoreTextDepth(value: unknown, max = 20): number {
+  const wordCount = textValue(value).split(/\s+/).filter(Boolean).length;
+  return Math.min(wordCount * 3, max);
+}
+
+function includesFutureImprovement(values: string[], terms: string[]): boolean {
+  return values.some(value => textIncludes(value, terms));
 }
 
 function determineArchetype(r: AssessmentResponses): CreatorArchetype {
@@ -306,32 +319,120 @@ function generatePlan(readiness: ManagementReadiness, topVerticals: { name: Cont
 
 function internalAgencyScores(r: AssessmentResponses, scores: ScoreBreakdown): ReportData['internal_agency_scores'] {
   const futureImprovements = arrayValue(r.future_improvements);
-  const ambitionSignals = [
-    textValue(r.aspirational_creators),
-    textValue(r.alternative_content_ideas),
-    ...futureImprovements,
-  ].filter(Boolean);
-  const ambition = scoreFrom(35 + Math.min(ambitionSignals.length * 12, 45) + (r.audience_target === 'whales' ? 10 : 5));
-  const innovation = scoreFrom(35 + Math.min(textValue(r.alternative_content_ideas).length / 3, 35) + (futureImprovements.includes('Content Direction') ? 15 : 0));
-  const coachability = scoreFrom(40 + Math.min(futureImprovements.length * 8, 35) + (r.consent ? 10 : 0));
-  const growth_potential = scoreFrom(scores.brand_clarity * 0.25 + scores.consistency * 0.25 + scores.monetisation * 0.2 + ambition * 0.3);
+  const strengths = strengthSignals(r.strengths);
+  const polarisingArchetypes = ['Dominatrix', 'Brat', 'Submissive', 'Bimbo', 'High-Class Escort Fantasy', 'Corporate Rebel'];
+  const boundaryRisk = ['full_nude', 'fetish'].includes(r.nudity_level) ? 18 : r.nudity_level === 'undecided' ? 14 : 4;
+
+  const coachability = scoreFrom(
+    35
+    + Math.min(futureImprovements.length * 7, 28)
+    + (includesFutureImprovement(futureImprovements, ['content direction', 'skills match', 'audience growth', 'subscriber retention']) ? 12 : 0)
+    + (textValue(r.future_improvements_other) ? 5 : 0)
+    + (selectedArchetypes(r).length > 0 ? 8 : 0)
+    + (r.consent ? 7 : 0)
+  );
+  const ambition = scoreFrom(
+    35
+    + scoreTextDepth(r.aspirational_creators, 24)
+    + (includesFutureImprovement(futureImprovements, ['financial', 'channel expansion', 'long-term', 'audience growth']) ? 18 : 0)
+    + (r.audience_target === 'whales' ? 12 : 7)
+    + (r.comfort_level >= 8 ? 8 : 0)
+  );
+  const innovation = scoreFrom(
+    30
+    + scoreTextDepth(r.alternative_content_ideas, 32)
+    + (includesFutureImprovement(futureImprovements, ['content direction', 'channel expansion']) ? 16 : 0)
+    + (hasAny(strengths, ['My creativity', 'My storytelling ability', 'My ability to entertain']) ? 12 : 0)
+  );
+  const managementReadiness = scoreFrom(
+    scores.agency_opportunity * 0.35
+    + scores.consistency * 0.25
+    + coachability * 0.25
+    + ambition * 0.15
+  );
+  const commercialPotential = scoreFrom(
+    scores.monetisation * 0.35
+    + scores.brand_clarity * 0.25
+    + scores.creator_dna * 0.2
+    + (r.parasocial_comfort ? 12 : 0)
+    + (r.audience_target === 'whales' ? 8 : 4)
+  );
+  const parasocialStrength = scoreFrom(
+    (r.parasocial_comfort ? 58 : 28)
+    + (hasAny(strengths, ['My storytelling ability', 'My communication skills', 'My ability to connect with people', 'My kindness', 'My authenticity']) ? 22 : 0)
+    + (r.audience_target === 'whales' ? 8 : 4)
+    + Math.min(scoreTextDepth(r.passion_topic, 12), 12)
+  );
+  const brandRisk = scoreFrom(
+    20
+    + boundaryRisk
+    + (selectedArchetypes(r).some(archetype => polarisingArchetypes.includes(archetype)) ? 22 : 0)
+    + (includesFutureImprovement(futureImprovements, ['moderation', 'compliance', 'restrictions', 'platform concerns']) ? 18 : 0)
+    - (selectedArchetypes(r).length > 0 && r.nudity_level !== 'undecided' ? 8 : 0)
+  );
+  const scalability = scoreFrom(
+    scores.consistency * 0.45
+    + managementReadiness * 0.2
+    + coachability * 0.2
+    + (includesFutureImprovement(futureImprovements, ['lifestyle', 'channel expansion', 'subscriber retention']) ? 15 : 5)
+  );
+  const agencyOpportunity = scoreFrom(
+    commercialPotential * 0.25
+    + managementReadiness * 0.2
+    + coachability * 0.15
+    + ambition * 0.15
+    + innovation * 0.1
+    + parasocialStrength * 0.1
+    + scalability * 0.1
+    - brandRisk * 0.05
+  );
 
   return {
-    commercial_potential: scores.agency_opportunity,
-    growth_potential,
-    monetisation_potential: scores.monetisation,
-    ambition,
+    commercial_potential: commercialPotential,
+    management_readiness: managementReadiness,
     coachability,
+    ambition,
     innovation,
-    retention_potential: scoreFrom((r.parasocial_comfort ? 65 : 40) + (r.audience_target === 'whales' ? 15 : 5)),
-    parasocial_strength: r.parasocial_comfort ? 80 : 35,
-    audience_loyalty: scoreFrom(scores.brand_clarity * 0.5 + scores.consistency * 0.5),
-    management_readiness: scores.agency_opportunity,
-    brand_risk: r.nudity_level === 'fetish' || selectedArchetypes(r).includes('Dominatrix') ? 65 : 35,
-    reputation_risk: r.nudity_level === 'full_nude' || r.nudity_level === 'fetish' ? 55 : 30,
-    scalability: scoreFrom(scores.consistency * 0.6 + scores.creator_dna * 0.4),
-    content_consistency: scores.consistency,
-    agency_opportunity: scores.agency_opportunity,
+    parasocial_strength: parasocialStrength,
+    brand_risk: brandRisk,
+    scalability,
+    agency_opportunity: agencyOpportunity,
+  };
+}
+
+function agencyRecommendation(
+  r: AssessmentResponses,
+  scores: ReportData['internal_agency_scores'],
+  readiness: ManagementReadiness
+): ReportData['agency_recommendation'] {
+  const opportunity = scores.agency_opportunity ?? 0;
+  const brandRisk = scores.brand_risk ?? 0;
+  const priority = opportunity >= 72 && brandRisk < 70 ? 'high' : opportunity >= 50 ? 'medium' : 'low';
+  const futureImprovements = arrayValue(r.future_improvements);
+  const riskNotes = [
+    brandRisk >= 65 ? 'Elevated brand/reputation risk; review boundaries, platform constraints, and identity separation before outreach.' : null,
+    scores.scalability !== null && scores.scalability < 50 ? 'Scalability is limited by consistency or systemisation signals.' : null,
+    !r.parasocial_comfort ? 'Lower comfort with fan relationship content may reduce retention and DM monetisation upside.' : null,
+    includesFutureImprovement(futureImprovements, ['moderation', 'compliance']) ? 'Creator explicitly raised moderation or compliance as an area to improve.' : null,
+  ].filter(Boolean) as string[];
+  const opportunityNotes = [
+    scores.commercial_potential !== null && scores.commercial_potential >= 70 ? 'Strong monetisation and positioning signal for agency review.' : null,
+    scores.coachability !== null && scores.coachability >= 70 ? 'High openness to guidance and structured improvement.' : null,
+    scores.parasocial_strength !== null && scores.parasocial_strength >= 70 ? 'Relationship-led content could support retention and high-value fan journeys.' : null,
+    scores.innovation !== null && scores.innovation >= 70 ? 'Creator has clear appetite for testing new content directions.' : null,
+  ].filter(Boolean) as string[];
+  const recommendedNextAction = priority === 'high'
+    ? 'Invite to a strategy discussion and review management fit.'
+    : priority === 'medium'
+      ? 'Add to nurture queue; request more detail on goals, cadence, and boundaries.'
+      : 'Keep in low-priority nurture; revisit after stronger consistency or monetisation signals.';
+
+  return {
+    agency_priority: priority,
+    recommended_next_action: recommendedNextAction,
+    management_fit_summary: `${readiness}. Internal scores indicate ${priority} agency priority with ${opportunity}/100 opportunity and ${brandRisk}/100 brand risk.`,
+    risk_notes: riskNotes.length > 0 ? riskNotes : ['No major internal risk signal detected from available responses.'],
+    opportunity_notes: opportunityNotes.length > 0 ? opportunityNotes : ['Opportunity is still developing; strongest next step is gathering clearer goals and content cadence evidence.'],
   };
 }
 
@@ -383,6 +484,8 @@ export function scoreAssessment(r: AssessmentResponses): ScoringResult {
   const details = detailFor(archetype);
   const top_verticals = determineVerticals(r, archetype);
   const management_readiness = determineReadiness(r, fullScores);
+  const agencyScores = internalAgencyScores(r, fullScores);
+  const recommendation = agencyRecommendation(r, agencyScores, management_readiness);
 
   const pricing_strategy = r.audience_target === 'whales'
     ? 'Premium positioning appears worth exploring: selective access, high-touch fan journeys, and carefully packaged premium offers may be stronger than broad low-ticket volume.'
@@ -405,7 +508,11 @@ export function scoreAssessment(r: AssessmentResponses): ScoringResult {
     ],
     day_90_plan: generatePlan(management_readiness, top_verticals),
     why_this_result: whyThisResult(r, fullScores, archetype, top_verticals),
-    internal_agency_scores: internalAgencyScores(r, fullScores),
+    internal_agency_scores: agencyScores,
+    agency_recommendation: recommendation,
+    free_report_summary: `Your creator report identifies ${archetype} as your strongest current positioning and recommends testing ${top_verticals[0]?.name ?? 'a clearer content lane'} as a first growth opportunity.`,
+    premium_report_available: false,
+    premium_report_status: 'not_started',
   };
 }
 

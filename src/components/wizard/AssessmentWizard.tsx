@@ -481,6 +481,45 @@ export function AssessmentWizard() {
   }, []);
 
   const sections = useMemo(() => {
+    const includedItems = (template?.items ?? []).filter(item => item.is_included);
+    if (includedItems.length > 0) {
+      const itemSections: { section: string; description?: string | null; questions: CreatorAssessmentQuestion[] }[] = [];
+      let currentSection: { section: string; description?: string | null; questions: CreatorAssessmentQuestion[] } | null = null;
+
+      for (const item of includedItems.sort((a, b) => a.sort_order - b.sort_order)) {
+        if (item.item_type === 'section_heading') {
+          currentSection = {
+            section: item.title?.trim() || 'Unsectioned Questions',
+            description: item.description,
+            questions: [],
+          };
+          itemSections.push(currentSection);
+          continue;
+        }
+
+        if (item.item_type !== 'question' || !item.question?.is_active) continue;
+        const question = {
+          ...item.question,
+          template_id: item.template_id,
+          is_included: item.is_included,
+          sort_order: item.sort_order,
+        };
+
+        if (!currentSection) {
+          currentSection = {
+            section: 'Unsectioned Questions',
+            description: null,
+            questions: [],
+          };
+          itemSections.push(currentSection);
+        }
+
+        currentSection.questions.push(question);
+      }
+
+      return itemSections.filter(section => section.questions.length > 0);
+    }
+
     const includedQuestions = (template?.questions ?? []).filter(q => q.is_included && q.is_active);
     const grouped = new Map<string, CreatorAssessmentQuestion[]>();
 
@@ -497,6 +536,7 @@ export function AssessmentWizard() {
       })
       .map(([section, questions]) => ({
         section,
+        description: SECTION_DESCRIPTIONS[section] ?? null,
         questions: questions.sort((a, b) => a.sort_order - b.sort_order),
       }));
   }, [template]);
@@ -889,8 +929,8 @@ export function AssessmentWizard() {
           <div className="mx-auto max-w-2xl space-y-6 animate-in">
             <div>
               <h2 className="font-display text-xl font-semibold">{activeSection.section}</h2>
-              {SECTION_DESCRIPTIONS[activeSection.section] && (
-                <p className="mt-2 text-sm leading-6 text-gray-500">{SECTION_DESCRIPTIONS[activeSection.section]}</p>
+              {activeSection.description && (
+                <p className="mt-2 text-sm leading-6 text-gray-500">{activeSection.description}</p>
               )}
             </div>
             {visibleActiveSectionQuestions.map(question => renderQuestion(question))}

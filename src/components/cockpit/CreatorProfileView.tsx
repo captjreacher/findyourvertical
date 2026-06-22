@@ -10,7 +10,7 @@ import {
   addCreatorNote,
   updateCreatorStatus,
 } from '@/lib/creators-api';
-import type { CreatorProfile, CreatorAssessment, CreatorDnaProfile, CreatorReport, CreatorNote, CreatorStatusEvent, CreatorStatus } from '@/types/creator';
+import type { CreatorProfile, CreatorAssessment, CreatorDnaProfile, CreatorReport, CreatorNote, CreatorStatusEvent, CreatorStatus, ReportData } from '@/types/creator';
 
 const STATUS_LABELS: Record<CreatorStatus, string> = {
   prospect: 'Prospect',
@@ -51,6 +51,89 @@ const NEXT_STATUS: Record<CreatorStatus, { next: CreatorStatus; event: string; l
   ],
   offboarded: [],
 };
+
+function InternalScoreCard({ label, score, inverse = false }: { label: string; score: number | null | undefined; inverse?: boolean }) {
+  const value = score ?? 0;
+  const good = inverse ? value <= 40 : value >= 70;
+  const mid = inverse ? value <= 65 : value >= 45;
+  const color = good ? 'text-success' : mid ? 'text-warn' : 'text-pink';
+
+  return (
+    <div className="bg-surface-2 rounded-lg p-3">
+      <div className={`text-xl font-bold ${color}`}>{value}</div>
+      <div className="text-xs text-gray-500 mt-1">{label}</div>
+    </div>
+  );
+}
+
+function AgencyQualificationPanel({ report }: { report: CreatorReport | undefined }) {
+  const data = report?.report_json as Partial<ReportData> | undefined;
+  const scores = data?.internal_agency_scores;
+  const recommendation = data?.agency_recommendation;
+
+  if (!scores && !recommendation) {
+    return (
+      <div className="bg-surface border border-gray-800 rounded-xl p-5">
+        <h2 className="font-display font-semibold text-lg mb-2">Agency Qualification</h2>
+        <p className="text-sm text-gray-600">No internal agency qualification data stored for this report yet.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-surface border border-accent/20 rounded-xl p-5">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="font-display font-semibold text-lg">Agency Qualification</h2>
+          {recommendation?.agency_priority && (
+            <p className="mt-1 text-xs uppercase tracking-wide text-gray-500">
+              {recommendation.agency_priority} priority
+            </p>
+          )}
+        </div>
+        <div className="text-right">
+          <div className="text-3xl font-bold text-accent">{scores?.agency_opportunity ?? 0}</div>
+          <div className="text-xs text-gray-500">Agency Opportunity</div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <InternalScoreCard label="Management Readiness" score={scores?.management_readiness} />
+        <InternalScoreCard label="Commercial Potential" score={scores?.commercial_potential} />
+        <InternalScoreCard label="Coachability" score={scores?.coachability} />
+        <InternalScoreCard label="Brand Risk" score={scores?.brand_risk} inverse />
+      </div>
+
+      {recommendation && (
+        <div className="mt-5 space-y-4">
+          <div className="rounded-lg bg-surface-2 p-3">
+            <div className="text-xs font-semibold uppercase tracking-wide text-accent">Recommended Next Action</div>
+            <p className="mt-1 text-sm text-gray-300">{recommendation.recommended_next_action}</p>
+          </div>
+          <p className="text-sm text-gray-400">{recommendation.management_fit_summary}</p>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <div className="rounded-lg border border-pink/20 bg-pink/5 p-3">
+              <div className="text-xs font-semibold uppercase tracking-wide text-pink">Risk Notes</div>
+              <ul className="mt-2 space-y-1.5">
+                {recommendation.risk_notes.map(note => (
+                  <li key={note} className="text-xs text-gray-300">{note}</li>
+                ))}
+              </ul>
+            </div>
+            <div className="rounded-lg border border-success/20 bg-success/5 p-3">
+              <div className="text-xs font-semibold uppercase tracking-wide text-success">Opportunity Notes</div>
+              <ul className="mt-2 space-y-1.5">
+                {recommendation.opportunity_notes.map(note => (
+                  <li key={note} className="text-xs text-gray-300">{note}</li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function CreatorProfileView() {
   const { profileId } = useParams<{ profileId: string }>();
@@ -123,6 +206,7 @@ export function CreatorProfileView() {
     ['Agency Opportunity', profile.agency_opportunity_score ?? 0],
   ];
   const latestDna = dnaProfiles[0];
+  const latestReport = reports[0];
 
   return (
     <div className="space-y-8">
@@ -160,6 +244,8 @@ export function CreatorProfileView() {
               ))}
             </div>
           </div>
+
+          <AgencyQualificationPanel report={latestReport} />
 
           {/* Creator DNA */}
           <div className="bg-surface border border-gray-800 rounded-xl p-5">
