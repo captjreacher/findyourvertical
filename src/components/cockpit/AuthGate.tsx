@@ -8,6 +8,12 @@ type AuthMessageKind = 'success' | 'error';
 const MAGIC_LINK_SUCCESS_MESSAGE = 'Magic link sent. Check your inbox.';
 const LOGIN_ERROR_MESSAGE = 'Unable to send a magic link. Check the email address or contact the site owner for access.';
 const EMPTY_INVITE_REQUEST = { name: '', email: '', onlyfansHandle: '' };
+const INVITE_BENEFITS = [
+  'Discover your strongest content niche',
+  'Understand your growth potential',
+  'Receive a personalised creator report',
+  'Learn which mentoring and growth services suit you',
+];
 
 export function AuthGate({ children }: { children: ReactNode }) {
   const location = useLocation();
@@ -85,10 +91,10 @@ export function AuthGate({ children }: { children: ReactNode }) {
 
   if (!session) {
     return (
-      <div className="min-h-screen bg-surface-2 px-4 py-8 text-charcoal sm:px-6 lg:px-8">
-        <div className="mx-auto grid min-h-[calc(100vh-4rem)] w-full max-w-6xl items-center gap-8 lg:grid-cols-[minmax(0,1fr)_440px]">
-          <section className="py-8">
-            <div className="mb-8 flex items-center gap-3">
+      <div className="min-h-screen bg-surface-2 px-4 py-6 text-charcoal sm:px-6 lg:px-8">
+        <div className="mx-auto grid min-h-[calc(100vh-3rem)] w-full max-w-6xl items-center gap-8 lg:grid-cols-[minmax(0,1fr)_460px]">
+          <section className="py-6">
+            <div className="mb-7 flex items-center gap-3">
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent text-sm font-black text-white shadow-lg shadow-orange-950/40">
                 FYV
               </div>
@@ -123,48 +129,24 @@ export function AuthGate({ children }: { children: ReactNode }) {
             </div>
           </section>
 
-          <div className="rounded-3xl border border-white/10 bg-surface/90 p-5 shadow-2xl shadow-black/30 backdrop-blur sm:p-6">
-            <div className="mb-5">
-              <h2 className="text-xl font-bold text-charcoal">Creator Cockpit Access</h2>
-              <p className="mt-1 text-sm text-charcoal-2">Sign in with your invited email address.</p>
-            </div>
-            <form onSubmit={handleLogin} className="space-y-4">
-              <input
-                type="email"
-                name="email"
-                autoComplete="email"
-                spellCheck={false}
-                value={email}
-                onChange={e => {
-                  setEmail(e.target.value);
-                  setMessage(null);
-                  setMessageKind(null);
-                }}
-                placeholder="you@agency.com"
-                required
-                className="field-control w-full"
-              />
-              <button type="submit" disabled={sending} className="btn-primary w-full">
-                {sending ? 'Sending...' : messageKind === 'success' ? 'Send Again' : 'Send Magic Link'}
-              </button>
-            </form>
-            {message && (
-              <p
-                className={`mt-4 text-sm ${messageKind === 'error' ? 'text-pink' : 'text-success'}`}
-                role={messageKind === 'error' ? 'alert' : 'status'}
-              >
-                {message}
-              </p>
-            )}
-
-            <div className="my-6 h-px bg-white/10" />
-
-            <div className="mb-4">
-              <h2 className="text-lg font-bold text-charcoal">Don't have an invite?</h2>
-              <p className="mt-1 text-sm leading-6 text-charcoal-2">
-                Request an assessment invitation and we'll review your details before granting access.
+          <div className="rounded-3xl border border-accent/35 bg-surface/95 p-5 shadow-2xl shadow-orange-950/25 backdrop-blur sm:p-6">
+            <div className="mb-5 rounded-2xl border border-accent/20 bg-accent/10 px-4 py-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-accent">Creator invitation</p>
+              <h2 className="mt-2 text-2xl font-bold leading-tight text-charcoal sm:text-3xl">
+                Want personalised creator guidance?
+              </h2>
+              <p className="mt-3 text-sm leading-6 text-slate-300">
+                Request an invitation and we'll review your profile for access to the Find Your Vertical assessment and creator growth programme.
               </p>
             </div>
+            <ul className="mb-5 space-y-3 text-sm leading-6 text-slate-200">
+              {INVITE_BENEFITS.map(benefit => (
+                <li key={benefit} className="flex gap-3">
+                  <span aria-hidden="true" className="mt-0.5 text-success">✓</span>
+                  <span>{benefit}</span>
+                </li>
+              ))}
+            </ul>
             <form onSubmit={handleInviteRequest} className="space-y-3">
               <input
                 value={inviteRequest.name}
@@ -187,8 +169,8 @@ export function AuthGate({ children }: { children: ReactNode }) {
                 placeholder="OnlyFans Handle (optional)"
                 className="field-control w-full"
               />
-              <button type="submit" disabled={requestingInvite} className="btn-secondary w-full">
-                {requestingInvite ? 'Requesting...' : 'Request My Invite'}
+              <button type="submit" disabled={requestingInvite} className="btn-primary min-h-12 w-full text-base shadow-orange-950/40">
+                {requestingInvite ? 'Requesting...' : 'Get My Assessment Invite →'}
               </button>
             </form>
             {inviteMessage && (
@@ -199,6 +181,43 @@ export function AuthGate({ children }: { children: ReactNode }) {
                 {inviteMessage}
               </p>
             )}
+
+            <div className="my-5 h-px bg-white/10" />
+
+            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+              <div className="mb-3">
+                <h2 className="text-base font-bold text-charcoal">Already invited?</h2>
+                <p className="mt-1 text-sm text-charcoal-2">Sign in with your invited email address.</p>
+              </div>
+              <form onSubmit={handleLogin} className="space-y-3">
+                <input
+                  type="email"
+                  name="email"
+                  autoComplete="email"
+                  spellCheck={false}
+                  value={email}
+                  onChange={e => {
+                    setEmail(e.target.value);
+                    setMessage(null);
+                    setMessageKind(null);
+                  }}
+                  placeholder="you@agency.com"
+                  required
+                  className="field-control w-full"
+                />
+                <button type="submit" disabled={sending} className="btn-secondary w-full">
+                  {sending ? 'Sending...' : messageKind === 'success' ? 'Send Again' : 'Send Magic Link'}
+                </button>
+              </form>
+              {message && (
+                <p
+                  className={`mt-3 text-sm ${messageKind === 'error' ? 'text-pink' : 'text-success'}`}
+                  role={messageKind === 'error' ? 'alert' : 'status'}
+                >
+                  {message}
+                </p>
+              )}
+            </div>
           </div>
         </div>
       </div>
