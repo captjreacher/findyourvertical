@@ -358,6 +358,8 @@ export async function submitAssessment(
     archetype_growth: result.archetype_growth,
     scores: result.scores,
     top_verticals: result.top_verticals,
+    classification_confidence: result.classification_confidence,
+    result_confidence: result.result_confidence,
     pricing_strategy: result.pricing_strategy,
     winning_10_framework: result.winning_10_framework,
     growth_strategy: result.growth_strategy,
@@ -368,8 +370,10 @@ export async function submitAssessment(
     why_this_result: result.why_this_result,
     internal_agency_scores: result.internal_agency_scores,
     agency_recommendation: result.agency_recommendation,
+    report_tier: result.report_tier,
     free_report_summary: result.free_report_summary,
     premium_report_available: result.premium_report_available,
+    premium_report_generated: result.premium_report_generated,
     premium_report_status: result.premium_report_status,
   };
 
@@ -379,6 +383,9 @@ export async function submitAssessment(
       creator_profile_id: profileId,
       report_slug: slug,
       report_json: reportData,
+      report_tier: reportData.report_tier,
+      premium_report_available: reportData.premium_report_available,
+      premium_report_generated: reportData.premium_report_generated,
       version: '1.0',
     })
     .select()
@@ -419,15 +426,23 @@ export async function requestStrategyDiscussion(input: {
   const details = {
     report_slug: input.reportSlug,
     agency_opportunity_flag: true,
+    funnel_step: 'booking_requested',
     requested_at: requestedAt,
     notes: normalizeNullableText(input.notes),
   };
 
-  const { error: eventError } = await supabase.from('creator_status_events').insert({
-    creator_profile_id: input.profileId,
-    event_type: 'agency_strategy_discussion_requested',
-    details,
-  });
+  const { error: eventError } = await supabase.from('creator_status_events').insert([
+    {
+      creator_profile_id: input.profileId,
+      event_type: 'agency_strategy_discussion_requested',
+      details,
+    },
+    {
+      creator_profile_id: input.profileId,
+      event_type: 'agency_discussion_requested',
+      details,
+    },
+  ]);
 
   if (eventError) throw new Error(`Failed to flag strategy request: ${eventError.message}`);
 
@@ -451,16 +466,24 @@ export async function trackAgencyCalendarClick(input: {
   const clickedAt = new Date().toISOString();
   const details = {
     report_slug: input.reportSlug,
+    funnel_step: 'calendar_clicked',
     follow_up_required: true,
     follow_up_reason: 'calendar_clicked_no_confirmed_booking',
     clicked_at: clickedAt,
   };
 
-  const { error: eventError } = await supabase.from('creator_status_events').insert({
-    creator_profile_id: input.profileId,
-    event_type: 'agency_calendar_clicked',
-    details,
-  });
+  const { error: eventError } = await supabase.from('creator_status_events').insert([
+    {
+      creator_profile_id: input.profileId,
+      event_type: 'agency_calendar_clicked',
+      details,
+    },
+    {
+      creator_profile_id: input.profileId,
+      event_type: 'calendly_clicked',
+      details,
+    },
+  ]);
 
   if (eventError) throw new Error(`Failed to track calendar click: ${eventError.message}`);
 
@@ -475,8 +498,63 @@ export async function trackAgencyCalendarClick(input: {
   if (profileError) throw new Error(`Failed to set follow-up flag: ${profileError.message}`);
 }
 
-// TODO: Add a Calendly webhook handler that records `agency_strategy_meeting_booked`
-// and clears `follow_up_required` only after receiving a confirmed booking event.
+export async function trackCreatorEvent(input: {
+  profileId: string;
+  eventType: string;
+  details?: Record<string, unknown>;
+}): Promise<void> {
+  const { error } = await supabase.from('creator_status_events').insert({
+    creator_profile_id: input.profileId,
+    event_type: input.eventType,
+    details: input.details ?? {},
+  });
+
+  if (error) throw new Error(`Failed to track creator event: ${error.message}`);
+}
+
+export async function confirmStrategyMeetingBooked(input: {
+  profileId: string;
+  reportSlug?: string;
+  bookingTimestamp?: string;
+  calendlyEventUri?: string;
+}): Promise<void> {
+  const bookedAt = input.bookingTimestamp ?? new Date().toISOString();
+  const details = {
+    report_slug: normalizeNullableText(input.reportSlug),
+    funnel_step: 'booking_confirmed',
+    booked_at: bookedAt,
+    calendly_event_uri: normalizeNullableText(input.calendlyEventUri),
+  };
+
+  const { error: eventError } = await supabase.from('creator_status_events').insert([
+    {
+      creator_profile_id: input.profileId,
+      event_type: 'agency_strategy_meeting_booked',
+      details,
+    },
+    {
+      creator_profile_id: input.profileId,
+      event_type: 'strategy_meeting_booked',
+      details,
+    },
+  ]);
+
+  if (eventError) throw new Error(`Failed to track booked strategy meeting: ${eventError.message}`);
+
+  const { error: profileError } = await supabase
+    .from('creator_profiles')
+    .update({
+      follow_up_required: false,
+      follow_up_reason: null,
+      strategy_meeting_booked_at: bookedAt,
+    })
+    .eq('id', input.profileId);
+
+  if (profileError) throw new Error(`Failed to clear booking follow-up flag: ${profileError.message}`);
+}
+
+// TODO: Connect the Calendly webhook to `confirmStrategyMeetingBooked` after
+// verifying the webhook signature and mapping the invitee to a creator profile.
 
 // ── Public Reads ──
 

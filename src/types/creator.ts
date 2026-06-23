@@ -63,6 +63,7 @@ export interface CreatorProfile {
   mailing_list_opt_out?: boolean;
   follow_up_required?: boolean | null;
   follow_up_reason?: string | null;
+  strategy_meeting_booked_at?: string | null;
 }
 
 // ── Assessment ──
@@ -199,6 +200,8 @@ export type MonetisationReadiness = 'Low' | 'Developing' | 'Ready' | 'Advanced';
 export type AgencyOpportunityBand = 'High Priority' | 'Qualified' | 'Needs Development' | 'Not Suitable Yet';
 export type AgencyPriority = 'low' | 'medium' | 'high';
 export type PremiumReportStatus = 'not_started' | 'available' | 'purchased' | 'delivered';
+export type ResultConfidenceLabel = 'Low' | 'Moderate' | 'High';
+export type ReportTier = 'free' | 'premium';
 
 export interface CreatorDnaProfile {
   id: string;
@@ -234,6 +237,8 @@ export interface ReportData {
     agency_opportunity: number;
   };
   top_verticals: { name: string; rationale: string }[];
+  classification_confidence: number;
+  result_confidence: ResultConfidenceLabel;
   pricing_strategy: string;
   winning_10_framework: string;
   growth_strategy: string;
@@ -243,9 +248,14 @@ export interface ReportData {
   creator_dna_profile?: Omit<CreatorDnaProfile, 'id' | 'created_at'>;
   why_this_result: {
     summary: string;
-    top_signals: string[];
-    strongest_answers: string[];
-    key_differentiators: string[];
+    strongest_behavioural_signals: string[];
+    strongest_assessment_responses: string[];
+    strongest_creator_strengths: string[];
+    strongest_archetype_matches: string[];
+    strongest_content_opportunity_signals: string[];
+    top_signals?: string[];
+    strongest_answers?: string[];
+    key_differentiators?: string[];
   };
   internal_agency_scores: {
     commercial_potential: number | null;
@@ -265,8 +275,10 @@ export interface ReportData {
     risk_notes: string[];
     opportunity_notes: string[];
   };
+  report_tier: ReportTier;
   free_report_summary: string;
   premium_report_available: boolean;
+  premium_report_generated: boolean;
   premium_report_status: PremiumReportStatus;
 }
 
@@ -277,6 +289,9 @@ export interface CreatorReport {
   report_slug: string;
   report_json: ReportData;
   version: string;
+  report_tier?: ReportTier;
+  premium_report_available?: boolean;
+  premium_report_generated?: boolean;
 }
 
 // ── Notes & Events ──

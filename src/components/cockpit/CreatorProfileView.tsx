@@ -97,11 +97,16 @@ function AgencyQualificationPanel({ report }: { report: CreatorReport | undefine
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <InternalScoreCard label="Management Readiness" score={scores?.management_readiness} />
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+        <InternalScoreCard label="Agency Opportunity" score={scores?.agency_opportunity} />
         <InternalScoreCard label="Commercial Potential" score={scores?.commercial_potential} />
+        <InternalScoreCard label="Management Readiness" score={scores?.management_readiness} />
         <InternalScoreCard label="Coachability" score={scores?.coachability} />
+        <InternalScoreCard label="Ambition" score={scores?.ambition} />
+        <InternalScoreCard label="Innovation" score={scores?.innovation} />
+        <InternalScoreCard label="Parasocial Strength" score={scores?.parasocial_strength} />
         <InternalScoreCard label="Brand Risk" score={scores?.brand_risk} inverse />
+        <InternalScoreCard label="Scalability" score={scores?.scalability} />
       </div>
 
       {recommendation && (

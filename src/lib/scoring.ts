@@ -22,6 +22,8 @@ export interface ScoringResult {
   archetype_risks: string[];
   archetype_growth: string[];
   top_verticals: { name: ContentVertical; rationale: string }[];
+  classification_confidence: number;
+  result_confidence: ReportData['result_confidence'];
   management_readiness: ManagementReadiness;
   pricing_strategy: string;
   winning_10_framework: string;
@@ -31,8 +33,10 @@ export interface ScoringResult {
   why_this_result: ReportData['why_this_result'];
   internal_agency_scores: ReportData['internal_agency_scores'];
   agency_recommendation: ReportData['agency_recommendation'];
+  report_tier: ReportData['report_tier'];
   free_report_summary: string;
   premium_report_available: boolean;
+  premium_report_generated: boolean;
   premium_report_status: ReportData['premium_report_status'];
 }
 
@@ -278,6 +282,47 @@ function determineVerticals(r: AssessmentResponses, archetype: CreatorArchetype)
   return results.slice(0, 3);
 }
 
+function confidenceLabel(score: number): ReportData['result_confidence'] {
+  if (score >= 75) return 'High';
+  if (score >= 50) return 'Moderate';
+  return 'Low';
+}
+
+function computeClassificationConfidence(
+  r: AssessmentResponses,
+  scores: ScoreBreakdown,
+  archetype: CreatorArchetype,
+  topVerticals: { name: ContentVertical; rationale: string }[]
+): number {
+  const strengths = strengthSignals(r.strengths);
+  const selected = selectedArchetypes(r);
+  const explicitMatch = selected[0] === archetype;
+  const competingArchetypes = Math.max(0, selected.filter(value => value !== 'Other').length - 1);
+  const scoreSpread = Math.max(
+    scores.creator_dna,
+    scores.brand_clarity,
+    scores.monetisation,
+    scores.consistency
+  ) - Math.min(
+    scores.creator_dna,
+    scores.brand_clarity,
+    scores.monetisation,
+    scores.consistency
+  );
+
+  return scoreFrom(
+    45
+    + (explicitMatch ? 18 : 0)
+    + Math.min(strengths.length * 5, 20)
+    + (r.comfort_level >= 7 ? 8 : 0)
+    + (r.parasocial_comfort ? 6 : 0)
+    + (topVerticals.length >= 3 ? 5 : 0)
+    - competingArchetypes * 8
+    - (scoreSpread >= 45 ? 10 : scoreSpread >= 30 ? 5 : 0)
+    - (r.nudity_level === 'undecided' ? 6 : 0)
+  );
+}
+
 function determineReadiness(r: AssessmentResponses, scores: ScoreBreakdown): ManagementReadiness {
   const avg = (scores.agency_opportunity + scores.consistency + scores.brand_clarity) / 3;
   if (avg >= 70 && scores.agency_opportunity >= 65 && r.consent) return 'Scale Candidate';
@@ -438,7 +483,23 @@ function agencyRecommendation(
 
 function whyThisResult(r: AssessmentResponses, scores: ScoreBreakdown, archetype: CreatorArchetype, topVerticals: { name: ContentVertical; rationale: string }[]): ReportData['why_this_result'] {
   const strengths = strengthSignals(r.strengths);
-  const signals = [
+  const behaviouralSignals = [
+    ...(r.comfort_level >= 7 ? ['High camera comfort'] : r.comfort_level >= 5 ? ['Developing camera comfort'] : ['Lower camera comfort that may need support']),
+    ...(r.parasocial_comfort ? ['Comfort with audience connection'] : ['More cautious approach to audience intimacy']),
+    ...(r.audience_target === 'whales' ? ['Premium audience ambition'] : ['Mass audience growth ambition']),
+  ].slice(0, 4);
+  const assessmentResponses = [
+    ...strengths.slice(0, 3),
+    ...(r.passion_topic ? ['Clear personal topic or interest signal'] : []),
+    ...(r.fantasy_keywords ? ['Defined fantasy keywords'] : []),
+    ...(arrayValue(r.future_improvements).length > 0 ? ['Future-focused improvement goals'] : []),
+  ].slice(0, 5);
+  const archetypeMatches = [
+    ...(selectedArchetypes(r).length > 0 ? selectedArchetypes(r).slice(0, 3) : [archetype]),
+    `${archetype} profile alignment`,
+  ].filter((value, index, self) => self.indexOf(value) === index).slice(0, 4);
+  const contentSignals = topVerticals.map(vertical => `${vertical.name}: ${vertical.rationale}`).slice(0, 3);
+  const legacySignals = [
     ...(strengths.length > 0 ? strengths : ['Clear creator self-awareness']),
     ...(selectedArchetypes(r).length > 0 ? [`${archetype} archetype resonance`] : []),
     ...(r.comfort_level >= 7 ? ['High camera comfort'] : []),
@@ -459,8 +520,13 @@ function whyThisResult(r: AssessmentResponses, scores: ScoreBreakdown, archetype
   ];
 
   return {
-    summary: `You matched most strongly with ${archetype} because your answers point toward ${signals.slice(0, 3).join(', ').toLowerCase()}. This combination creates a creator identity with clear content angles and monetisation potential.`,
-    top_signals: signals,
+    summary: `Your responses consistently aligned with ${archetype} because they point toward ${legacySignals.slice(0, 3).join(', ').toLowerCase()}. These signals create a creator identity with clear content angles and monetisation potential.`,
+    strongest_behavioural_signals: behaviouralSignals,
+    strongest_assessment_responses: assessmentResponses,
+    strongest_creator_strengths: strengths.length > 0 ? strengths.slice(0, 5) : ['Clear creator self-awareness'],
+    strongest_archetype_matches: archetypeMatches,
+    strongest_content_opportunity_signals: contentSignals,
+    top_signals: legacySignals,
     strongest_answers: strongestAnswers,
     key_differentiators: differentiators,
   };
@@ -484,6 +550,7 @@ export function scoreAssessment(r: AssessmentResponses): ScoringResult {
   const details = detailFor(archetype);
   const top_verticals = determineVerticals(r, archetype);
   const management_readiness = determineReadiness(r, fullScores);
+  const classification_confidence = computeClassificationConfidence(r, fullScores, archetype, top_verticals);
   const agencyScores = internalAgencyScores(r, fullScores);
   const recommendation = agencyRecommendation(r, agencyScores, management_readiness);
 
@@ -496,6 +563,8 @@ export function scoreAssessment(r: AssessmentResponses): ScoringResult {
     archetype,
     ...details,
     top_verticals,
+    classification_confidence,
+    result_confidence: confidenceLabel(classification_confidence),
     management_readiness,
     pricing_strategy,
     winning_10_framework: 'Your answers suggest there may be a repeatable content hook to uncover. The next strategic step is identifying which concepts are most natural for you, then testing them without overcommitting to one format too early.',
@@ -510,8 +579,10 @@ export function scoreAssessment(r: AssessmentResponses): ScoringResult {
     why_this_result: whyThisResult(r, fullScores, archetype, top_verticals),
     internal_agency_scores: agencyScores,
     agency_recommendation: recommendation,
+    report_tier: 'free',
     free_report_summary: `Your creator report identifies ${archetype} as your strongest current positioning and recommends testing ${top_verticals[0]?.name ?? 'a clearer content lane'} as a first growth opportunity.`,
     premium_report_available: false,
+    premium_report_generated: false,
     premium_report_status: 'not_started',
   };
 }

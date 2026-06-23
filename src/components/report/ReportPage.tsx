@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { getReportBySlug, requestStrategyDiscussion, trackAgencyCalendarClick } from '@/lib/creators-api';
+import { getReportBySlug, requestStrategyDiscussion, trackAgencyCalendarClick, trackCreatorEvent } from '@/lib/creators-api';
 import type { CreatorReport, ReportData } from '@/types/creator';
 
 const CALENDLY_URL = 'https://calendly.com/mikegrobinson/20-min';
 const AGENCY_PROMPT_COPY = 'Would you like to discuss what this result could mean for your creator growth?';
 
-type ReportAction = 'print' | 'email' | 'share' | 'discuss';
+type ReportAction = 'download' | 'email' | 'share' | 'discuss';
 type AgencyAnswer = 'yes' | 'no';
 
 function ScoreBar({ label, score }: { label: string; score: number }) {
@@ -37,20 +37,6 @@ function ScoreCard({ title, scores }: { title: string; scores: Record<string, nu
   );
 }
 
-function ReadinessBadge({ readiness }: { readiness: string }) {
-  const colors: Record<string, string> = {
-    'Scale Candidate': 'bg-success/20 text-success border-success/30',
-    'Ready Now': 'bg-accent/20 text-accent border-accent/30',
-    'Needs Foundation': 'bg-warn/20 text-warn border-warn/30',
-    'Hobby Creator': 'bg-gray-700/50 text-gray-400 border-gray-600',
-  };
-  return (
-    <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${colors[readiness] ?? 'border-gray-700 text-gray-400'}`}>
-      {readiness}
-    </span>
-  );
-}
-
 export function ReportPage() {
   const { slug } = useParams<{ slug: string }>();
   const [report, setReport] = useState<CreatorReport | null>(null);
@@ -68,6 +54,14 @@ export function ReportPage() {
       const storedAnswer = window.sessionStorage.getItem(`agencyPrompt:${slug}`);
       if (storedAnswer === 'yes' || storedAnswer === 'no') setAgencyAnswer(storedAnswer);
       setLoading(false);
+      if (r && !window.sessionStorage.getItem(`reportViewed:${slug}`)) {
+        window.sessionStorage.setItem(`reportViewed:${slug}`, 'true');
+        void trackCreatorEvent({
+          profileId: r.creator_profile_id,
+          eventType: 'report_viewed',
+          details: { report_slug: r.report_slug, viewed_at: new Date().toISOString() },
+        });
+      }
     });
   }, [slug]);
 
@@ -94,16 +88,39 @@ export function ReportPage() {
     Object.entries(d.scores).filter(([key]) => key !== 'agency_opportunity')
   ) as Record<string, number>;
 
+  const downloadPdf = async () => {
+    const blob = createReportPdfBlob(d, publicScores);
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `find-your-vertical-${report.report_slug}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+
+    await trackCreatorEvent({
+      profileId: report.creator_profile_id,
+      eventType: 'report_downloaded',
+      details: { report_slug: report.report_slug, downloaded_at: new Date().toISOString(), format: 'pdf' },
+    });
+  };
+
   const performReportAction = async (action: ReportAction) => {
     setActionError('');
     setActionMessage('');
 
-    if (action === 'print') {
-      window.print();
+    if (action === 'download') {
+      await downloadPdf();
       return;
     }
 
     if (action === 'email') {
+      await trackCreatorEvent({
+        profileId: report.creator_profile_id,
+        eventType: 'report_emailed',
+        details: { report_slug: report.report_slug, emailed_at: new Date().toISOString() },
+      });
       const subject = encodeURIComponent('My Find Your Vertical Report');
       const body = encodeURIComponent(`Here is my Find Your Vertical report: ${window.location.href}`);
       window.location.href = `mailto:?subject=${subject}&body=${body}`;
@@ -119,10 +136,20 @@ export function ReportPage() {
 
       if (navigator.share) {
         await navigator.share(shareData);
+        await trackCreatorEvent({
+          profileId: report.creator_profile_id,
+          eventType: 'report_shared',
+          details: { report_slug: report.report_slug, shared_at: new Date().toISOString(), method: 'native_share' },
+        });
         return;
       }
 
       await navigator.clipboard.writeText(window.location.href);
+      await trackCreatorEvent({
+        profileId: report.creator_profile_id,
+        eventType: 'report_shared',
+        details: { report_slug: report.report_slug, shared_at: new Date().toISOString(), method: 'clipboard' },
+      });
       setActionMessage('Report link copied.');
       return;
     }
@@ -188,7 +215,7 @@ export function ReportPage() {
               <h1 className="font-display text-3xl font-bold mb-2">{d.archetype}</h1>
               <p className="text-gray-400 max-w-lg">{d.archetype_description}</p>
             </div>
-            <ReadinessBadge readiness={d.management_readiness} />
+            <ConfidenceBadge confidence={d.result_confidence ?? 'Moderate'} />
           </div>
         </div>
       </div>
@@ -204,25 +231,25 @@ export function ReportPage() {
               <p className="text-sm text-gray-300 leading-relaxed">{d.why_this_result.summary}</p>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                 <div>
-                  <h3 className="text-xs font-semibold uppercase tracking-wide text-accent mb-2">Top Signals</h3>
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-accent mb-2">Behavioural Signals</h3>
                   <ul className="space-y-1.5">
-                    {d.why_this_result.top_signals.map(signal => (
+                    {(d.why_this_result.strongest_behavioural_signals ?? d.why_this_result.top_signals ?? []).map(signal => (
                       <li key={signal} className="text-sm text-gray-400">{signal}</li>
                     ))}
                   </ul>
                 </div>
                 <div>
-                  <h3 className="text-xs font-semibold uppercase tracking-wide text-accent mb-2">Strongest Answers</h3>
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-accent mb-2">Creator Strengths</h3>
                   <ul className="space-y-1.5">
-                    {d.why_this_result.strongest_answers.map(answer => (
+                    {(d.why_this_result.strongest_creator_strengths ?? d.why_this_result.strongest_answers ?? []).map(answer => (
                       <li key={answer} className="text-sm text-gray-400">{answer}</li>
                     ))}
                   </ul>
                 </div>
                 <div>
-                  <h3 className="text-xs font-semibold uppercase tracking-wide text-accent mb-2">Key Differentiators</h3>
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-accent mb-2">Content Signals</h3>
                   <ul className="space-y-1.5">
-                    {d.why_this_result.key_differentiators.map(item => (
+                    {(d.why_this_result.strongest_content_opportunity_signals ?? d.why_this_result.key_differentiators ?? []).map(item => (
                       <li key={item} className="text-sm text-gray-400">{item}</li>
                     ))}
                   </ul>
@@ -328,16 +355,16 @@ export function ReportPage() {
           <h2 className="font-display text-xl font-semibold mb-4">What's Next?</h2>
           <div className="bg-surface border border-accent/20 rounded-xl p-5 space-y-4">
             <p className="text-sm text-gray-300 leading-relaxed">
-              Your assessment highlights several opportunities that could significantly improve growth, monetisation, and positioning.
+              Your assessment highlights several opportunities that could significantly improve positioning, audience growth, and monetisation.
             </p>
             <p className="text-sm text-gray-300 leading-relaxed">
-              A personalised strategy discussion can help identify which opportunities are most relevant to your goals and whether creator management support would accelerate your progress.
+              A strategy discussion can help determine which opportunities are most relevant to your goals and whether creator management support could accelerate your progress.
             </p>
             <button
               onClick={() => startReportAction('discuss')}
               className="inline-flex rounded-lg bg-accent px-5 py-2.5 text-sm font-semibold text-gray-950 hover:bg-accent-2"
             >
-              Book a Strategy Discussion with MGRNZ
+              Discuss My Results
             </button>
           </div>
         </section>
@@ -345,8 +372,8 @@ export function ReportPage() {
         {/* Report Actions */}
         <div className="border-t border-gray-800 py-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:justify-center">
-            <button onClick={() => startReportAction('print')} className="rounded-lg border border-gray-700 px-4 py-2 text-sm font-medium text-gray-300 hover:border-gray-500">
-              Print / Save
+            <button onClick={() => startReportAction('download')} className="rounded-lg border border-gray-700 px-4 py-2 text-sm font-medium text-gray-300 hover:border-gray-500">
+              Download My Report
             </button>
             <button onClick={() => startReportAction('email')} className="rounded-lg border border-gray-700 px-4 py-2 text-sm font-medium text-gray-300 hover:border-gray-500">
               Email me this report
@@ -355,7 +382,7 @@ export function ReportPage() {
               Share report
             </button>
             <button onClick={() => startReportAction('discuss')} className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-gray-950 hover:bg-accent-2">
-              Discuss my results
+              Discuss My Results
             </button>
           </div>
           {actionMessage && <p className="mt-3 text-center text-xs text-success">{actionMessage}</p>}
@@ -392,4 +419,145 @@ export function ReportPage() {
       )}
     </div>
   );
+}
+
+function ConfidenceBadge({ confidence }: { confidence: ReportData['result_confidence'] }) {
+  const colors: Record<ReportData['result_confidence'], string> = {
+    High: 'bg-success/20 text-success border-success/30',
+    Moderate: 'bg-warn/20 text-warn border-warn/30',
+    Low: 'bg-pink/20 text-pink border-pink/30',
+  };
+
+  return (
+    <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${colors[confidence]}`}>
+      Result Confidence: {confidence}
+    </span>
+  );
+}
+
+function wrapPdfText(text: string, maxChars = 92): string[] {
+  const words = text.replace(/\s+/g, ' ').trim().split(' ').filter(Boolean);
+  const lines: string[] = [];
+  let current = '';
+
+  for (const word of words) {
+    const next = current ? `${current} ${word}` : word;
+    if (next.length > maxChars && current) {
+      lines.push(current);
+      current = word;
+    } else {
+      current = next;
+    }
+  }
+
+  if (current) lines.push(current);
+  return lines.length > 0 ? lines : [''];
+}
+
+function pdfEscape(text: string): string {
+  return text
+    .replace(/[^\x20-\x7E]/g, '-')
+    .replace(/\\/g, '\\\\')
+    .replace(/\(/g, '\\(')
+    .replace(/\)/g, '\\)');
+}
+
+function createReportPdfBlob(report: ReportData, publicScores: Record<string, number>): Blob {
+  const why = report.why_this_result;
+  const sections: Array<{ title: string; body: string[] }> = [
+    {
+      title: 'Result Confidence',
+      body: [report.result_confidence ?? 'Moderate'],
+    },
+    {
+      title: 'Creator Scores',
+      body: Object.entries(publicScores).map(([key, value]) => `${key.replace(/_/g, ' ')}: ${value}/100`),
+    },
+    {
+      title: 'Why This Result?',
+      body: [
+        why.summary,
+        ...((why.strongest_behavioural_signals ?? why.top_signals ?? []).map(item => `Behavioural signal: ${item}`)),
+        ...((why.strongest_creator_strengths ?? why.strongest_answers ?? []).map(item => `Creator strength: ${item}`)),
+        ...((why.strongest_archetype_matches ?? []).map(item => `Archetype match: ${item}`)),
+        ...((why.strongest_content_opportunity_signals ?? why.key_differentiators ?? []).map(item => `Content opportunity: ${item}`)),
+      ],
+    },
+    {
+      title: 'Top Verticals',
+      body: report.top_verticals.map(vertical => `${vertical.name}: ${vertical.rationale}`),
+    },
+    {
+      title: 'Opportunities',
+      body: [report.pricing_strategy, report.winning_10_framework, report.growth_strategy],
+    },
+    {
+      title: "What's Next?",
+      body: [
+        'Your assessment highlights several opportunities that could significantly improve positioning, audience growth, and monetisation.',
+        'A strategy discussion can help determine which opportunities are most relevant to your goals and whether creator management support could accelerate your progress.',
+      ],
+    },
+  ];
+
+  const pages: string[][] = [[]];
+  let y = 770;
+  const addLine = (line: string, fontSize = 10) => {
+    if (y < 50) {
+      pages.push([]);
+      y = 770;
+    }
+    pages[pages.length - 1].push(`BT /F1 ${fontSize} Tf 50 ${y} Td (${pdfEscape(line)}) Tj ET`);
+    y -= fontSize + 5;
+  };
+
+  addLine('MGRNZ Creator Assessment', 10);
+  addLine('Find Your Vertical Report', 18);
+  addLine(report.archetype, 14);
+  wrapPdfText(report.archetype_description).forEach(line => addLine(line));
+  y -= 8;
+
+  for (const section of sections) {
+    addLine(section.title, 13);
+    for (const item of section.body) {
+      wrapPdfText(item).forEach(line => addLine(line));
+      y -= 3;
+    }
+    y -= 8;
+  }
+
+  const objects: string[] = [];
+  const addObject = (body: string) => {
+    objects.push(body);
+    return objects.length;
+  };
+  const catalogId = addObject('<< /Type /Catalog /Pages 2 0 R >>');
+  const pagesId = addObject('');
+  const fontId = addObject('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>');
+  const pageIds: number[] = [];
+
+  for (const pageLines of pages) {
+    const content = pageLines.join('\n');
+    const contentId = addObject(`<< /Length ${content.length} >>\nstream\n${content}\nendstream`);
+    const pageId = addObject(`<< /Type /Page /Parent ${pagesId} 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 ${fontId} 0 R >> >> /Contents ${contentId} 0 R >>`);
+    pageIds.push(pageId);
+  }
+
+  objects[pagesId - 1] = `<< /Type /Pages /Kids [${pageIds.map(id => `${id} 0 R`).join(' ')}] /Count ${pageIds.length} >>`;
+  objects[catalogId - 1] = '<< /Type /Catalog /Pages 2 0 R >>';
+
+  let pdf = '%PDF-1.4\n';
+  const offsets: number[] = [0];
+  objects.forEach((body, index) => {
+    offsets.push(pdf.length);
+    pdf += `${index + 1} 0 obj\n${body}\nendobj\n`;
+  });
+  const xrefOffset = pdf.length;
+  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  for (let i = 1; i < offsets.length; i += 1) {
+    pdf += `${String(offsets[i]).padStart(10, '0')} 00000 n \n`;
+  }
+  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
+
+  return new Blob([pdf], { type: 'application/pdf' });
 }
