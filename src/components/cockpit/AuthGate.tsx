@@ -1,11 +1,13 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
+import { createCreatorInviteRequest } from '@/lib/creators-api';
 import { signInWithOtp, supabase } from '@/lib/supabase';
 import type { Session } from '@supabase/supabase-js';
 
 type AuthMessageKind = 'success' | 'error';
 const MAGIC_LINK_SUCCESS_MESSAGE = 'Magic link sent. Check your inbox.';
 const LOGIN_ERROR_MESSAGE = 'Unable to send a magic link. Check the email address or contact the site owner for access.';
+const EMPTY_INVITE_REQUEST = { name: '', email: '', onlyfansHandle: '' };
 
 export function AuthGate({ children }: { children: ReactNode }) {
   const location = useLocation();
@@ -15,6 +17,10 @@ export function AuthGate({ children }: { children: ReactNode }) {
   const [sending, setSending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [messageKind, setMessageKind] = useState<AuthMessageKind | null>(null);
+  const [inviteRequest, setInviteRequest] = useState(EMPTY_INVITE_REQUEST);
+  const [requestingInvite, setRequestingInvite] = useState(false);
+  const [inviteMessage, setInviteMessage] = useState<string | null>(null);
+  const [inviteMessageKind, setInviteMessageKind] = useState<AuthMessageKind | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -46,24 +52,82 @@ export function AuthGate({ children }: { children: ReactNode }) {
     setSending(false);
   };
 
+  const handleInviteRequest = async (e: FormEvent) => {
+    e.preventDefault();
+    setRequestingInvite(true);
+    setInviteMessage(null);
+    setInviteMessageKind(null);
+
+    try {
+      await createCreatorInviteRequest({
+        name: inviteRequest.name,
+        email: inviteRequest.email,
+        onlyfansHandle: inviteRequest.onlyfansHandle || null,
+      });
+      setInviteRequest(EMPTY_INVITE_REQUEST);
+      setInviteMessage("Invite request received. We'll review your details before granting access.");
+      setInviteMessageKind('success');
+    } catch (error) {
+      setInviteMessage(error instanceof Error ? error.message : 'Unable to submit invite request. Please try again.');
+      setInviteMessageKind('error');
+    } finally {
+      setRequestingInvite(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-surface-2">
-        <div className="animate-pulse text-gray-500">Loading...</div>
+        <div className="animate-pulse text-charcoal-2">Loading...</div>
       </div>
     );
   }
 
   if (!session) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-surface-2 p-4">
-        <div className="w-full max-w-sm overflow-hidden rounded-lg border border-gray-200 bg-white shadow-xl shadow-gray-950/10">
-          <div className="bg-charcoal px-6 py-5 text-center text-white">
-            <p className="text-xs font-semibold uppercase tracking-wide text-accent">Find Your Vertical</p>
-            <h1 className="mt-2 text-2xl font-bold">Creators Cockpit</h1>
-            <p className="mt-2 text-sm text-gray-300">Agency access - sign in with email</p>
-          </div>
-          <div className="p-6">
+      <div className="min-h-screen bg-surface-2 px-4 py-8 text-charcoal sm:px-6 lg:px-8">
+        <div className="mx-auto grid min-h-[calc(100vh-4rem)] w-full max-w-6xl items-center gap-8 lg:grid-cols-[minmax(0,1fr)_440px]">
+          <section className="py-8">
+            <div className="mb-8 flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent text-sm font-black text-white shadow-lg shadow-orange-950/40">
+                FYV
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-accent">MGRNZ</p>
+                <p className="text-sm text-charcoal-2">Creator Advisory Platform</p>
+              </div>
+            </div>
+
+            <p className="cockpit-eyebrow">Find Your Vertical</p>
+            <h1 className="mt-4 max-w-3xl text-5xl font-bold tracking-normal text-charcoal sm:text-6xl">
+              Find Your Vertical
+            </h1>
+            <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-300">
+              Helping creators identify their strongest content opportunities, monetisation pathways, and growth potential.
+            </p>
+            <div className="mt-8 max-w-2xl space-y-5 text-sm leading-7 text-charcoal-2 sm:text-base">
+              <p>
+                Find Your Vertical is an assessment and advisory platform designed for creators who want clarity, direction, and a practical plan for growth.
+              </p>
+              <p>
+                Complete an assessment, receive a personalised creator report, and discover opportunities to improve positioning, monetisation, automation, and long-term creator success.
+              </p>
+            </div>
+
+            <div className="mt-8 grid max-w-2xl gap-3 sm:grid-cols-3">
+              {['Positioning clarity', 'Monetisation pathways', 'Growth potential'].map(item => (
+                <div key={item} className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-slate-200">
+                  {item}
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <div className="rounded-3xl border border-white/10 bg-surface/90 p-5 shadow-2xl shadow-black/30 backdrop-blur sm:p-6">
+            <div className="mb-5">
+              <h2 className="text-xl font-bold text-charcoal">Creator Cockpit Access</h2>
+              <p className="mt-1 text-sm text-charcoal-2">Sign in with your invited email address.</p>
+            </div>
             <form onSubmit={handleLogin} className="space-y-4">
               <input
                 type="email"
@@ -78,24 +142,61 @@ export function AuthGate({ children }: { children: ReactNode }) {
                 }}
                 placeholder="you@agency.com"
                 required
-                className="field-control w-full px-4 py-3"
+                className="field-control w-full"
               />
-              <button
-                type="submit"
-                disabled={sending}
-                className="btn-primary w-full px-4 py-3"
-              >
+              <button type="submit" disabled={sending} className="btn-primary w-full">
                 {sending ? 'Sending...' : messageKind === 'success' ? 'Send Again' : 'Send Magic Link'}
               </button>
             </form>
             {message && (
               <p
-                className={`mt-4 text-center text-sm ${
-                  messageKind === 'error' ? 'text-red-700' : 'text-gray-600'
-                }`}
+                className={`mt-4 text-sm ${messageKind === 'error' ? 'text-pink' : 'text-success'}`}
                 role={messageKind === 'error' ? 'alert' : 'status'}
               >
                 {message}
+              </p>
+            )}
+
+            <div className="my-6 h-px bg-white/10" />
+
+            <div className="mb-4">
+              <h2 className="text-lg font-bold text-charcoal">Don't have an invite?</h2>
+              <p className="mt-1 text-sm leading-6 text-charcoal-2">
+                Request an assessment invitation and we'll review your details before granting access.
+              </p>
+            </div>
+            <form onSubmit={handleInviteRequest} className="space-y-3">
+              <input
+                value={inviteRequest.name}
+                onChange={e => setInviteRequest(current => ({ ...current, name: e.target.value }))}
+                placeholder="Name"
+                required
+                className="field-control w-full"
+              />
+              <input
+                type="email"
+                value={inviteRequest.email}
+                onChange={e => setInviteRequest(current => ({ ...current, email: e.target.value }))}
+                placeholder="Email"
+                required
+                className="field-control w-full"
+              />
+              <input
+                value={inviteRequest.onlyfansHandle}
+                onChange={e => setInviteRequest(current => ({ ...current, onlyfansHandle: e.target.value }))}
+                placeholder="OnlyFans Handle (optional)"
+                className="field-control w-full"
+              />
+              <button type="submit" disabled={requestingInvite} className="btn-secondary w-full">
+                {requestingInvite ? 'Requesting...' : 'Request My Invite'}
+              </button>
+            </form>
+            {inviteMessage && (
+              <p
+                className={`mt-4 text-sm ${inviteMessageKind === 'error' ? 'text-pink' : 'text-success'}`}
+                role={inviteMessageKind === 'error' ? 'alert' : 'status'}
+              >
+                {inviteMessage}
               </p>
             )}
           </div>

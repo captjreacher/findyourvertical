@@ -1,14 +1,32 @@
 // ── Creator Profile (primary entity) ──
 export type CreatorStatus =
-  | 'prospect'
-  | 'assessed'
-  | 'qualified'
-  | 'interviewed'
-  | 'accepted'
-  | 'onboarding'
-  | 'active'
-  | 'paused'
-  | 'offboarded';
+  | 'Assessment Complete'
+  | 'Qualified'
+  | 'Discovery Booked'
+  | 'Proposal Sent'
+  | 'Client'
+  | 'Managed Creator'
+  | 'Archived';
+
+export type ServiceQualificationStatus =
+  | 'Not Interested'
+  | 'Not Suitable'
+  | 'Future Opportunity'
+  | 'Qualified'
+  | 'Active Client';
+
+export type ServiceQualificationKey =
+  | 'financial_advice'
+  | 'business_mentoring'
+  | 'content_vertical_sprint'
+  | 'chat_automation'
+  | 'social_extension'
+  | 'platform_extension'
+  | 'management_package';
+
+export type ServiceQualification = Record<ServiceQualificationKey, ServiceQualificationStatus>;
+
+export type ManagementWraparoundPotential = 'Yes' | 'No' | 'Not Yet';
 
 export type ManagementReadiness =
   | 'Scale Candidate'
@@ -49,6 +67,10 @@ export interface CreatorProfile {
   monetisation_score: number | null;
   consistency_score: number | null;
   agency_opportunity_score: number | null;
+  business_acumen: number | null;
+  coachability: number | null;
+  management_wraparound_potential: ManagementWraparoundPotential | null;
+  service_qualification: ServiceQualification;
   management_readiness: ManagementReadiness | null;
   audience_strategy: AudienceStrategy | null;
   recommended_pricing_model: string | null;
@@ -190,6 +212,21 @@ export interface CreatorAssessmentInviteLink {
   is_active: boolean;
   created_at: string;
   expires_at: string | null;
+}
+
+export type CreatorInviteRequestStatus = 'New' | 'Reviewed' | 'Approved' | 'Declined';
+
+export interface CreatorInviteRequest {
+  id: string;
+  name: string;
+  email: string;
+  onlyfans_handle: string | null;
+  status: CreatorInviteRequestStatus;
+  reviewed_at: string | null;
+  reviewed_by: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface CreatorAssessment {

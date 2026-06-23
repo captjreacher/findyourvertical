@@ -6,6 +6,11 @@ import type {
   CreatorReport,
   CreatorNote,
   CreatorStatusEvent,
+  CreatorStatus,
+  ManagementWraparoundPotential,
+  ServiceQualification,
+  ServiceQualificationKey,
+  ServiceQualificationStatus,
   AssessmentResponses,
   CreatorAssessmentQuestion,
   CreatorAssessmentRuntimeTemplate,
@@ -13,6 +18,8 @@ import type {
   CreatorAssessmentTemplateQuestion,
   CreatorAssessmentTemplateItem,
   CreatorAssessmentInviteLink,
+  CreatorInviteRequest,
+  CreatorInviteRequestStatus,
   CreatorQuestion,
   AssessmentQuestionType,
   ReportData,
@@ -135,9 +142,13 @@ async function upsertCreatorProfile(payload: CreatorProfileUpsertPayload): Promi
   const existing = await findExistingCreatorProfile(payload.email, payload.onlyfans_handle);
 
   if (existing) {
+    const updatePayload = {
+      ...payload,
+      status: existing.status,
+    };
     const { data, error } = await supabase
       .from('creator_profiles')
-      .update(payload)
+      .update(updatePayload)
       .eq('id', existing.id)
       .select()
       .single();
@@ -370,7 +381,7 @@ export async function submitAssessment(
     model_name: normalizeNullableText(responses.model_name),
     city: normalizeNullableText(responses.city),
     country: normalizeNullableText(responses.country),
-    status: 'prospect',
+    status: 'Assessment Complete',
     archetype: result.archetype,
     creator_dna_score: result.scores.creator_dna,
     brand_clarity_score: result.scores.brand_clarity,
@@ -715,15 +726,42 @@ export async function getStatusEventsForProfile(profileId: string): Promise<Crea
 
 export async function updateCreatorStatus(
   profileId: string,
-  status: string,
-  eventType: string,
-  details?: Record<string, unknown>
+  status: CreatorStatus
 ): Promise<void> {
-  await supabase.from('creator_profiles').update({ status }).eq('id', profileId);
-  await supabase.from('creator_status_events').insert({
-    creator_profile_id: profileId,
-    event_type: eventType,
-    details: details ?? {},
+  const { error } = await supabase.from('creator_profiles').update({ status }).eq('id', profileId);
+  if (error) throw new Error(`Failed to update creator status: ${error.message}`);
+}
+
+export async function updateCreatorQualification(
+  profileId: string,
+  input: {
+    business_acumen?: number | null;
+    coachability?: number | null;
+    management_wraparound_potential?: ManagementWraparoundPotential | null;
+    service_qualification?: ServiceQualification;
+  }
+): Promise<CreatorProfile> {
+  const { data, error } = await supabase
+    .from('creator_profiles')
+    .update(input)
+    .eq('id', profileId)
+    .select()
+    .single();
+
+  if (error) throw new Error(`Failed to update creator qualification: ${error.message}`);
+  return data as CreatorProfile;
+}
+
+export async function updateCreatorServiceQualification(
+  profile: CreatorProfile,
+  service: ServiceQualificationKey,
+  status: ServiceQualificationStatus
+): Promise<CreatorProfile> {
+  return updateCreatorQualification(profile.id, {
+    service_qualification: {
+      ...profile.service_qualification,
+      [service]: status,
+    },
   });
 }
 
@@ -1112,6 +1150,62 @@ export async function createAssessmentInviteLink(input: {
   return data as CreatorAssessmentInviteLink;
 }
 
+export async function createCreatorInviteRequest(input: {
+  name: string;
+  email: string;
+  onlyfansHandle?: string | null;
+}): Promise<void> {
+  const name = normalizeNullableText(input.name);
+  const email = normalizeEmail(input.email);
+  if (!name || !email) throw new Error('Name and email are required to request an invite.');
+
+  const { error } = await (supabase as any)
+    .from('creator_invite_requests')
+    .insert({
+      name,
+      email,
+      onlyfans_handle: normalizeOnlyFansHandle(input.onlyfansHandle),
+      status: 'New',
+    });
+
+  if (error) throw new Error(`Failed to request invite: ${error.message}`);
+}
+
+export async function getCreatorInviteRequests(): Promise<CreatorInviteRequest[]> {
+  const { data, error } = await (supabase as any)
+    .from('creator_invite_requests')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error) throw new Error(`Failed to load invite requests: ${error.message}`);
+  return (data ?? []) as CreatorInviteRequest[];
+}
+
+export async function updateCreatorInviteRequest(
+  requestId: string,
+  input: {
+    status: CreatorInviteRequestStatus;
+    notes?: string | null;
+  }
+): Promise<CreatorInviteRequest> {
+  const { data: userData } = await supabase.auth.getUser();
+  const reviewed = input.status !== 'New';
+  const { data, error } = await (supabase as any)
+    .from('creator_invite_requests')
+    .update({
+      status: input.status,
+      notes: normalizeNullableText(input.notes),
+      reviewed_at: reviewed ? new Date().toISOString() : null,
+      reviewed_by: reviewed ? userData.user?.id ?? null : null,
+    })
+    .eq('id', requestId)
+    .select()
+    .single();
+
+  if (error) throw new Error(`Failed to update invite request: ${error.message}`);
+  return data as CreatorInviteRequest;
+}
+
 export async function updateAssessmentTemplate(
   templateId: string,
   input: Partial<Pick<CreatorAssessmentTemplate, 'name' | 'slug' | 'description'>>
@@ -1196,8 +1290,8 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
   const p = (profiles ?? []) as CreatorProfile[];
 
   const totalProfiles = p.length;
-  const qualifiedCreators = p.filter(x => x.status === 'qualified' || x.status === 'interviewed' || x.status === 'accepted' || x.status === 'onboarding' || x.status === 'active').length;
-  const activeCreators = p.filter(x => x.status === 'active').length;
+  const qualifiedCreators = p.filter(x => ['Qualified', 'Discovery Booked', 'Proposal Sent', 'Client', 'Managed Creator'].includes(x.status)).length;
+  const activeCreators = p.filter(x => x.status === 'Client' || x.status === 'Managed Creator').length;
   const scaleCandidates = p.filter(x => x.management_readiness === 'Scale Candidate').length;
   const avgAgencyScore = totalProfiles > 0
     ? Math.round(p.reduce((sum, x) => sum + (x.agency_opportunity_score ?? 0), 0) / totalProfiles)

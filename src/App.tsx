@@ -17,8 +17,8 @@ const AssessmentTemplates = lazy(() => import('./components/cockpit/AssessmentTe
 
 function LoadingScreen({ label = 'Loading…' }: { label?: string }) {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
-      <div className="animate-pulse text-sm text-gray-500" role="status">{label}</div>
+    <div className="flex min-h-screen items-center justify-center bg-surface-2 p-4">
+      <div className="animate-pulse text-sm text-charcoal-2" role="status">{label}</div>
     </div>
   );
 }

@@ -41,8 +41,8 @@ export function AgencyDashboard() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard label="Total Creator Profiles" value={metrics.totalProfiles} />
         <MetricCard label="Assessments Completed" value={metrics.assessmentsCompleted} />
-        <MetricCard label="Qualified Creators" value={metrics.qualifiedCreators} subtitle="Interviewed + Accepted + Active" />
-        <MetricCard label="Active Creators" value={metrics.activeCreators} />
+        <MetricCard label="Qualified Creators" value={metrics.qualifiedCreators} subtitle="Qualified through Managed Creator" />
+        <MetricCard label="Active Creators" value={metrics.activeCreators} subtitle="Client + Managed Creator" />
         <MetricCard label="Average Agency Score" value={metrics.avgAgencyScore} subtitle="Out of 100" />
         <MetricCard label="Scale Candidates" value={metrics.scaleCandidates} />
         <MetricCard label="Conversion Rate" value={`${metrics.conversionRate}%`} subtitle="Qualified + Active / Total" />

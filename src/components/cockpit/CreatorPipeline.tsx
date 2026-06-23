@@ -4,15 +4,13 @@ import { getAllCreatorProfiles } from '@/lib/creators-api';
 import type { CreatorProfile } from '@/types/creator';
 
 const STATUS_COLORS: Record<string, string> = {
-  prospect: 'bg-gray-100 text-gray-700',
-  assessed: 'bg-gray-100 text-gray-700',
-  qualified: 'bg-accent/15 text-accent',
-  interviewed: 'bg-accent/10 text-accent',
-  accepted: 'bg-success/10 text-success',
-  onboarding: 'bg-warn/15 text-warn',
-  active: 'bg-success/15 text-success',
-  paused: 'bg-gray-100 text-gray-700',
-  offboarded: 'bg-pink/15 text-pink',
+  'Assessment Complete': 'bg-gray-100 text-gray-700',
+  Qualified: 'bg-accent/15 text-accent',
+  'Discovery Booked': 'bg-accent/10 text-accent',
+  'Proposal Sent': 'bg-warn/15 text-warn',
+  Client: 'bg-success/10 text-success',
+  'Managed Creator': 'bg-success/15 text-success',
+  Archived: 'bg-pink/15 text-pink',
 };
 
 export function CreatorPipeline() {
@@ -36,7 +34,7 @@ export function CreatorPipeline() {
         <div>
           <p className="cockpit-eyebrow">Pipeline</p>
           <h1 className="cockpit-title">Creator Pipeline</h1>
-          <p className="cockpit-subtitle">{profiles.length} creator{profiles.length !== 1 ? 's' : ''} tracked across assessment and onboarding.</p>
+          <p className="cockpit-subtitle">{profiles.length} creator{profiles.length !== 1 ? 's' : ''} tracked from assessment complete through managed creator.</p>
         </div>
       </header>
 

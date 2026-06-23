@@ -8,49 +8,71 @@ import {
   getNotesForProfile,
   getStatusEventsForProfile,
   addCreatorNote,
+  updateCreatorQualification,
+  updateCreatorServiceQualification,
   updateCreatorStatus,
 } from '@/lib/creators-api';
-import type { CreatorProfile, CreatorAssessment, CreatorDnaProfile, CreatorReport, CreatorNote, CreatorStatusEvent, CreatorStatus, ReportData } from '@/types/creator';
+import type {
+  CreatorProfile,
+  CreatorAssessment,
+  CreatorDnaProfile,
+  CreatorReport,
+  CreatorNote,
+  CreatorStatusEvent,
+  CreatorStatus,
+  ManagementWraparoundPotential,
+  ReportData,
+  ServiceQualification,
+  ServiceQualificationKey,
+  ServiceQualificationStatus,
+} from '@/types/creator';
 
-const STATUS_LABELS: Record<CreatorStatus, string> = {
-  prospect: 'Prospect',
-  assessed: 'Assessed',
-  qualified: 'Qualified',
-  interviewed: 'Interviewed',
-  accepted: 'Accepted',
-  onboarding: 'Onboarding',
-  active: 'Active',
-  paused: 'Paused',
-  offboarded: 'Offboarded',
+const WORKFLOW_STATUSES: CreatorStatus[] = [
+  'Assessment Complete',
+  'Qualified',
+  'Discovery Booked',
+  'Proposal Sent',
+  'Client',
+  'Managed Creator',
+  'Archived',
+];
+
+const WRAPAROUND_OPTIONS: ManagementWraparoundPotential[] = ['Yes', 'No', 'Not Yet'];
+
+const SERVICE_STATUS_OPTIONS: ServiceQualificationStatus[] = [
+  'Not Interested',
+  'Not Suitable',
+  'Future Opportunity',
+  'Qualified',
+  'Active Client',
+];
+
+const SERVICES: Array<{ key: ServiceQualificationKey; label: string }> = [
+  { key: 'financial_advice', label: 'Financial Advice' },
+  { key: 'business_mentoring', label: 'Business Mentoring' },
+  { key: 'content_vertical_sprint', label: 'Content Vertical Sprint' },
+  { key: 'chat_automation', label: 'Chat Automation' },
+  { key: 'social_extension', label: 'Social Extension' },
+  { key: 'platform_extension', label: 'Platform Extension' },
+  { key: 'management_package', label: 'Management Package' },
+];
+
+const DEFAULT_SERVICE_QUALIFICATION: ServiceQualification = {
+  financial_advice: 'Not Interested',
+  business_mentoring: 'Not Interested',
+  content_vertical_sprint: 'Not Interested',
+  chat_automation: 'Not Interested',
+  social_extension: 'Not Interested',
+  platform_extension: 'Not Interested',
+  management_package: 'Not Interested',
 };
 
-const NEXT_STATUS: Record<CreatorStatus, { next: CreatorStatus; event: string; label: string }[]> = {
-  prospect: [
-    { next: 'assessed', event: 'assessment_reviewed', label: 'Mark Assessed' },
-  ],
-  assessed: [
-    { next: 'qualified', event: 'qualified', label: 'Qualify' },
-  ],
-  qualified: [
-    { next: 'interviewed', event: 'interviewed', label: 'Interviewed' },
-  ],
-  interviewed: [
-    { next: 'accepted', event: 'accepted', label: 'Accept' },
-  ],
-  accepted: [
-    { next: 'onboarding', event: 'onboarding_started', label: 'Start Onboarding' },
-  ],
-  onboarding: [
-    { next: 'active', event: 'activated', label: 'Activate' },
-  ],
-  active: [
-    { next: 'paused', event: 'paused', label: 'Pause' },
-  ],
-  paused: [
-    { next: 'active', event: 'reactivated', label: 'Reactivate' },
-  ],
-  offboarded: [],
-};
+function scoreInputValue(value: string): number | null {
+  if (!value) return null;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return null;
+  return Math.max(1, Math.min(10, parsed));
+}
 
 function InternalScoreCard({ label, score, inverse = false }: { label: string; score: number | null | undefined; inverse?: boolean }) {
   const value = score ?? 0;
@@ -155,6 +177,7 @@ export function CreatorProfileView() {
   const [loadError, setLoadError] = useState('');
   const [noteText, setNoteText] = useState('');
   const [statusLoading, setStatusLoading] = useState('');
+  const [qualificationSaving, setQualificationSaving] = useState('');
 
   useEffect(() => {
     if (!profileId) return;
@@ -187,22 +210,52 @@ export function CreatorProfileView() {
     }
   };
 
-  const handleStatusChange = async (next: CreatorStatus, event: string) => {
+  const refreshEvents = async () => {
     if (!profileId) return;
-    setStatusLoading(event);
-    await updateCreatorStatus(profileId, next, event);
-    setProfile(prev => prev ? { ...prev, status: next } : prev);
-    setEvents(prev => [
-      {
-        id: crypto.randomUUID(),
-        creator_profile_id: profileId,
-        created_at: new Date().toISOString(),
-        event_type: event,
-        details: {},
-      },
-      ...prev,
-    ]);
-    setStatusLoading('');
+    const refreshedEvents = await getStatusEventsForProfile(profileId);
+    setEvents(refreshedEvents);
+  };
+
+  const handleStatusChange = async (next: CreatorStatus) => {
+    if (!profileId || profile?.status === next) return;
+    setStatusLoading(next);
+    try {
+      await updateCreatorStatus(profileId, next);
+      setProfile(prev => prev ? { ...prev, status: next } : prev);
+      await refreshEvents();
+    } finally {
+      setStatusLoading('');
+    }
+  };
+
+  const updateQualificationField = async (
+    field: 'business_acumen' | 'coachability' | 'management_wraparound_potential',
+    value: number | ManagementWraparoundPotential | null
+  ) => {
+    if (!profileId) return;
+    setQualificationSaving(field);
+    try {
+      const updatedProfile = await updateCreatorQualification(profileId, { [field]: value });
+      setProfile(updatedProfile);
+      await refreshEvents();
+    } finally {
+      setQualificationSaving('');
+    }
+  };
+
+  const updateServiceStatus = async (service: ServiceQualificationKey, status: ServiceQualificationStatus) => {
+    if (!profile) return;
+    setQualificationSaving(service);
+    try {
+      const updatedProfile = await updateCreatorServiceQualification({
+        ...profile,
+        service_qualification: profile.service_qualification ?? DEFAULT_SERVICE_QUALIFICATION,
+      }, service, status);
+      setProfile(updatedProfile);
+      await refreshEvents();
+    } finally {
+      setQualificationSaving('');
+    }
   };
 
   if (loading) return <div className="animate-pulse p-4 text-gray-500">Loading Profile...</div>;
@@ -215,7 +268,16 @@ export function CreatorProfileView() {
     ['Monetisation', profile.monetisation_score ?? 0],
     ['Consistency', profile.consistency_score ?? 0],
     ['Agency Opportunity', profile.agency_opportunity_score ?? 0],
+    ['Business Acumen', profile.business_acumen ?? 0],
+    ['Coachability', profile.coachability ?? 0],
   ];
+  const scoreColorFor = (label: string, score: number): string => {
+    if (label === 'Business Acumen' || label === 'Coachability') {
+      return score >= 8 ? 'text-success' : score >= 5 ? 'text-warn' : 'text-pink';
+    }
+    return score >= 60 ? 'text-success' : score >= 40 ? 'text-warn' : 'text-pink';
+  };
+  const serviceQualification = profile.service_qualification ?? DEFAULT_SERVICE_QUALIFICATION;
   const latestDna = dnaProfiles[0];
   const latestReport = reports[0];
   const templateNameFor = (assessment: CreatorAssessment): string => (
@@ -259,16 +321,58 @@ export function CreatorProfileView() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Left: Details */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Scores */}
+          {/* Scorecard */}
           <div className="cockpit-card-pad">
-            <h2 className="cockpit-section-title mb-4">Scores</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+            <h2 className="cockpit-section-title mb-4">Scorecard</h2>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
               {scoreCards.map(([label, score]) => (
                 <div key={label} className="bg-surface-2 rounded-lg p-3 text-center">
-                  <div className={`text-2xl font-bold ${score >= 60 ? 'text-success' : score >= 40 ? 'text-warn' : 'text-pink'}`}>{score}</div>
+                  <div className={`text-2xl font-bold ${scoreColorFor(label, score)}`}>{score}</div>
                   <div className="text-xs text-gray-500 mt-1">{label}</div>
                 </div>
               ))}
+            </div>
+          </div>
+
+          <div className="cockpit-card-pad">
+            <h2 className="cockpit-section-title mb-4">Qualification</h2>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Business Acumen</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={10}
+                  value={profile.business_acumen ?? ''}
+                  onChange={e => updateQualificationField('business_acumen', scoreInputValue(e.target.value))}
+                  disabled={qualificationSaving === 'business_acumen'}
+                  className="field-control w-full"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Coachability</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={10}
+                  value={profile.coachability ?? ''}
+                  onChange={e => updateQualificationField('coachability', scoreInputValue(e.target.value))}
+                  disabled={qualificationSaving === 'coachability'}
+                  className="field-control w-full"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Management Wraparound Potential</span>
+                <select
+                  value={profile.management_wraparound_potential ?? ''}
+                  onChange={e => updateQualificationField('management_wraparound_potential', e.target.value ? e.target.value as ManagementWraparoundPotential : null)}
+                  disabled={qualificationSaving === 'management_wraparound_potential'}
+                  className="field-control w-full"
+                >
+                  <option value="">Unqualified</option>
+                  {WRAPAROUND_OPTIONS.map(option => <option key={option} value={option}>{option}</option>)}
+                </select>
+              </label>
             </div>
           </div>
 
@@ -347,19 +451,41 @@ export function CreatorProfileView() {
             )}
           </div>
 
-          {/* Top Verticals */}
-          {profile.top_vertical_1 && (
-            <div className="cockpit-card-pad">
-              <h2 className="cockpit-section-title mb-3">Top Content Verticals</h2>
-              <div className="flex flex-wrap gap-2">
-                {[profile.top_vertical_1, profile.top_vertical_2, profile.top_vertical_3].filter(Boolean).map((v, i) => (
-                  <span key={v} className="px-3 py-1.5 rounded-full text-sm bg-surface-3 text-gray-700">
-                    {i + 1}. {v}
-                  </span>
-                ))}
+          <div className="cockpit-card-pad">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="cockpit-section-title">Service Qualification</h2>
+                <p className="mt-1 text-xs text-gray-500">Service readiness is logged as signal events when changed.</p>
               </div>
             </div>
-          )}
+            <div className="table-shell overflow-x-auto">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Service</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {SERVICES.map(service => (
+                    <tr key={service.key}>
+                      <td className="font-medium text-charcoal">{service.label}</td>
+                      <td>
+                        <select
+                          value={serviceQualification[service.key]}
+                          onChange={e => updateServiceStatus(service.key, e.target.value as ServiceQualificationStatus)}
+                          disabled={qualificationSaving === service.key}
+                          className="field-control min-w-52"
+                        >
+                          {SERVICE_STATUS_OPTIONS.map(status => <option key={status} value={status}>{status}</option>)}
+                        </select>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
 
           {/* Reports */}
           <div className="cockpit-card-pad">
@@ -434,32 +560,22 @@ export function CreatorProfileView() {
           </div>
         </div>
 
-        {/* Right: Actions */}
+        {/* Right: Workflow */}
         <div className="space-y-6">
-          {/* Status Transitions */}
           <div className="cockpit-card-pad">
-            <h2 className="cockpit-section-title mb-3">Actions</h2>
-            <div className="space-y-2">
-              {(NEXT_STATUS[profile.status] ?? []).map(({ next, event, label }) => (
-                <button
-                  key={event}
-                  onClick={() => handleStatusChange(next, event)}
-                  disabled={statusLoading === event}
-                  className="btn-primary w-full"
-                >
-                  {statusLoading === event ? 'Updating...' : label}
-                </button>
-              ))}
-              {profile.status !== 'offboarded' && (
-                <button
-                  onClick={() => handleStatusChange('offboarded', 'offboarded')}
-                  disabled={statusLoading === 'offboarded'}
-                  className="w-full px-4 py-2 rounded-lg bg-pink/10 border border-pink/30 text-pink hover:bg-pink/20 text-sm font-medium transition-colors disabled:opacity-50"
-                >
-                  Offboard
-                </button>
-              )}
-            </div>
+            <h2 className="cockpit-section-title mb-3">Status Workflow</h2>
+            <label className="block">
+              <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Creator Status</span>
+              <select
+                value={profile.status}
+                onChange={e => handleStatusChange(e.target.value as CreatorStatus)}
+                disabled={Boolean(statusLoading)}
+                className="field-control w-full"
+              >
+                {WORKFLOW_STATUSES.map(status => <option key={status} value={status}>{status}</option>)}
+              </select>
+            </label>
+            {statusLoading && <p className="mt-2 text-xs text-gray-500">Updating workflow...</p>}
           </div>
 
           {/* Notes */}

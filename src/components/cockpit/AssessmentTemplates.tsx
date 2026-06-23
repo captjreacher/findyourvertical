@@ -7,12 +7,14 @@ import {
   deleteQuestion,
   getAssessmentInviteLinks,
   getAssessmentTemplates,
+  getCreatorInviteRequests,
   getQuestionBank,
   getQuestionDeleteEligibility,
   restoreQuestion,
   saveTemplateItems,
   setDefaultTemplate,
   setTemplateActive,
+  updateCreatorInviteRequest,
   updateAssessmentTemplate,
   updateQuestion,
 } from '@/lib/creators-api';
@@ -21,6 +23,8 @@ import type {
   CreatorAssessmentInviteLink,
   CreatorAssessmentTemplateItem,
   CreatorAssessmentRuntimeTemplate,
+  CreatorInviteRequest,
+  CreatorInviteRequestStatus,
   CreatorQuestion,
 } from '@/types/creator';
 
@@ -39,6 +43,7 @@ const EMPTY_QUESTION = {
 };
 const EMPTY_TEMPLATE = { name: '', slug: '', description: '', duplicateFromTemplateId: '' };
 const EMPTY_INVITE = { creatorName: '', creatorEmail: '', notes: '' };
+const INVITE_REQUEST_STATUSES: CreatorInviteRequestStatus[] = ['New', 'Reviewed', 'Approved', 'Declined'];
 const PUBLIC_ASSESSMENT_ORIGIN = 'https://findyourvertical.online';
 
 function normalizeKey(value: string): string {
@@ -88,6 +93,7 @@ export function AssessmentTemplates() {
   const [questions, setQuestions] = useState<CreatorQuestion[]>([]);
   const [templates, setTemplates] = useState<CreatorAssessmentRuntimeTemplate[]>([]);
   const [inviteLinks, setInviteLinks] = useState<CreatorAssessmentInviteLink[]>([]);
+  const [inviteRequests, setInviteRequests] = useState<CreatorInviteRequest[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState('');
   const [templateName, setTemplateName] = useState('');
   const [templateSlug, setTemplateSlug] = useState('');
@@ -161,6 +167,7 @@ export function AssessmentTemplates() {
     selectedTemplate?.is_active
     && includedItems.some(item => item.item_type === 'question' && item.question?.is_active)
   );
+  const pendingInviteRequests = inviteRequests.filter(request => request.status === 'New').length;
 
   const initialState = useMemo(() => {
     if (!selectedTemplate) return '';
@@ -219,14 +226,16 @@ export function AssessmentTemplates() {
           : '';
 
   const load = async (preferredTemplateId?: string) => {
-    const [bank, loadedTemplates, loadedInviteLinks] = await Promise.all([
+    const [bank, loadedTemplates, loadedInviteLinks, loadedInviteRequests] = await Promise.all([
       getQuestionBank(),
       getAssessmentTemplates(),
       getAssessmentInviteLinks(),
+      getCreatorInviteRequests(),
     ]);
     setQuestions(bank);
     setTemplates(loadedTemplates);
     setInviteLinks(loadedInviteLinks);
+    setInviteRequests(loadedInviteRequests);
     setSelectedTemplateId(current => preferredTemplateId || current || loadedTemplates[0]?.id || '');
     const entries = await Promise.all(bank.map(async question => [question.id, await getQuestionDeleteEligibility(question.id)] as const));
     setDeleteEligibility(Object.fromEntries(entries));
@@ -492,6 +501,34 @@ export function AssessmentTemplates() {
       setSuccess('Invite link generated.');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to generate invite link');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const createInviteFromRequest = (request: CreatorInviteRequest) => {
+    setInviteForm({
+      creatorName: request.name,
+      creatorEmail: request.email,
+      notes: request.onlyfans_handle ? `Requested from OnlyFans handle @${request.onlyfans_handle}` : '',
+    });
+    setGeneratedInviteUrl('');
+    setInviteModalOpen(true);
+  };
+
+  const changeInviteRequestStatus = async (request: CreatorInviteRequest, status: CreatorInviteRequestStatus) => {
+    setSaving(true);
+    setError('');
+    setSuccess('');
+    try {
+      await updateCreatorInviteRequest(request.id, {
+        status,
+        notes: request.notes,
+      });
+      await load(selectedTemplateId);
+      setSuccess(`Invite request marked ${status.toLowerCase()}.`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to update invite request');
     } finally {
       setSaving(false);
     }
@@ -811,7 +848,72 @@ export function AssessmentTemplates() {
           </div>
         </section>
 
-        <aside className="h-fit cockpit-card-pad">
+        <aside className="space-y-4">
+          <div className="cockpit-card-pad">
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div>
+                <h2 className="cockpit-section-title">Invite Requests</h2>
+                <p className="mt-1 text-xs text-gray-500">
+                  {pendingInviteRequests} new request{pendingInviteRequests === 1 ? '' : 's'} awaiting review.
+                </p>
+              </div>
+              <span className="rounded-full bg-accent/15 px-3 py-1 text-xs font-semibold text-accent">
+                {inviteRequests.length}
+              </span>
+            </div>
+            <div className="max-h-[28rem] space-y-3 overflow-y-auto pr-1">
+              {inviteRequests.length === 0 && (
+                <p className="text-sm text-gray-500">No public invite requests yet.</p>
+              )}
+              {inviteRequests.slice(0, 12).map(request => (
+                <div key={request.id} className="rounded-2xl border border-white/10 bg-white/5 p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-gray-900">{request.name}</p>
+                      <p className="truncate text-xs text-gray-500">{request.email}</p>
+                      {request.onlyfans_handle && (
+                        <p className="mt-1 text-xs text-gray-500">@{request.onlyfans_handle}</p>
+                      )}
+                    </div>
+                    <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${
+                      request.status === 'Approved'
+                        ? 'bg-success/10 text-success'
+                        : request.status === 'Declined'
+                          ? 'bg-pink/10 text-pink'
+                          : request.status === 'Reviewed'
+                            ? 'bg-warn/10 text-warn'
+                            : 'bg-accent/10 text-accent'
+                    }`}>
+                      {request.status}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-xs text-gray-500">
+                    Requested {new Date(request.created_at).toLocaleDateString()}
+                  </p>
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <select
+                      value={request.status}
+                      onChange={e => changeInviteRequestStatus(request, e.target.value as CreatorInviteRequestStatus)}
+                      disabled={saving}
+                      className="field-control text-xs"
+                    >
+                      {INVITE_REQUEST_STATUSES.map(status => <option key={status} value={status}>{status}</option>)}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => createInviteFromRequest(request)}
+                      disabled={!selectedTemplate || saving}
+                      className="btn-subtle text-xs"
+                    >
+                      Prepare Invite
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="cockpit-card-pad">
           <h2 className="cockpit-section-title">{editingQuestion ? 'Edit Question' : 'Add Question'}</h2>
           <form onSubmit={submitQuestion} className="mt-4 space-y-3">
             <input value={questionForm.question_text} onChange={e => {
@@ -838,6 +940,7 @@ export function AssessmentTemplates() {
               {editingQuestion && <button type="button" onClick={() => { setEditingQuestion(null); setQuestionForm(EMPTY_QUESTION); }} className="btn-secondary">Cancel</button>}
             </div>
           </form>
+          </div>
         </aside>
       </div>
 

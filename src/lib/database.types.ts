@@ -1290,6 +1290,8 @@ export type Database = {
           agency_opportunity_score: number | null
           assessment_snapshot: Json | null
           brand_clarity_score: number | null
+          business_acumen: number | null
+          coachability: number | null
           consistency_score: number | null
           created_at: string
           creator_dna_score: number | null
@@ -1456,12 +1458,14 @@ export type Database = {
           last_name: string | null
           mailing_list_opt_out: boolean
           management_readiness: string | null
+          management_wraparound_potential: string | null
           model_name: string | null
           monetisation_score: number | null
           notes: string | null
           ofmanager_creator_id: string | null
           onlyfans_handle: string | null
           recommended_pricing_model: string | null
+          service_qualification: Json
           status: string
           top_vertical_1: string | null
           top_vertical_2: string | null
@@ -1473,6 +1477,8 @@ export type Database = {
           archetype?: string | null
           audience_strategy?: string | null
           brand_clarity_score?: number | null
+          business_acumen?: number | null
+          coachability?: number | null
           consistency_score?: number | null
           country?: string | null
           created_at?: string
@@ -1490,12 +1496,14 @@ export type Database = {
           last_name?: string | null
           mailing_list_opt_out?: boolean
           management_readiness?: string | null
+          management_wraparound_potential?: string | null
           model_name?: string | null
           monetisation_score?: number | null
           notes?: string | null
           ofmanager_creator_id?: string | null
           onlyfans_handle?: string | null
           recommended_pricing_model?: string | null
+          service_qualification?: Json
           status?: string
           top_vertical_1?: string | null
           top_vertical_2?: string | null
@@ -1507,6 +1515,8 @@ export type Database = {
           archetype?: string | null
           audience_strategy?: string | null
           brand_clarity_score?: number | null
+          business_acumen?: number | null
+          coachability?: number | null
           consistency_score?: number | null
           country?: string | null
           created_at?: string
@@ -1524,12 +1534,14 @@ export type Database = {
           last_name?: string | null
           mailing_list_opt_out?: boolean
           management_readiness?: string | null
+          management_wraparound_potential?: string | null
           model_name?: string | null
           monetisation_score?: number | null
           notes?: string | null
           ofmanager_creator_id?: string | null
           onlyfans_handle?: string | null
           recommended_pricing_model?: string | null
+          service_qualification?: Json
           status?: string
           top_vertical_1?: string | null
           top_vertical_2?: string | null
