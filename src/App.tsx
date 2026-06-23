@@ -1,18 +1,37 @@
-import { useEffect } from 'react';
-import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AssessmentWizard } from './components/wizard/AssessmentWizard';
-import { ReportPage } from './components/report/ReportPage';
-import { CockpitLayout } from './components/cockpit/CockpitLayout';
-import { CreatorPipeline } from './components/cockpit/CreatorPipeline';
-import { CreatorProfileView } from './components/cockpit/CreatorProfileView';
-import { AgencyDashboard } from './components/cockpit/AgencyDashboard';
-import { AuthGate } from './components/cockpit/AuthGate';
-import { AssessmentTemplates } from './components/cockpit/AssessmentTemplates';
+import { lazy, Suspense, useEffect } from 'react';
+import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import {
   consumeAuthRedirectPath,
   normalizeCockpitPath,
   supabase,
 } from './lib/supabase';
+
+const AssessmentWizard = lazy(() => import('./components/wizard/AssessmentWizard').then(module => ({ default: module.AssessmentWizard })));
+const ReportPage = lazy(() => import('./components/report/ReportPage').then(module => ({ default: module.ReportPage })));
+const CockpitLayout = lazy(() => import('./components/cockpit/CockpitLayout').then(module => ({ default: module.CockpitLayout })));
+const CreatorPipeline = lazy(() => import('./components/cockpit/CreatorPipeline').then(module => ({ default: module.CreatorPipeline })));
+const CreatorProfileView = lazy(() => import('./components/cockpit/CreatorProfileView').then(module => ({ default: module.CreatorProfileView })));
+const AgencyDashboard = lazy(() => import('./components/cockpit/AgencyDashboard').then(module => ({ default: module.AgencyDashboard })));
+const AuthGate = lazy(() => import('./components/cockpit/AuthGate').then(module => ({ default: module.AuthGate })));
+const AssessmentTemplates = lazy(() => import('./components/cockpit/AssessmentTemplates').then(module => ({ default: module.AssessmentTemplates })));
+
+function LoadingScreen({ label = 'Loading…' }: { label?: string }) {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
+      <div className="animate-pulse text-sm text-gray-500" role="status">{label}</div>
+    </div>
+  );
+}
+
+function ScrollToTop() {
+  const location = useLocation();
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  }, [location.pathname, location.search, location.hash]);
+
+  return null;
+}
 
 function AuthCallback() {
   useEffect(() => {
@@ -21,9 +40,6 @@ function AuthCallback() {
     const code = params.get('code');
     const nextParam = params.get('next');
     const next = normalizeCockpitPath(nextParam ?? consumeAuthRedirectPath() ?? '/cockpit');
-
-    console.log('[auth callback] URL received', window.location.href);
-    console.log('[auth callback] next param', nextParam);
 
     const finishAuthRedirect = async () => {
       if (code) {
@@ -39,8 +55,6 @@ function AuthCallback() {
       }
 
       const finalRedirectPath = `/#${next}`;
-      console.log('[auth callback] session exists after callback', Boolean(session));
-      console.log('[auth callback] final redirect path', finalRedirectPath);
 
       if (mounted) {
         window.location.replace(`${window.location.origin}${finalRedirectPath}`);
@@ -55,9 +69,7 @@ function AuthCallback() {
   }, []);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="animate-pulse text-gray-500">Signing you in...</div>
-    </div>
+    <LoadingScreen label="Signing you in…" />
   );
 }
 
@@ -70,27 +82,32 @@ export default function App() {
   if (assessmentMatch) {
     return (
       <HashRouter>
-        <AssessmentWizard templateSlug={decodeURIComponent(assessmentMatch[1])} />
+        <ScrollToTop />
+        <Suspense fallback={<LoadingScreen label="Loading assessment…" />}>
+          <AssessmentWizard templateSlug={decodeURIComponent(assessmentMatch[1])} />
+        </Suspense>
       </HashRouter>
     );
   }
 
   return (
     <HashRouter>
-      <Routes>
-        <Route path="/" element={<Navigate to="/cockpit" replace />} />
-        <Route path="/a/:templateSlug" element={<AssessmentWizard />} />
-        <Route path="/report/:slug" element={<ReportPage />} />
+      <ScrollToTop />
+      <Suspense fallback={<LoadingScreen />}>
+        <Routes>
+          <Route path="/" element={<Navigate to="/cockpit" replace />} />
+          <Route path="/a/:templateSlug" element={<AssessmentWizard />} />
+          <Route path="/report/:slug" element={<ReportPage />} />
 
-        {/* Cockpit (authenticated) */}
-        <Route path="/cockpit/*" element={<AuthGate><CockpitLayout /></AuthGate>}>
-          <Route index element={<AgencyDashboard />} />
-          <Route path="creators" element={<CreatorPipeline />} />
-          <Route path="creators/:profileId" element={<CreatorProfileView />} />
-          <Route path="settings/assessment-templates" element={<AssessmentTemplates />} />
-        </Route>
-        <Route path="*" element={<Navigate to="/cockpit" replace />} />
-      </Routes>
+          <Route path="/cockpit/*" element={<AuthGate><CockpitLayout /></AuthGate>}>
+            <Route index element={<AgencyDashboard />} />
+            <Route path="creators" element={<CreatorPipeline />} />
+            <Route path="creators/:profileId" element={<CreatorProfileView />} />
+            <Route path="settings/assessment-templates" element={<AssessmentTemplates />} />
+          </Route>
+          <Route path="*" element={<Navigate to="/cockpit" replace />} />
+        </Routes>
+      </Suspense>
     </HashRouter>
   );
 }

@@ -4,26 +4,31 @@ import { getAllCreatorProfiles } from '@/lib/creators-api';
 import type { CreatorProfile } from '@/types/creator';
 
 const STATUS_COLORS: Record<string, string> = {
-  prospect: 'bg-gray-700/50 text-gray-600',
-  assessed: 'bg-blue-900/30 text-blue-400',
+  prospect: 'bg-gray-100 text-gray-700',
+  assessed: 'bg-gray-100 text-gray-700',
   qualified: 'bg-accent/20 text-accent',
-  interviewed: 'bg-purple-900/30 text-purple-400',
+  interviewed: 'bg-accent/10 text-accent',
   accepted: 'bg-success/10 text-success',
   onboarding: 'bg-warn/20 text-warn',
   active: 'bg-success/20 text-success',
-  paused: 'bg-gray-700/50 text-gray-600',
+  paused: 'bg-gray-100 text-gray-700',
   offboarded: 'bg-pink/20 text-pink',
 };
 
 export function CreatorPipeline() {
   const [profiles, setProfiles] = useState<CreatorProfile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    getAllCreatorProfiles().then(p => { setProfiles(p); setLoading(false); });
+    getAllCreatorProfiles()
+      .then(p => setProfiles(p))
+      .catch(() => setError('Unable to load the creator pipeline. Refresh the page or try again shortly.'))
+      .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <div className="animate-pulse text-gray-500 p-4">Loading pipeline...</div>;
+  if (loading) return <div className="animate-pulse text-gray-500 p-4">Loading Pipeline…</div>;
+  if (error) return <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</div>;
 
   return (
     <div>
@@ -67,7 +72,7 @@ export function CreatorPipeline() {
                   <td className="px-4 py-3 text-gray-600">{p.management_readiness ?? '—'}</td>
                   <td className="px-4 py-3 text-gray-600 capitalize">{p.audience_strategy ?? '—'}</td>
                   <td className="px-4 py-3">
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[p.status] ?? 'bg-gray-700 text-gray-600'}`}>
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[p.status] ?? 'bg-gray-100 text-gray-700'}`}>
                       {p.status}
                     </span>
                   </td>
@@ -81,7 +86,7 @@ export function CreatorPipeline() {
         </div>
         {profiles.length === 0 && (
           <div className="p-12 text-center text-gray-600 text-sm">
-            No creators yet. Assessments submitted via the public wizard will appear here.
+            No creators yet. Completed invite assessments will appear here.
           </div>
         )}
       </div>

@@ -152,6 +152,7 @@ export function CreatorProfileView() {
   const [assessmentTemplateFilter, setAssessmentTemplateFilter] = useState('');
   const [assessmentCreatorFilter, setAssessmentCreatorFilter] = useState('');
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [noteText, setNoteText] = useState('');
   const [statusLoading, setStatusLoading] = useState('');
 
@@ -164,15 +165,17 @@ export function CreatorProfileView() {
       getReportsForProfile(profileId),
       getNotesForProfile(profileId),
       getStatusEventsForProfile(profileId),
-    ]).then(([p, a, d, r, n, e]) => {
-      setProfile(p);
-      setAssessments(a);
-      setDnaProfiles(d);
-      setReports(r);
-      setNotes(n);
-      setEvents(e);
-      setLoading(false);
-    });
+    ])
+      .then(([p, a, d, r, n, e]) => {
+        setProfile(p);
+        setAssessments(a);
+        setDnaProfiles(d);
+        setReports(r);
+        setNotes(n);
+        setEvents(e);
+      })
+      .catch(() => setLoadError('Unable to load this creator profile. Return to the pipeline and try again.'))
+      .finally(() => setLoading(false));
   }, [profileId]);
 
   const handleAddNote = async () => {
@@ -202,8 +205,9 @@ export function CreatorProfileView() {
     setStatusLoading('');
   };
 
-  if (loading) return <div className="animate-pulse text-gray-500 p-4">Loading profile...</div>;
-  if (!profile) return <div className="text-gray-500 p-4">Creator not found.</div>;
+  if (loading) return <div className="animate-pulse text-gray-500 p-4">Loading Profile…</div>;
+  if (loadError) return <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">{loadError}</div>;
+  if (!profile) return <div className="rounded-lg border border-gray-200 bg-white p-4 text-sm text-gray-600">Creator not found.</div>;
 
   const scoreCards: Array<[string, number]> = [
     ['Creator DNA', profile.creator_dna_score ?? 0],
@@ -445,7 +449,7 @@ export function CreatorProfileView() {
                   disabled={statusLoading === event}
                   className="w-full px-4 py-2 rounded-lg bg-accent/10 border border-accent/30 text-accent hover:bg-accent/20 text-sm font-medium transition-colors disabled:opacity-50"
                 >
-                  {statusLoading === event ? '...' : label}
+                  {statusLoading === event ? 'Updating…' : label}
                 </button>
               ))}
               {profile.status !== 'offboarded' && (
@@ -478,8 +482,8 @@ export function CreatorProfileView() {
                 value={noteText}
                 onChange={e => setNoteText(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleAddNote()}
-                placeholder="Add a note..."
-                className="flex-1 bg-surface-2 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-500 focus:outline-none focus:border-accent"
+                placeholder="Add a note…"
+                className="flex-1 bg-surface-2 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-500 focus:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
               />
               <button
                 onClick={handleAddNote}
@@ -512,4 +516,5 @@ export function CreatorProfileView() {
     </div>
   );
 }
+
 

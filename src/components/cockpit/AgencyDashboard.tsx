@@ -16,13 +16,17 @@ function MetricCard({ label, value, subtitle }: { label: string; value: string |
 export function AgencyDashboard() {
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    getDashboardMetrics().then(m => { setMetrics(m); setLoading(false); });
+    getDashboardMetrics()
+      .then(m => setMetrics(m))
+      .catch(() => setError('Unable to load dashboard metrics. Refresh the page or try again shortly.'))
+      .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <div className="animate-pulse text-gray-500 p-4">Loading dashboard...</div>;
-  if (!metrics) return <div className="text-gray-500 p-4">Unable to load metrics.</div>;
+  if (loading) return <div className="animate-pulse text-gray-500 p-4">Loading Dashboard…</div>;
+  if (error || !metrics) return <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error || 'Unable to load dashboard metrics.'}</div>;
 
   return (
     <div>

@@ -601,7 +601,7 @@ export function AssessmentTemplates() {
     );
   };
 
-  if (loading) return <p className="text-sm text-gray-500">Loading assessment templates...</p>;
+  if (loading) return <p className="text-sm text-gray-500">Loading Assessment Templates…</p>;
 
   return (
     <div className="space-y-6">
@@ -785,7 +785,7 @@ export function AssessmentTemplates() {
             </div>
             <div className="divide-y divide-gray-200">
               {[...activeQuestions, ...archivedQuestions].map(question => {
-                const eligibility = deleteEligibility[question.id] ?? { canDelete: false, reason: 'Checking delete safety...' };
+                const eligibility = deleteEligibility[question.id] ?? { canDelete: false, reason: 'Checking delete safety…' };
                 return (
                   <div key={question.id} className={`p-4 ${question.is_active ? '' : 'bg-warn/5'}`}>
                     <p className="font-medium text-gray-900">{question.question_text}</p>
@@ -831,7 +831,7 @@ export function AssessmentTemplates() {
             </div>
             <input value={questionForm.scoring_dimension} onChange={e => setQuestionForm(current => ({ ...current, scoring_dimension: e.target.value }))} disabled={Boolean(editingQuestion)} placeholder="Scoring dimension" className="w-full rounded-lg border border-gray-300 bg-surface-2 px-3 py-2 text-sm text-gray-900 disabled:opacity-60" />
             <div className="flex gap-2">
-              <button type="button" onClick={() => submitQuestion()} disabled={saving} className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{saving ? 'Saving...' : editingQuestion ? 'Save Question' : 'Add Question'}</button>
+              <button type="button" onClick={() => submitQuestion()} disabled={saving} className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{saving ? 'Saving…' : editingQuestion ? 'Save Question' : 'Add Question'}</button>
               {editingQuestion && <button type="button" onClick={() => { setEditingQuestion(null); setQuestionForm(EMPTY_QUESTION); }} className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700">Cancel</button>}
             </div>
           </form>
@@ -907,5 +907,6 @@ export function AssessmentTemplates() {
     </div>
   );
 }
+
 
 

@@ -59,9 +59,6 @@ export async function signInWithOtp(
     },
   });
 
-  console.log('[auth] signInWithOtp response', response);
-  console.log('[auth] signInWithOtp response JSON', JSON.stringify(response, null, 2));
-
   return response;
 }
 

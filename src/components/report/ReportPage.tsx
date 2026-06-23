@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { getReportBySlug, requestStrategyDiscussion, trackAgencyCalendarClick, trackCreatorEvent } from '@/lib/creators-api';
 import type { CreatorReport, ReportData } from '@/types/creator';
 
@@ -18,7 +18,7 @@ function ScoreBar({ label, score }: { label: string; score: number }) {
         <span className="font-semibold text-gray-800">{score}/100</span>
       </div>
       <div className="h-2 bg-surface-3 rounded-full overflow-hidden">
-        <div className={`h-full ${color} rounded-full transition-all`} style={{ width: `${score}%` }} />
+        <div className={`h-full ${color} rounded-full transition-colors`} style={{ width: `${score}%` }} />
       </div>
     </div>
   );
@@ -46,39 +46,43 @@ export function ReportPage() {
   const [promptWorking, setPromptWorking] = useState(false);
   const [actionMessage, setActionMessage] = useState('');
   const [actionError, setActionError] = useState('');
+  const [loadError, setLoadError] = useState('');
 
   useEffect(() => {
     if (!slug) return;
-    getReportBySlug(slug).then(r => {
-      setReport(r);
-      const storedAnswer = window.sessionStorage.getItem(`agencyPrompt:${slug}`);
-      if (storedAnswer === 'yes' || storedAnswer === 'no') setAgencyAnswer(storedAnswer);
-      setLoading(false);
-      if (r && !window.sessionStorage.getItem(`reportViewed:${slug}`)) {
-        window.sessionStorage.setItem(`reportViewed:${slug}`, 'true');
-        void trackCreatorEvent({
-          profileId: r.creator_profile_id,
-          eventType: 'report_viewed',
-          details: { report_slug: r.report_slug, viewed_at: new Date().toISOString() },
-        });
-      }
-    });
+    getReportBySlug(slug)
+      .then(r => {
+        setReport(r);
+        const storedAnswer = window.sessionStorage.getItem(`agencyPrompt:${slug}`);
+        if (storedAnswer === 'yes' || storedAnswer === 'no') setAgencyAnswer(storedAnswer);
+        if (r && !window.sessionStorage.getItem(`reportViewed:${slug}`)) {
+          window.sessionStorage.setItem(`reportViewed:${slug}`, 'true');
+          void trackCreatorEvent({
+            profileId: r.creator_profile_id,
+            eventType: 'report_viewed',
+            details: { report_slug: r.report_slug, viewed_at: new Date().toISOString() },
+          });
+        }
+      })
+      .catch(() => setLoadError('Unable to load this report. Check the link or contact the person who sent it to you.'))
+      .finally(() => setLoading(false));
   }, [slug]);
 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="animate-pulse text-gray-500">Loading report...</div>
+        <div className="animate-pulse text-gray-500">Loading Report…</div>
       </div>
     );
   }
 
-  if (!report) {
+  if (loadError || !report) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4">
         <h1 className="font-display text-2xl font-bold mb-4">Report Not Found</h1>
-        <p className="text-gray-500 mb-6">This report link may have expired or been moved.</p>
-        <Link to="/" className="text-accent hover:underline text-sm">← Take the assessment</Link>
+        <p className="max-w-md text-center text-sm leading-6 text-gray-600">
+          {loadError || 'This report link may have expired or been moved. Check the link or contact the person who sent it to you.'}
+        </p>
       </div>
     );
   }
@@ -209,7 +213,7 @@ export function ReportPage() {
       {/* Hero */}
       <div className="border-b border-gray-200 bg-surface/50">
         <div className="max-w-4xl mx-auto px-6 py-12">
-          <Link to="/" className="text-xs text-gray-500 hover:text-gray-700 mb-4 inline-block">← Back to assessment</Link>
+          <p className="mb-4 text-xs font-semibold uppercase tracking-[0.18em] text-accent">Find Your Vertical Report</p>
           <div className="flex items-start justify-between flex-wrap gap-4">
             <div>
               <h1 className="font-display text-3xl font-bold mb-2">{d.archetype}</h1>
@@ -414,7 +418,7 @@ export function ReportPage() {
                 disabled={promptWorking}
                 className="rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold text-white hover:bg-accent-2 disabled:opacity-50"
               >
-                {promptWorking ? 'Opening calendar...' : "Yes, I'd like to discuss my results"}
+                {promptWorking ? 'Opening Calendar�' : "Yes, I'd Like to Discuss My Results"}
               </button>
               <button
                 onClick={continueWithoutAgency}
@@ -571,5 +575,7 @@ function createReportPdfBlob(report: ReportData, publicScores: Record<string, nu
 
   return new Blob([pdf], { type: 'application/pdf' });
 }
+
+
 
 

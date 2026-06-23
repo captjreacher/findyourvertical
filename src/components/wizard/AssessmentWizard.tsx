@@ -123,7 +123,7 @@ const FALLBACK_TEMPLATE: CreatorAssessmentRuntimeTemplate = {
       show_when_value: null,
       show_when_operator: 'equals',
       options: [],
-      config: { placeholder: 'E.g., astrology, vintage fashion, conspiracy theories...' },
+      config: { placeholder: 'E.g., astrology, vintage fashion, conspiracy theories…' },
       is_active: true,
       created_at: '',
       updated_at: '',
@@ -834,53 +834,69 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <input
           type="text"
+          name="given-name"
+          autoComplete="given-name"
           value={String(data.first_name ?? '')}
           onChange={e => update('first_name', e.target.value)}
           placeholder="First Name"
-          className="w-full bg-surface-2 border border-gray-300 rounded-lg px-4 py-3 text-gray-900 placeholder-gray-500 focus:outline-none focus:border-accent"
+          className="w-full bg-surface-2 border border-gray-300 rounded-lg px-4 py-3 text-gray-900 placeholder-gray-500 focus:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
         />
         <input
           type="text"
+          name="family-name"
+          autoComplete="family-name"
           value={String(data.last_name ?? '')}
           onChange={e => update('last_name', e.target.value)}
           placeholder="Last Name"
-          className="w-full bg-surface-2 border border-gray-300 rounded-lg px-4 py-3 text-gray-900 placeholder-gray-500 focus:outline-none focus:border-accent"
+          className="w-full bg-surface-2 border border-gray-300 rounded-lg px-4 py-3 text-gray-900 placeholder-gray-500 focus:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
         />
         <input
           type="text"
+          name="onlyfans-handle"
+          autoComplete="off"
+          spellCheck={false}
           value={String(data.onlyfans_handle ?? '')}
           onChange={e => update('onlyfans_handle', e.target.value)}
           placeholder="OnlyFans handle"
-          className="w-full bg-surface-2 border border-gray-300 rounded-lg px-4 py-3 text-gray-900 placeholder-gray-500 focus:outline-none focus:border-accent"
+          className="w-full bg-surface-2 border border-gray-300 rounded-lg px-4 py-3 text-gray-900 placeholder-gray-500 focus:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
         />
         <input
           type="text"
+          name="model-name"
+          autoComplete="off"
           value={String(data.model_name ?? '')}
           onChange={e => update('model_name', e.target.value)}
           placeholder="Model name / stage name (optional)"
-          className="w-full bg-surface-2 border border-gray-300 rounded-lg px-4 py-3 text-gray-900 placeholder-gray-500 focus:outline-none focus:border-accent"
+          className="w-full bg-surface-2 border border-gray-300 rounded-lg px-4 py-3 text-gray-900 placeholder-gray-500 focus:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
         />
         <input
           type="text"
+          name="address-level2"
+          autoComplete="address-level2"
           value={String(data.city ?? '')}
           onChange={e => update('city', e.target.value)}
           placeholder="City"
-          className="w-full bg-surface-2 border border-gray-300 rounded-lg px-4 py-3 text-gray-900 placeholder-gray-500 focus:outline-none focus:border-accent"
+          className="w-full bg-surface-2 border border-gray-300 rounded-lg px-4 py-3 text-gray-900 placeholder-gray-500 focus:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
         />
         <input
           type="text"
+          name="country-name"
+          autoComplete="country-name"
           value={String(data.country ?? '')}
           onChange={e => update('country', e.target.value)}
           placeholder="Country"
-          className="w-full bg-surface-2 border border-gray-300 rounded-lg px-4 py-3 text-gray-900 placeholder-gray-500 focus:outline-none focus:border-accent"
+          className="w-full bg-surface-2 border border-gray-300 rounded-lg px-4 py-3 text-gray-900 placeholder-gray-500 focus:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
         />
         <input
           type="email"
+          name="email"
+          autoComplete="email"
+          spellCheck={false}
           value={String(data.email ?? '')}
           onChange={e => update('email', e.target.value)}
           placeholder="Email"
           readOnly={Boolean(verifiedEmail)}
-          className="w-full bg-surface-2 border border-gray-300 rounded-lg px-4 py-3 text-gray-900 placeholder-gray-500 focus:outline-none focus:border-accent sm:col-span-2 read-only:bg-gray-100"
+          className="w-full bg-surface-2 border border-gray-300 rounded-lg px-4 py-3 text-gray-900 placeholder-gray-500 focus:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 sm:col-span-2 read-only:bg-gray-100"
         />
       </div>
 
@@ -908,6 +924,9 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
           <form onSubmit={verifyInviteEmail} className="mt-6 space-y-4">
             <input
               type="email"
+              name="invite-email"
+              autoComplete="email"
+              spellCheck={false}
               value={verificationEmail}
               onChange={event => {
                 setVerificationEmail(event.target.value);
@@ -915,7 +934,7 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
               }}
               placeholder="you@example.com"
               required
-              className="w-full rounded-lg border border-gray-300 bg-surface-2 px-4 py-3 text-gray-900 placeholder-gray-500 focus:border-accent focus:outline-none"
+              className="w-full rounded-lg border border-gray-300 bg-surface-2 px-4 py-3 text-gray-900 placeholder-gray-500 focus:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
             />
             {verificationError && (
               <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -957,7 +976,7 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
                   key={optionKey}
                   disabled={atLimit}
                   onClick={() => toggleArray(question, optionKey)}
-                  className={`${question.section === 'Current Approach' || question.section === 'Options for the Future' ? 'px-4 py-3 rounded-lg text-left' : 'max-w-full px-4 py-2 rounded-full'} text-sm font-medium border transition-all ${
+                  className={`${question.section === 'Current Approach' || question.section === 'Options for the Future' ? 'px-4 py-3 rounded-lg text-left' : 'max-w-full px-4 py-2 rounded-full'} text-sm font-medium border transition-colors ${
                     selected
                       ? 'bg-accent/20 border-accent text-accent'
                       : atLimit
@@ -980,7 +999,7 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
                 <button
                   key={optionKey}
                   onClick={() => update(question.response_key, optionKey)}
-                  className={`p-5 rounded-xl border-2 transition-all text-left ${
+                  className={`p-5 rounded-xl border-2 transition-colors text-left ${
                     value === optionKey
                       ? 'border-accent bg-accent/10'
                       : 'border-gray-300 hover:border-gray-400'
@@ -1004,7 +1023,7 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
                 <button
                   key={optionKey}
                   onClick={() => update(question.response_key, optionKey)}
-                  className={`px-4 py-3 rounded-lg text-sm font-medium border transition-all text-left ${
+                  className={`px-4 py-3 rounded-lg text-sm font-medium border transition-colors text-left ${
                     value === optionKey
                       ? question.section === 'Current Approach'
                         ? 'bg-pink/20 border-pink text-pink'
@@ -1028,7 +1047,7 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
               <button
                 key={option.label}
                 onClick={() => update(question.response_key, option.value)}
-                className={`px-6 py-2 rounded-full text-sm font-medium border transition-all ${
+                className={`px-6 py-2 rounded-full text-sm font-medium border transition-colors ${
                   value === option.value
                     ? 'bg-pink/20 border-pink text-pink'
                     : 'border-gray-300 text-gray-600 hover:border-gray-400'
@@ -1062,7 +1081,7 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
             value={String(value ?? '')}
             onChange={e => update(question.response_key, e.target.value)}
             placeholder={String(question.config.placeholder ?? '')}
-            className="w-full max-w-lg bg-surface-2 border border-gray-300 rounded-lg px-4 py-3 text-gray-900 placeholder-gray-500 focus:outline-none focus:border-accent"
+            className="w-full max-w-lg bg-surface-2 border border-gray-300 rounded-lg px-4 py-3 text-gray-900 placeholder-gray-500 focus:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
           />
         )}
 
@@ -1072,7 +1091,7 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
             onChange={e => update(question.response_key, e.target.value)}
             placeholder={String(question.config.placeholder ?? '')}
             rows={Number(question.config.rows ?? 3)}
-            className="w-full max-w-lg bg-surface-2 border border-gray-300 rounded-lg px-4 py-3 text-gray-900 placeholder-gray-500 focus:outline-none focus:border-accent resize-none"
+            className="w-full max-w-lg bg-surface-2 border border-gray-300 rounded-lg px-4 py-3 text-gray-900 placeholder-gray-500 focus:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 resize-none"
           />
         )}
 
@@ -1085,7 +1104,7 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
               value={String(data[String(question.config.notesKey)] ?? '')}
               onChange={e => update(String(question.config.notesKey), e.target.value)}
               rows={3}
-              className="w-full max-w-lg bg-surface-2 border border-gray-300 rounded-lg px-4 py-3 text-gray-900 placeholder-gray-500 focus:outline-none focus:border-accent resize-none"
+              className="w-full max-w-lg bg-surface-2 border border-gray-300 rounded-lg px-4 py-3 text-gray-900 placeholder-gray-500 focus:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 resize-none"
             />
           </div>
         )}
@@ -1129,12 +1148,12 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
 
             <div className="flex flex-col gap-3 border-t border-gray-200 pt-6 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm text-gray-500">
-                Preparing your report... Redirecting in {redirectCountdown} {redirectCountdown === 1 ? 'second' : 'seconds'}.
+                Preparing your report� Redirecting in {redirectCountdown} {redirectCountdown === 1 ? 'second' : 'seconds'}.
               </p>
               <button
                 type="button"
                 onClick={goToSubmittedReport}
-                className="inline-flex items-center justify-center rounded-lg bg-accent px-5 py-3 text-sm font-semibold text-white transition-all hover:bg-accent-2"
+                className="inline-flex items-center justify-center rounded-lg bg-accent px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-accent-2"
               >
                 View My Report →
               </button>
@@ -1148,7 +1167,7 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
-        <p className="text-gray-500 text-sm">Loading assessment...</p>
+        <p className="text-gray-500 text-sm">Loading Assessment…</p>
       </div>
     );
   }
@@ -1214,7 +1233,7 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
           {step > 0 && (
             <button
               onClick={() => setStep(s => s - 1)}
-              className="px-6 py-2.5 rounded-lg border border-gray-300 text-gray-600 hover:text-gray-800 hover:border-gray-400 transition-all text-sm font-medium"
+              className="px-6 py-2.5 rounded-lg border border-gray-300 text-gray-600 hover:text-gray-800 hover:border-gray-400 transition-colors text-sm font-medium"
             >
               Back
             </button>
@@ -1223,7 +1242,7 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
             <button
               onClick={() => setStep(s => s + 1)}
               disabled={!canNext()}
-              className="ml-auto px-6 py-2.5 rounded-lg bg-accent hover:bg-accent-2 text-white font-semibold text-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+              className="ml-auto px-6 py-2.5 rounded-lg bg-accent hover:bg-accent-2 text-white font-semibold text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Continue
             </button>
@@ -1231,9 +1250,9 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
             <button
               onClick={handleSubmit}
               disabled={!canNext() || submitting}
-              className="ml-auto px-6 py-2.5 rounded-lg bg-accent hover:bg-accent-2 text-white font-semibold text-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+              className="ml-auto px-6 py-2.5 rounded-lg bg-accent hover:bg-accent-2 text-white font-semibold text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              {submitting ? 'Generating report...' : 'Get my Vertical Report'}
+              {submitting ? 'Generating Report…' : 'Get My Vertical Report'}
             </button>
           )}
         </div>
@@ -1244,5 +1263,8 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
     </div>
   );
 }
+
+
+
 
 

@@ -16,20 +16,28 @@ export function CockpitLayout() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
-      <aside className="w-64 bg-surface border-r border-gray-200 flex flex-col shrink-0">
-        <div className="p-5 border-b border-gray-200">
-          <h1 className="font-display font-bold text-lg text-accent">Creators Cockpit</h1>
-          <p className="text-xs text-gray-500 mt-1">Agency Control Plane</p>
+    <div className="flex min-h-screen flex-col bg-gray-50 lg:flex-row">
+      <aside className="flex w-full shrink-0 flex-col border-b border-gray-200 bg-surface lg:w-64 lg:border-b-0 lg:border-r">
+        <div className="flex items-start justify-between gap-3 border-b border-gray-200 p-4 lg:block lg:p-5">
+          <div>
+            <h1 className="font-display font-bold text-lg text-accent">Creators Cockpit</h1>
+            <p className="text-xs text-gray-500 mt-1">Agency Control Plane</p>
+          </div>
+          <button
+            onClick={handleSignOut}
+            className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-600 transition-colors hover:bg-surface-2 hover:text-gray-900 lg:hidden"
+          >
+            Sign Out
+          </button>
         </div>
-        <nav className="flex-1 p-3 space-y-1">
+        <nav className="flex gap-1 overflow-x-auto p-3 lg:block lg:flex-1 lg:space-y-1">
           {NAV_ITEMS.map(item => (
             <NavLink
               key={item.to}
               to={item.to}
               end={item.end}
               className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
+                `flex shrink-0 items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors ${
                   isActive
                     ? 'bg-surface-3 text-accent font-medium'
                     : 'text-gray-600 hover:text-gray-800 hover:bg-surface-2'
@@ -41,7 +49,7 @@ export function CockpitLayout() {
             </NavLink>
           ))}
         </nav>
-        <div className="p-3 border-t border-gray-200">
+        <div className="hidden p-3 border-t border-gray-200 lg:block">
           <button
             onClick={handleSignOut}
             className="w-full text-left px-3 py-2.5 rounded-lg text-sm text-gray-500 hover:text-gray-700 hover:bg-surface-2 transition-colors"
@@ -52,7 +60,7 @@ export function CockpitLayout() {
       </aside>
 
       <main className="flex-1 overflow-auto">
-        <div className="max-w-7xl mx-auto p-6">
+        <div className="mx-auto max-w-7xl p-4 sm:p-6">
           <Outlet />
         </div>
       </main>

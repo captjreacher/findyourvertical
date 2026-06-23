@@ -5,27 +5,7 @@ import type { Session } from '@supabase/supabase-js';
 
 type AuthMessageKind = 'success' | 'error';
 const MAGIC_LINK_SUCCESS_MESSAGE = 'Magic link sent. Check your inbox.';
-
-function formatDiagnosticValue(value: unknown): string {
-  if (value === undefined) return 'undefined';
-  if (value === null) return 'null';
-  return String(value);
-}
-
-function authErrorMessage(error: {
-  name?: unknown;
-  message?: unknown;
-  status?: unknown;
-  code?: unknown;
-}): string {
-  return [
-    `error.name: ${formatDiagnosticValue(error.name)}`,
-    `error.message: ${formatDiagnosticValue(error.message)}`,
-    `error.status: ${formatDiagnosticValue(error.status)}`,
-    `error.code: ${formatDiagnosticValue(error.code)}`,
-    `JSON.stringify(error): ${JSON.stringify(error)}`,
-  ].join('\n');
-}
+const LOGIN_ERROR_MESSAGE = 'Unable to send a magic link. Check the email address or contact the site owner for access.';
 
 export function AuthGate({ children }: { children: ReactNode }) {
   const location = useLocation();
@@ -56,7 +36,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
     const { error } = await signInWithOtp(email, `${location.pathname}${location.search}`);
 
     if (error) {
-      setMessage(authErrorMessage(error));
+      setMessage(LOGIN_ERROR_MESSAGE);
       setMessageKind('error');
     } else {
       setMessage(MAGIC_LINK_SUCCESS_MESSAGE);
@@ -69,7 +49,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="animate-pulse text-gray-500">Loading...</div>
+        <div className="animate-pulse text-gray-500">Loading…</div>
       </div>
     );
   }
@@ -84,6 +64,9 @@ export function AuthGate({ children }: { children: ReactNode }) {
           <form onSubmit={handleLogin} className="space-y-4">
             <input
               type="email"
+              name="email"
+              autoComplete="email"
+              spellCheck={false}
               value={email}
               onChange={e => {
                 setEmail(e.target.value);
@@ -92,14 +75,14 @@ export function AuthGate({ children }: { children: ReactNode }) {
               }}
               placeholder="you@agency.com"
               required
-              className="w-full bg-surface-2 border border-gray-300 rounded-lg px-4 py-3 text-gray-900 placeholder-gray-500 focus:outline-none focus:border-accent transition-colors"
+              className="w-full bg-surface-2 border border-gray-300 rounded-lg px-4 py-3 text-gray-900 placeholder-gray-500 focus:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 transition-colors"
             />
             <button
               type="submit"
               disabled={sending}
               className="w-full bg-accent hover:bg-accent-2 text-white font-semibold rounded-lg px-4 py-3 transition-colors disabled:opacity-50"
             >
-              {sending ? 'Sending...' : messageKind === 'success' ? 'Send again' : 'Send magic link'}
+              {sending ? 'Sending…' : messageKind === 'success' ? 'Send Again' : 'Send Magic Link'}
             </button>
           </form>
           {message && (
@@ -109,7 +92,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
               }`}
               role={messageKind === 'error' ? 'alert' : 'status'}
             >
-              {messageKind === 'error' ? <pre className="whitespace-pre-wrap text-left">{message}</pre> : message}
+              {message}
             </p>
           )}
         </div>
@@ -119,5 +102,6 @@ export function AuthGate({ children }: { children: ReactNode }) {
 
   return <>{children}</>;
 }
+
 
 
