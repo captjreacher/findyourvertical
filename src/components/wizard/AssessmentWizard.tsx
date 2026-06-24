@@ -63,6 +63,10 @@ const EXPIRED_INVITE_MESSAGE = 'Invite expired';
 const INACTIVE_INVITE_MESSAGE = 'Invite inactive';
 const DETAIL_FIELD_CLASS = 'w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-900 placeholder-gray-500 caret-accent shadow-sm focus:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30';
 const QUESTION_TEXT_FIELD_CLASS = 'w-full max-w-lg rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-900 placeholder-gray-500 caret-accent shadow-sm focus:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30';
+const OPTION_BASE_CLASS = 'border transition-colors text-left shadow-lg shadow-black/10';
+const OPTION_IDLE_CLASS = 'border-white/20 bg-surface/75 text-slate-100 hover:border-accent/70 hover:bg-surface';
+const OPTION_SELECTED_CLASS = 'border-accent bg-accent/20 text-white';
+const OPTION_DISABLED_CLASS = 'border-white/10 bg-white/5 text-slate-500 cursor-not-allowed';
 
 const FALLBACK_TEMPLATE: CreatorAssessmentRuntimeTemplate = {
   id: 'legacy-fallback',
@@ -130,7 +134,7 @@ const FALLBACK_TEMPLATE: CreatorAssessmentRuntimeTemplate = {
       show_when_value: null,
       show_when_operator: 'equals',
       options: [],
-      config: { placeholder: 'E.g., astrology, vintage fashion, conspiracy theoriesâ€¦' },
+      config: { placeholder: 'E.g., astrology, vintage fashion, conspiracy theories...' },
       is_active: true,
       created_at: '',
       updated_at: '',
@@ -528,7 +532,7 @@ function PublicBrandHeader({ eyebrow }: { eyebrow?: string }) {
       <img
         src={brandLogo}
         alt="Find Your Vertical"
-        className="mx-auto h-28 w-64 rounded-lg object-contain shadow-lg shadow-orange-200/50"
+        className="mx-auto h-36 w-80 max-w-full rounded-lg object-contain shadow-lg shadow-orange-200/50"
       />
       {eyebrow && <p className="mt-5 text-xs font-semibold uppercase tracking-[0.18em] text-accent">{eyebrow}</p>}
       <h1 className="mt-3 font-display text-3xl font-bold text-gray-900">Find Your Vertical</h1>
@@ -662,23 +666,23 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
     if (!submittedReportSlug) return;
 
     setRedirectCountdown(3);
-    const reportPath = `/report/${submittedReportSlug}`;
+    const reportUrl = `${window.location.origin}/#/report/${submittedReportSlug}`;
     const countdownTimer = window.setInterval(() => {
       setRedirectCountdown(current => Math.max(current - 1, 0));
     }, 1000);
     const redirectTimer = window.setTimeout(() => {
-      navigate(reportPath, { replace: true });
+      window.location.replace(reportUrl);
     }, 3000);
 
     return () => {
       window.clearInterval(countdownTimer);
       window.clearTimeout(redirectTimer);
     };
-  }, [navigate, submittedReportSlug]);
+  }, [submittedReportSlug]);
 
   const goToSubmittedReport = () => {
     if (!submittedReportSlug) return;
-    navigate(`/report/${submittedReportSlug}`, { replace: true });
+    window.location.assign(`${window.location.origin}/#/report/${submittedReportSlug}`);
   };
 
   const verifyInviteEmail = (event: FormEvent<HTMLFormElement>) => {
@@ -1098,10 +1102,10 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
     const value = data[question.response_key];
     return (
       <div key={question.id}>
-        <label className="block text-sm font-medium mb-2 text-gray-700">
+        <label className="mb-3 block max-w-3xl text-lg font-semibold leading-snug text-white sm:text-xl">
           {question.question_text}
         </label>
-        {question.help_text && <p className="text-gray-500 text-xs mb-3">{question.help_text}</p>}
+        {question.help_text && <p className="mb-4 max-w-2xl text-sm leading-6 text-slate-300">{question.help_text}</p>}
 
         {question.question_type === 'multi_choice' && (
           <div className={question.section === 'Current Approach' || question.section === 'Options for the Future' ? 'grid max-w-xl grid-cols-1 gap-2 sm:grid-cols-2' : 'flex max-w-lg flex-wrap gap-2'}>
@@ -1115,12 +1119,12 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
                   key={optionKey}
                   disabled={atLimit}
                   onClick={() => toggleArray(question, optionKey)}
-                  className={`${question.section === 'Current Approach' || question.section === 'Options for the Future' ? 'px-4 py-3 rounded-lg text-left' : 'max-w-full px-4 py-2 rounded-full'} text-sm font-medium border transition-colors ${
+                  className={`${question.section === 'Current Approach' || question.section === 'Options for the Future' ? 'rounded-xl px-4 py-3' : 'max-w-full rounded-full px-4 py-2'} ${OPTION_BASE_CLASS} text-sm font-semibold ${
                     selected
-                      ? 'bg-accent/20 border-accent text-accent'
+                      ? OPTION_SELECTED_CLASS
                       : atLimit
-                        ? 'border-gray-200 text-gray-600 cursor-not-allowed'
-                        : 'border-gray-300 text-gray-600 hover:border-gray-400'
+                        ? OPTION_DISABLED_CLASS
+                        : OPTION_IDLE_CLASS
                   }`}
                 >
                   {optionLabel(option)}
@@ -1138,15 +1142,15 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
                 <button
                   key={optionKey}
                   onClick={() => update(question.response_key, optionKey)}
-                  className={`p-5 rounded-xl border-2 transition-colors text-left ${
+                  className={`rounded-xl p-5 ${OPTION_BASE_CLASS} ${
                     value === optionKey
-                      ? 'border-accent bg-accent/10'
-                      : 'border-gray-300 hover:border-gray-400'
+                      ? OPTION_SELECTED_CLASS
+                      : OPTION_IDLE_CLASS
                   }`}
                 >
-                  <div className="font-semibold text-gray-900">{optionLabel(option)}</div>
+                  <div className="text-lg font-semibold text-white">{optionLabel(option)}</div>
                   {optionDescription(option) && (
-                    <p className="text-xs text-gray-500 mt-1">{optionDescription(option)}</p>
+                    <p className="mt-2 text-sm leading-6 text-slate-300">{optionDescription(option)}</p>
                   )}
                 </button>
               );
@@ -1162,12 +1166,12 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
                 <button
                   key={optionKey}
                   onClick={() => update(question.response_key, optionKey)}
-                  className={`px-4 py-3 rounded-lg text-sm font-medium border transition-colors text-left ${
+                  className={`rounded-xl px-4 py-3 ${OPTION_BASE_CLASS} text-sm font-semibold ${
                     value === optionKey
                       ? question.section === 'Current Approach'
-                        ? 'bg-pink/20 border-pink text-pink'
-                        : 'bg-accent/20 border-accent text-accent'
-                      : 'border-gray-300 text-gray-600 hover:border-gray-400'
+                        ? 'border-pink bg-pink/20 text-white'
+                        : OPTION_SELECTED_CLASS
+                      : OPTION_IDLE_CLASS
                   }`}
                 >
                   {optionLabel(option)}
@@ -1186,10 +1190,10 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
               <button
                 key={option.label}
                 onClick={() => update(question.response_key, option.value)}
-                className={`px-6 py-2 rounded-full text-sm font-medium border transition-colors ${
+                className={`rounded-full px-6 py-2 ${OPTION_BASE_CLASS} text-sm font-semibold ${
                   value === option.value
-                    ? 'bg-pink/20 border-pink text-pink'
-                    : 'border-gray-300 text-gray-600 hover:border-gray-400'
+                    ? 'border-pink bg-pink/20 text-white'
+                    : OPTION_IDLE_CLASS
                 }`}
               >
                 {option.label}
@@ -1199,8 +1203,8 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
         )}
 
         {question.question_type === 'scale' && (
-          <div className="flex w-full max-w-lg min-w-0 items-center gap-3 rounded-lg bg-surface/60 px-4 py-3">
-            <span className="text-xs text-gray-500">{String(question.config.min ?? 1)}</span>
+          <div className="flex w-full max-w-2xl min-w-0 items-center gap-3 rounded-xl border border-white/10 bg-surface/80 px-4 py-4 shadow-lg shadow-black/10">
+            <span className="text-sm font-semibold text-slate-300">{String(question.config.min ?? 1)}</span>
             <input
               type="range"
               min={Number(question.config.min ?? 1)}
@@ -1209,7 +1213,7 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
               onChange={e => update(question.response_key, parseInt(e.target.value))}
               className="min-w-0 flex-1 accent-accent"
             />
-            <span className="text-xs text-gray-500">{String(question.config.max ?? 10)}</span>
+            <span className="text-sm font-semibold text-slate-300">{String(question.config.max ?? 10)}</span>
             <span className="font-display text-xl text-accent ml-2 w-6 text-center">{String(value)}</span>
           </div>
         )}
@@ -1236,7 +1240,7 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
 
         {Boolean(question.config.notesKey) && (
           <div className="mt-3">
-            <label className="block text-sm font-medium mb-2 text-gray-700">
+            <label className="mb-2 block text-sm font-semibold text-white">
               {String(question.config.notesLabel ?? 'Notes')}
             </label>
             <textarea
@@ -1254,29 +1258,29 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
   const renderSubmissionSuccess = () => (
     <div className="min-h-[100dvh] w-full px-4 py-10 sm:px-6">
       <div className="mx-auto flex min-h-[calc(100dvh-5rem)] max-w-3xl items-center">
-        <div className="w-full rounded-2xl border border-gray-200 bg-surface/80 p-6 shadow-xl shadow-gray-200/70 sm:p-10">
+        <div className="w-full rounded-2xl border border-white/15 bg-surface/90 p-6 shadow-2xl shadow-orange-200/30 sm:p-10">
           <div className="space-y-6">
             <div className="space-y-3">
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-accent">Assessment saved</p>
-              <h1 className="font-display text-3xl font-bold text-gray-900 sm:text-4xl">Assessment Complete ðŸŽ‰</h1>
-              <div className="space-y-3 text-sm leading-6 text-gray-700 sm:text-base">
+              <h1 className="font-display text-3xl font-bold text-white sm:text-4xl">Assessment Complete</h1>
+              <div className="space-y-3 text-sm leading-6 text-slate-200 sm:text-base">
                 <p>Thanks for completing your Find Your Vertical assessment.</p>
                 <p>We've analysed your responses and generated your personalised creator profile.</p>
               </div>
             </div>
 
-            <div className="rounded-xl border border-gray-200 bg-gray-50 p-5">
-              <h2 className="font-display text-lg font-semibold text-gray-900">What happens next?</h2>
-              <ul className="mt-4 space-y-3 text-sm leading-6 text-gray-700">
-                <li className="flex gap-3"><span className="text-success">âœ“</span><span>Your assessment has been saved.</span></li>
-                <li className="flex gap-3"><span className="text-success">âœ“</span><span>Your Creator DNA, Brand Clarity, Monetisation, Consistency, and Agency Opportunity scores have been calculated.</span></li>
-                <li className="flex gap-3"><span className="text-success">âœ“</span><span>Your personalised report is ready to view.</span></li>
+            <div className="rounded-xl border border-accent/40 bg-accent/10 p-5">
+              <h2 className="font-display text-lg font-semibold text-white">What happens next?</h2>
+              <ul className="mt-4 space-y-3 text-sm leading-6 text-slate-100">
+                <li className="flex gap-3"><span className="font-bold text-accent">OK</span><span>Your assessment has been saved.</span></li>
+                <li className="flex gap-3"><span className="font-bold text-accent">OK</span><span>Your Creator DNA, Brand Clarity, Monetisation, Consistency, and Agency Opportunity scores have been calculated.</span></li>
+                <li className="flex gap-3"><span className="font-bold text-accent">OK</span><span>Your personalised report is ready to view.</span></li>
               </ul>
             </div>
 
             <div className="space-y-3">
-              <h2 className="font-display text-lg font-semibold text-gray-900">In your report you'll discover:</h2>
-              <ul className="grid gap-2 text-sm leading-6 text-gray-600 sm:grid-cols-2">
+              <h2 className="font-display text-lg font-semibold text-white">In your report you'll discover:</h2>
+              <ul className="grid gap-2 text-sm leading-6 text-slate-200 sm:grid-cols-2">
                 <li>Your strongest creator opportunities</li>
                 <li>The audience you're best suited to attract</li>
                 <li>Recommended content angles and positioning</li>
@@ -1285,16 +1289,16 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
               </ul>
             </div>
 
-            <div className="flex flex-col gap-3 border-t border-gray-200 pt-6 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-sm text-gray-500">
-                Preparing your report… Redirecting in {redirectCountdown} {redirectCountdown === 1 ? 'second' : 'seconds'}.
+            <div className="flex flex-col gap-3 border-t border-white/15 pt-6 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm text-slate-300">
+                Preparing your report... Redirecting in {redirectCountdown} {redirectCountdown === 1 ? 'second' : 'seconds'}.
               </p>
               <button
                 type="button"
                 onClick={goToSubmittedReport}
                 className="inline-flex items-center justify-center rounded-lg bg-accent px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-accent-2"
               >
-                View My Report â†’
+                View My Report -&gt;
               </button>
             </div>
           </div>
@@ -1306,7 +1310,7 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
-        <p className="text-gray-500 text-sm">Loading Assessmentâ€¦</p>
+        <p className="text-gray-500 text-sm">Loading Assessment...</p>
       </div>
     );
   }
@@ -1333,7 +1337,7 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
           {steps.map((label, i) => (
             <div key={`${label}-${i}`} className="min-w-20 flex-1">
               <div className={`h-1 rounded-full transition-colors ${i <= step ? 'bg-accent' : 'bg-surface-3'}`} />
-              <span className={`text-xs mt-1 block ${i <= step ? 'text-accent' : 'text-gray-600'}`}>
+              <span className={`text-xs mt-1 block ${i <= step ? 'text-accent' : 'text-slate-400'}`}>
                 {i === 0 || i === steps.length - 1 ? label : `Q${i}`}
               </span>
             </div>
@@ -1353,7 +1357,7 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
             <div>
               <h2 className="font-display text-xl font-semibold">{activeSection.section}</h2>
               {activeSection.description && (
-                <p className="mt-2 text-sm leading-6 text-gray-500">{activeSection.description}</p>
+                <p className="mt-2 text-base leading-7 text-slate-300">{activeSection.description}</p>
               )}
             </div>
             {renderQuestion(activeQuestion)}
@@ -1392,7 +1396,7 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
               disabled={!canNext() || submitting}
               className="ml-auto px-6 py-2.5 rounded-lg bg-accent hover:bg-accent-2 text-white font-semibold text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              {submitting ? 'Generating Reportâ€¦' : 'Get My Vertical Report'}
+              {submitting ? 'Generating Report...' : 'Get My Vertical Report'}
             </button>
           )}
         </div>

@@ -107,7 +107,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
                 <img
                   src={brandLogo}
                   alt="Find Your Vertical"
-                  className="h-24 w-52 rounded-lg object-contain shadow-lg shadow-orange-950/40"
+                  className="h-32 w-72 rounded-lg object-contain shadow-lg shadow-orange-950/40"
                 />
                 <div className="sr-only">
                   <p className="text-lg font-bold leading-tight text-charcoal">Find Your Vertical</p>

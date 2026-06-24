@@ -71,7 +71,7 @@ export function ReportPage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="animate-pulse text-gray-500">Loading Reportâ€¦</div>
+        <div className="animate-pulse text-gray-500">Loading Report...</div>
       </div>
     );
   }
@@ -231,7 +231,7 @@ export function ReportPage() {
           <div className="space-y-3 text-sm leading-6 text-gray-600">
             <p>This report is designed to help you understand where your greatest creator opportunities exist today.</p>
             <p>The recommendations are based on your responses, creator profile, content preferences, commercial goals, and growth readiness.</p>
-            <p>Use this report as a starting pointâ€”not a final destination. The most successful creators continuously refine their positioning, content strategy, and audience focus over time.</p>
+            <p>Use this report as a starting point, not a final destination. The most successful creators continuously refine their positioning, content strategy, and audience focus over time.</p>
             <p>Review your results below and pay particular attention to the recommended actions and opportunities with the highest potential impact.</p>
           </div>
         </section>
@@ -286,7 +286,7 @@ export function ReportPage() {
           </div>
           <div className="bg-surface border border-accent/20 rounded-xl p-5">
             <h3 className="font-semibold text-accent mb-3 text-sm uppercase tracking-wide">Growth</h3>
-            <ul className="space-y-2">{d.archetype_growth.map(s => <li key={s} className="text-sm text-gray-700 flex gap-2"><span className="text-accent">â†’</span>{s}</li>)}</ul>
+            <ul className="space-y-2">{d.archetype_growth.map(s => <li key={s} className="text-sm text-gray-700 flex gap-2"><span className="text-accent">-&gt;</span>{s}</li>)}</ul>
           </div>
         </section>
 

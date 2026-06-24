@@ -25,7 +25,7 @@ export function CockpitLayout() {
             <img
               src={brandLogo}
               alt="Find Your Vertical"
-              className="h-16 w-36 shrink-0 rounded-lg object-contain shadow-lg shadow-orange-950/40"
+              className="h-28 w-56 shrink-0 rounded-lg object-contain shadow-lg shadow-orange-950/40"
             />
             <div className="sr-only">
               <h1 className="text-base font-bold tracking-normal text-white">Find Your Vertical</h1>
