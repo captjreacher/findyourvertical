@@ -55,6 +55,7 @@ const SECTION_DESCRIPTIONS: Record<string, string> = {
   'Options for the Future': "Share where you'd like your creator journey to go and how success looks for you.",
 };
 const INVITE_ONLY_MODE = true;
+const BUILD_MARKER = 'fyv-invite-fix-20260624';
 const INVALID_INVITE_MESSAGE = 'Invite not found';
 const EMAIL_MISMATCH_MESSAGE = 'Email does not match invite';
 const EXPIRED_INVITE_MESSAGE = 'Invite expired';
@@ -547,6 +548,7 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
   const [verifiedEmail, setVerifiedEmail] = useState('');
   const [verificationEmail, setVerificationEmail] = useState('');
   const [verificationError, setVerificationError] = useState('');
+  const [verificationStatus, setVerificationStatus] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submittedReportSlug, setSubmittedReportSlug] = useState('');
   const [redirectCountdown, setRedirectCountdown] = useState(3);
@@ -563,6 +565,7 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
     setVerifiedEmail('');
     setVerificationEmail(normalizeEmailInput(inviteEmailParam));
     setVerificationError('');
+    setVerificationStatus('');
 
     const load = async () => {
       if (INVITE_ONLY_MODE && !inviteRef) {
@@ -670,24 +673,29 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
 
   const verifyInviteEmail = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setVerificationStatus('Checking invite...');
     if (!inviteLink) {
       setVerificationError(INVALID_INVITE_MESSAGE);
+      setVerificationStatus('');
       return;
     }
 
     const enteredEmail = normalizeEmailInput(verificationEmail);
     if (!enteredEmail) {
       setVerificationError('Enter your email address to continue.');
+      setVerificationStatus('');
       return;
     }
 
     const invitedEmail = inviteLink.creator_email ? normalizeEmailInput(inviteLink.creator_email) : '';
     if (invitedEmail && enteredEmail !== invitedEmail) {
       setVerificationError(EMAIL_MISMATCH_MESSAGE);
+      setVerificationStatus('');
       return;
     }
 
     setVerificationError('');
+    setVerificationStatus('Invite verified. Loading assessment...');
     setVerifiedEmail(enteredEmail);
     setData(current => ({ ...current, email: enteredEmail }));
     void setAssessmentInviteStatus(inviteLink.invite_code, 'Email Verified').catch(() => undefined);
@@ -1027,7 +1035,7 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
   );
 
   const renderEmailVerification = () => (
-    <div className="min-h-[100dvh] w-full px-4 py-10 sm:px-6">
+    <div data-build={BUILD_MARKER} className="min-h-[100dvh] w-full px-4 py-10 sm:px-6">
       <div className="mx-auto flex min-h-[calc(100dvh-5rem)] max-w-lg items-center">
         <div className="w-full rounded-lg border border-gray-200 bg-white p-6 shadow-sm sm:p-8">
           <PublicBrandHeader eyebrow="Invite verification" />
@@ -1041,14 +1049,21 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
               autoComplete="email"
               spellCheck={false}
               value={verificationEmail}
+              onFocus={() => setVerificationStatus('Email field focused')}
               onChange={event => {
                 setVerificationEmail(event.target.value);
                 setVerificationError('');
+                setVerificationStatus('Typing detected');
               }}
               placeholder="you@example.com"
               required
-              className="w-full rounded-lg border border-gray-300 bg-surface-2 px-4 py-3 text-gray-900 placeholder-gray-500 focus:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
+              className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-900 placeholder-gray-500 caret-accent shadow-sm focus:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
             />
+            {verificationStatus && (
+              <div className="rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-800" role="status">
+                {verificationStatus}
+              </div>
+            )}
             {verificationError && (
               <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                 {verificationError}
@@ -1061,6 +1076,7 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
               Continue to assessment
             </button>
           </form>
+          <p className="mt-4 text-center text-[10px] text-gray-400">Build {BUILD_MARKER}</p>
         </div>
       </div>
     </div>
@@ -1294,7 +1310,7 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
   if (submittedReportSlug) return renderSubmissionSuccess();
 
   return (
-    <div className="min-h-[100dvh] w-full overflow-x-hidden px-4 py-8 sm:px-6 sm:py-10">
+    <div data-build={BUILD_MARKER} className="min-h-[100dvh] w-full overflow-x-hidden px-4 py-8 sm:px-6 sm:py-10">
       <div className="mx-auto w-full max-w-2xl">
         <div className="text-center mb-6 sm:mb-10">
           <PublicBrandHeader />
