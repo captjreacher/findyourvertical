@@ -1,12 +1,14 @@
 // ── Creator Profile (primary entity) ──
 export type CreatorStatus =
-  | 'Assessment Complete'
+  | 'New'
+  | 'Invited'
+  | 'Started'
+  | 'Completed'
+  | 'Interested'
   | 'Qualified'
-  | 'Discovery Booked'
-  | 'Proposal Sent'
+  | 'Meeting Booked'
   | 'Client'
-  | 'Managed Creator'
-  | 'Archived';
+  | 'Declined';
 
 export type ServiceQualificationStatus =
   | 'Not Interested'
@@ -385,6 +387,13 @@ export interface CreatorStatusEvent {
   created_at: string;
   event_type: string;
   details: Record<string, unknown>;
+}
+
+export interface CreatorPipelineSummary extends CreatorProfile {
+  latest_invite_status: CreatorAssessmentInviteLink['status'] | null;
+  latest_assessment_status: 'Not Started' | 'Started' | 'Completed';
+  last_activity_at: string | null;
+  next_action: string;
 }
 
 // ── Archetypes ──

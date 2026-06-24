@@ -7,6 +7,7 @@ import type {
   CreatorNote,
   CreatorStatusEvent,
   CreatorStatus,
+  CreatorPipelineSummary,
   ManagementWraparoundPotential,
   ServiceQualification,
   ServiceQualificationKey,
@@ -239,7 +240,7 @@ async function ensureCreatorProfileForInvite(input: AssessmentInviteCreatorInput
     model_name: modelName,
     city: null,
     country: null,
-    status: 'Assessment Complete',
+    status: 'Invited',
     archetype: null,
     creator_dna_score: null,
     brand_clarity_score: null,
@@ -489,6 +490,28 @@ export async function setAssessmentInviteStatus(
     }
     throw new Error(`Failed to update invite status: ${message}`);
   }
+
+  const eventTypeByStatus: Partial<Record<typeof status, string>> = {
+    Opened: 'invite.opened',
+    Started: 'assessment.started',
+    Completed: 'assessment.completed',
+  };
+  const eventType = eventTypeByStatus[status];
+  if (!eventType) return;
+
+  const invite = await getAssessmentInviteLink(code).catch(() => null);
+  if (!invite?.creator_profile_id) return;
+
+  await trackCreatorEvent({
+    profileId: invite.creator_profile_id,
+    eventType,
+    details: {
+      invite_code: code,
+      invite_link_id: invite.id,
+      invite_status: status,
+      detected_at: new Date().toISOString(),
+    },
+  }).catch(() => undefined);
 }
 
 export async function submitAssessment(
@@ -536,7 +559,7 @@ export async function submitAssessment(
     model_name: normalizeNullableText(responses.model_name),
     city: normalizeNullableText(responses.city),
     country: normalizeNullableText(responses.country),
-    status: 'Assessment Complete',
+    status: 'Completed',
     archetype: result.archetype,
     creator_dna_score: result.scores.creator_dna,
     brand_clarity_score: result.scores.brand_clarity,
@@ -655,20 +678,29 @@ export async function submitAssessment(
     })
     .eq('id', profileId);
 
-  // 7. Create assessment_completed event
-  await supabase.from('creator_status_events').insert({
-    creator_profile_id: profileId,
-    event_type: 'assessment_completed',
-    details: {
-      assessment_id: assessment.id,
-      dna_profile_id: dnaProfile.id,
-      report_slug: slug,
-      template_id: runtimeTemplate?.id ?? null,
-      template_slug: runtimeTemplate?.slug ?? null,
-      invite_code: invite?.invite_code ?? null,
-      creator_name: invite?.creator_name ?? null,
+  const eventDetails = {
+    assessment_id: assessment.id,
+    dna_profile_id: dnaProfile.id,
+    report_id: report.id,
+    report_slug: slug,
+    template_id: runtimeTemplate?.id ?? null,
+    template_slug: runtimeTemplate?.slug ?? null,
+    invite_code: invite?.invite_code ?? null,
+    creator_name: invite?.creator_name ?? null,
+  };
+
+  await supabase.from('creator_status_events').insert([
+    {
+      creator_profile_id: profileId,
+      event_type: 'assessment.completed',
+      details: eventDetails,
     },
-  });
+    {
+      creator_profile_id: profileId,
+      event_type: 'report.generated',
+      details: eventDetails,
+    },
+  ]);
 
   return {
     profile: { ...profile, latest_assessment_id: assessment.id, latest_report_id: report.id },
@@ -695,12 +727,12 @@ export async function requestStrategyDiscussion(input: {
   const { error: eventError } = await supabase.from('creator_status_events').insert([
     {
       creator_profile_id: input.profileId,
-      event_type: 'agency_strategy_discussion_requested',
+      event_type: 'agency_interest.yes',
       details,
     },
     {
       creator_profile_id: input.profileId,
-      event_type: 'agency_discussion_requested',
+      event_type: 'agency_strategy_discussion_requested',
       details,
     },
   ]);
@@ -714,6 +746,7 @@ export async function requestStrategyDiscussion(input: {
       consent_at: requestedAt,
       follow_up_required: true,
       follow_up_reason: 'strategy_discussion_requested',
+      status: 'Interested',
     })
     .eq('id', input.profileId);
 
@@ -736,12 +769,12 @@ export async function trackAgencyCalendarClick(input: {
   const { error: eventError } = await supabase.from('creator_status_events').insert([
     {
       creator_profile_id: input.profileId,
-      event_type: 'agency_calendar_clicked',
+      event_type: 'strategy_call.clicked',
       details,
     },
     {
       creator_profile_id: input.profileId,
-      event_type: 'calendly_clicked',
+      event_type: 'agency_calendar_clicked',
       details,
     },
   ]);
@@ -841,6 +874,108 @@ export async function getAllCreatorProfiles(): Promise<CreatorProfile[]> {
     .select('*')
     .order('agency_opportunity_score', { ascending: false });
   return (data ?? []) as CreatorProfile[];
+}
+
+function nextActionForCreator(
+  status: CreatorStatus,
+  inviteStatus: CreatorAssessmentInviteLink['status'] | null,
+  assessmentStatus: CreatorPipelineSummary['latest_assessment_status']
+): string {
+  if (status === 'Client' || status === 'Declined') return '-';
+  if (status === 'Meeting Booked') return 'Prepare strategy call';
+  if (status === 'Qualified') return 'Book strategy call';
+  if (status === 'Interested') return 'Qualify opportunity';
+  if (assessmentStatus === 'Completed') return 'Review report';
+  if (inviteStatus === 'Opened' || inviteStatus === 'Started') return 'Follow up on assessment';
+  if (inviteStatus === 'Created' || inviteStatus === 'Sent') return 'Nudge invite';
+  return 'Send assessment invite';
+}
+
+export async function getCreatorPipelineSummaries(): Promise<CreatorPipelineSummary[]> {
+  const [
+    profiles,
+    { data: inviteRows, error: inviteError },
+    { data: assessmentRows, error: assessmentError },
+    { data: eventRows, error: eventError },
+  ] = await Promise.all([
+    getAllCreatorProfiles(),
+    (supabase as any)
+      .from('creator_assessment_links')
+      .select('id,creator_profile_id,status,status_updated_at,created_at')
+      .order('created_at', { ascending: false }),
+    supabase
+      .from('creator_assessments')
+      .select('id,creator_profile_id,created_at')
+      .order('created_at', { ascending: false }),
+    supabase
+      .from('creator_status_events')
+      .select('creator_profile_id,created_at,event_type')
+      .order('created_at', { ascending: false }),
+  ]);
+
+  if (inviteError) throw new Error(`Failed to load invite summaries: ${inviteError.message}`);
+  if (assessmentError) throw new Error(`Failed to load assessment summaries: ${assessmentError.message}`);
+  if (eventError) throw new Error(`Failed to load activity summaries: ${eventError.message}`);
+
+  const latestInviteByProfile = new Map<string, any>();
+  for (const invite of inviteRows ?? []) {
+    if (invite.creator_profile_id && !latestInviteByProfile.has(invite.creator_profile_id)) {
+      latestInviteByProfile.set(invite.creator_profile_id, invite);
+    }
+  }
+
+  const latestAssessmentByProfile = new Map<string, any>();
+  for (const assessment of assessmentRows ?? []) {
+    if (!latestAssessmentByProfile.has(assessment.creator_profile_id)) {
+      latestAssessmentByProfile.set(assessment.creator_profile_id, assessment);
+    }
+  }
+
+  const latestEventByProfile = new Map<string, any>();
+  for (const event of eventRows ?? []) {
+    if (!latestEventByProfile.has(event.creator_profile_id)) {
+      latestEventByProfile.set(event.creator_profile_id, event);
+    }
+  }
+
+  return profiles.map(profile => {
+    const invite = latestInviteByProfile.get(profile.id);
+    const assessment = latestAssessmentByProfile.get(profile.id);
+    const event = latestEventByProfile.get(profile.id);
+    const latestInviteStatus = invite?.status ?? null;
+    const latestAssessmentStatus = assessment
+      ? 'Completed'
+      : latestInviteStatus === 'Started'
+        ? 'Started'
+        : 'Not Started';
+    const activityDates = [
+      profile.updated_at,
+      invite?.status_updated_at,
+      invite?.created_at,
+      assessment?.created_at,
+      event?.created_at,
+    ].filter(Boolean).sort();
+    const lastActivityAt = activityDates[activityDates.length - 1] ?? null;
+
+    return {
+      ...profile,
+      latest_invite_status: latestInviteStatus,
+      latest_assessment_status: latestAssessmentStatus,
+      last_activity_at: lastActivityAt,
+      next_action: nextActionForCreator(profile.status, latestInviteStatus, latestAssessmentStatus),
+    };
+  });
+}
+
+export async function getInvitesForProfile(profileId: string): Promise<CreatorAssessmentInviteLink[]> {
+  const { data, error } = await (supabase as any)
+    .from('creator_assessment_links')
+    .select('*')
+    .eq('creator_profile_id', profileId)
+    .order('created_at', { ascending: false });
+
+  if (error) throw new Error(`Failed to load invite history: ${error.message}`);
+  return (data ?? []) as CreatorAssessmentInviteLink[];
 }
 
 export async function getAssessmentsForProfile(profileId: string): Promise<CreatorAssessment[]> {
@@ -1441,7 +1576,7 @@ export async function createAssessmentInviteLink(input: {
   if (error) throw new Error(`Failed to create invite link: ${error.message}`);
   await trackCreatorEvent({
     profileId: profile.id,
-    eventType: 'assessment_invite_created',
+    eventType: 'invite.created',
     details: {
       template_id: input.templateId,
       invite_link_id: data.id,
@@ -1626,7 +1761,12 @@ export async function deleteAssessmentTemplate(templateId: string): Promise<void
 
 export interface DashboardMetrics {
   totalProfiles: number;
+  invitesCreated: number;
+  assessmentsStarted: number;
   assessmentsCompleted: number;
+  completionRate: number;
+  agencyInterestCount: number;
+  strategyCallClicks: number;
   qualifiedCreators: number;
   activeCreators: number;
   avgAgencyScore: number;
@@ -1639,8 +1779,8 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
   const p = (profiles ?? []) as CreatorProfile[];
 
   const totalProfiles = p.length;
-  const qualifiedCreators = p.filter(x => ['Qualified', 'Discovery Booked', 'Proposal Sent', 'Client', 'Managed Creator'].includes(x.status)).length;
-  const activeCreators = p.filter(x => x.status === 'Client' || x.status === 'Managed Creator').length;
+  const qualifiedCreators = p.filter(x => ['Qualified', 'Meeting Booked', 'Client'].includes(x.status)).length;
+  const activeCreators = p.filter(x => x.status === 'Client').length;
   const scaleCandidates = p.filter(x => x.management_readiness === 'Scale Candidate').length;
   const avgAgencyScore = totalProfiles > 0
     ? Math.round(p.reduce((sum, x) => sum + (x.agency_opportunity_score ?? 0), 0) / totalProfiles)
@@ -1650,13 +1790,39 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
     .from('creator_assessments')
     .select('*', { count: 'exact', head: true });
 
+  const { count: inviteCount } = await (supabase as any)
+    .from('creator_assessment_links')
+    .select('*', { count: 'exact', head: true });
+
+  const { count: assessmentStartedCount } = await supabase
+    .from('creator_status_events')
+    .select('*', { count: 'exact', head: true })
+    .eq('event_type', 'assessment.started');
+
+  const { count: agencyInterestCount } = await supabase
+    .from('creator_status_events')
+    .select('*', { count: 'exact', head: true })
+    .eq('event_type', 'agency_interest.yes');
+
+  const { count: strategyCallClicks } = await supabase
+    .from('creator_status_events')
+    .select('*', { count: 'exact', head: true })
+    .eq('event_type', 'strategy_call.clicked');
+
+  const completionBase = assessmentStartedCount || inviteCount || 0;
+
   const conversionRate = totalProfiles > 0
     ? Math.round(((activeCreators + qualifiedCreators) / totalProfiles) * 100)
     : 0;
 
   return {
     totalProfiles,
+    invitesCreated: inviteCount ?? 0,
+    assessmentsStarted: assessmentStartedCount ?? 0,
     assessmentsCompleted: assessmentCount ?? 0,
+    completionRate: completionBase > 0 ? Math.round(((assessmentCount ?? 0) / completionBase) * 100) : 0,
+    agencyInterestCount: agencyInterestCount ?? 0,
+    strategyCallClicks: strategyCallClicks ?? 0,
     qualifiedCreators,
     activeCreators,
     avgAgencyScore,

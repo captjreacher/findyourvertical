@@ -5,6 +5,7 @@ import {
   getAssessmentsForProfile,
   getCreatorDnaProfilesForProfile,
   getReportsForProfile,
+  getInvitesForProfile,
   getNotesForProfile,
   getStatusEventsForProfile,
   addCreatorNote,
@@ -19,6 +20,7 @@ import type {
   CreatorReport,
   CreatorNote,
   CreatorStatusEvent,
+  CreatorAssessmentInviteLink,
   CreatorStatus,
   ManagementWraparoundPotential,
   ReportData,
@@ -28,13 +30,15 @@ import type {
 } from '@/types/creator';
 
 const WORKFLOW_STATUSES: CreatorStatus[] = [
-  'Assessment Complete',
+  'New',
+  'Invited',
+  'Started',
+  'Completed',
+  'Interested',
   'Qualified',
-  'Discovery Booked',
-  'Proposal Sent',
+  'Meeting Booked',
   'Client',
-  'Managed Creator',
-  'Archived',
+  'Declined',
 ];
 
 const WRAPAROUND_OPTIONS: ManagementWraparoundPotential[] = ['Yes', 'No', 'Not Yet'];
@@ -169,6 +173,7 @@ export function CreatorProfileView() {
   const [assessments, setAssessments] = useState<CreatorAssessment[]>([]);
   const [dnaProfiles, setDnaProfiles] = useState<CreatorDnaProfile[]>([]);
   const [reports, setReports] = useState<CreatorReport[]>([]);
+  const [invites, setInvites] = useState<CreatorAssessmentInviteLink[]>([]);
   const [notes, setNotes] = useState<CreatorNote[]>([]);
   const [events, setEvents] = useState<CreatorStatusEvent[]>([]);
   const [assessmentTemplateFilter, setAssessmentTemplateFilter] = useState('');
@@ -186,14 +191,16 @@ export function CreatorProfileView() {
       getAssessmentsForProfile(profileId),
       getCreatorDnaProfilesForProfile(profileId),
       getReportsForProfile(profileId),
+      getInvitesForProfile(profileId),
       getNotesForProfile(profileId),
       getStatusEventsForProfile(profileId),
     ])
-      .then(([p, a, d, r, n, e]) => {
+      .then(([p, a, d, r, i, n, e]) => {
         setProfile(p);
         setAssessments(a);
         setDnaProfiles(d);
         setReports(r);
+        setInvites(i);
         setNotes(n);
         setEvents(e);
       })
@@ -306,7 +313,7 @@ export function CreatorProfileView() {
           <button onClick={() => navigate('/cockpit/creators')} className="mb-2 inline-block text-xs font-medium text-gray-500 transition-colors hover:text-accent">&lt;- Back to pipeline</button>
           <p className="cockpit-eyebrow">Creator Profile</p>
           <h1 className="cockpit-title">{profile.full_name}</h1>
-          <p className="cockpit-subtitle">{profile.email} / {profile.country}</p>
+          <p className="cockpit-subtitle">{[profile.email, profile.onlyfans_handle ? `@${profile.onlyfans_handle}` : null, profile.country].filter(Boolean).join(' / ')}</p>
         </div>
         <div className="flex items-center gap-2">
           <span className="rounded-full bg-surface-3 px-3 py-1 text-xs font-semibold capitalize text-gray-700">
@@ -321,6 +328,69 @@ export function CreatorProfileView() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Left: Details */}
         <div className="lg:col-span-2 space-y-6">
+          {/* Scorecard */}
+          <div className="cockpit-card-pad">
+            <h2 className="cockpit-section-title mb-4">Profile Details</h2>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              <div className="bg-surface-2 rounded-lg p-3">
+                <div className="text-xs text-gray-500">Model Name</div>
+                <div className="mt-1 text-sm font-semibold text-gray-900">{profile.model_name ?? '-'}</div>
+              </div>
+              <div className="bg-surface-2 rounded-lg p-3">
+                <div className="text-xs text-gray-500">OnlyFans Handle</div>
+                <div className="mt-1 text-sm font-semibold text-gray-900">{profile.onlyfans_handle ? `@${profile.onlyfans_handle}` : '-'}</div>
+              </div>
+              <div className="bg-surface-2 rounded-lg p-3">
+                <div className="text-xs text-gray-500">Location</div>
+                <div className="mt-1 text-sm font-semibold text-gray-900">{[profile.city, profile.country].filter(Boolean).join(', ') || '-'}</div>
+              </div>
+              <div className="bg-surface-2 rounded-lg p-3">
+                <div className="text-xs text-gray-500">Agency Interest</div>
+                <div className="mt-1 text-sm font-semibold text-gray-900">{profile.follow_up_reason === 'strategy_discussion_requested' || profile.status === 'Interested' ? 'Yes' : '-'}</div>
+              </div>
+              <div className="bg-surface-2 rounded-lg p-3">
+                <div className="text-xs text-gray-500">Lifecycle Status</div>
+                <div className="mt-1 text-sm font-semibold text-gray-900">{profile.status}</div>
+              </div>
+              <div className="bg-surface-2 rounded-lg p-3">
+                <div className="text-xs text-gray-500">Last Updated</div>
+                <div className="mt-1 text-sm font-semibold text-gray-900">{new Date(profile.updated_at).toLocaleString()}</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="cockpit-card-pad">
+            <h2 className="cockpit-section-title mb-3">Invite History ({invites.length})</h2>
+            {invites.length === 0 ? (
+              <p className="text-sm text-gray-600">No invites created for this creator yet.</p>
+            ) : (
+              <div className="table-shell overflow-x-auto">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Status</th>
+                      <th>Invite Code</th>
+                      <th>Email</th>
+                      <th>Notes</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {invites.map(invite => (
+                      <tr key={invite.id}>
+                        <td className="text-xs text-gray-500">{new Date(invite.created_at).toLocaleDateString()}</td>
+                        <td className="text-gray-700">{invite.status ?? '-'}</td>
+                        <td className="text-gray-700">{invite.invite_code}</td>
+                        <td className="text-gray-700">{invite.creator_email ?? '-'}</td>
+                        <td className="text-gray-600">{invite.notes ?? '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
           {/* Scorecard */}
           <div className="cockpit-card-pad">
             <h2 className="cockpit-section-title mb-4">Scorecard</h2>

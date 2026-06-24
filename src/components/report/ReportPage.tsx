@@ -6,7 +6,7 @@ import type { CreatorReport, ReportData } from '@/types/creator';
 const CALENDLY_URL = 'https://calendly.com/mikegrobinson/20-min';
 const AGENCY_PROMPT_COPY = 'Would you like to discuss what this result could mean for your creator growth?';
 
-type ReportAction = 'download' | 'email' | 'share' | 'discuss';
+type ReportAction = 'print_save' | 'email' | 'share' | 'discuss';
 type AgencyAnswer = 'yes' | 'no';
 
 function ScoreBar({ label, score }: { label: string; score: number }) {
@@ -92,7 +92,8 @@ export function ReportPage() {
     Object.entries(d.scores).filter(([key]) => key !== 'agency_opportunity')
   ) as Record<string, number>;
 
-  const downloadPdf = async () => {
+  const printSaveReport = async () => {
+    window.print();
     const blob = createReportPdfBlob(d, publicScores);
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -105,8 +106,8 @@ export function ReportPage() {
 
     await trackCreatorEvent({
       profileId: report.creator_profile_id,
-      eventType: 'report_downloaded',
-      details: { report_slug: report.report_slug, downloaded_at: new Date().toISOString(), format: 'pdf' },
+      eventType: 'report.print_saved',
+      details: { report_slug: report.report_slug, actioned_at: new Date().toISOString(), format: 'print_pdf' },
     });
   };
 
@@ -114,15 +115,15 @@ export function ReportPage() {
     setActionError('');
     setActionMessage('');
 
-    if (action === 'download') {
-      await downloadPdf();
+    if (action === 'print_save') {
+      await printSaveReport();
       return;
     }
 
     if (action === 'email') {
       await trackCreatorEvent({
         profileId: report.creator_profile_id,
-        eventType: 'report_emailed',
+        eventType: 'report.email_clicked',
         details: { report_slug: report.report_slug, emailed_at: new Date().toISOString() },
       });
       const subject = encodeURIComponent('My Find Your Vertical Report');
@@ -142,7 +143,7 @@ export function ReportPage() {
         await navigator.share(shareData);
         await trackCreatorEvent({
           profileId: report.creator_profile_id,
-          eventType: 'report_shared',
+          eventType: 'report.share_clicked',
           details: { report_slug: report.report_slug, shared_at: new Date().toISOString(), method: 'native_share' },
         });
         return;
@@ -151,7 +152,7 @@ export function ReportPage() {
       await navigator.clipboard.writeText(window.location.href);
       await trackCreatorEvent({
         profileId: report.creator_profile_id,
-        eventType: 'report_shared',
+        eventType: 'report.share_clicked',
         details: { report_slug: report.report_slug, shared_at: new Date().toISOString(), method: 'clipboard' },
       });
       setActionMessage('Report link copied.');
@@ -378,7 +379,7 @@ export function ReportPage() {
               onClick={() => startReportAction('discuss')}
               className="inline-flex rounded-lg bg-accent px-5 py-2.5 text-sm font-semibold text-white hover:bg-accent-2"
             >
-              Discuss My Results
+              Book Strategy Call
             </button>
           </div>
         </section>
@@ -386,8 +387,8 @@ export function ReportPage() {
         {/* Report Actions */}
         <div className="border-t border-gray-200 py-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:justify-center">
-            <button onClick={() => startReportAction('download')} className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:border-gray-400">
-              Download My Report
+            <button onClick={() => startReportAction('print_save')} className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:border-gray-400">
+              Print / Save
             </button>
             <button onClick={() => startReportAction('email')} className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:border-gray-400">
               Email me this report
@@ -396,7 +397,7 @@ export function ReportPage() {
               Share report
             </button>
             <button onClick={() => startReportAction('discuss')} className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-2">
-              Discuss My Results
+              Book Strategy Call
             </button>
           </div>
           {actionMessage && <p className="mt-3 text-center text-xs text-success">{actionMessage}</p>}
