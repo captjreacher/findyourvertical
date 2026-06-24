@@ -220,6 +220,7 @@ export interface CreatorAssessmentRuntimeTemplate extends CreatorAssessmentTempl
 export interface CreatorAssessmentInviteLink {
   id: string;
   template_id: string;
+  creator_profile_id?: string | null;
   invite_code: string;
   creator_name: string;
   creator_email: string | null;

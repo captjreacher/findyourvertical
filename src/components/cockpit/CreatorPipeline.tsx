@@ -36,6 +36,7 @@ export function CreatorPipeline() {
           <h1 className="cockpit-title">Creator Pipeline</h1>
           <p className="cockpit-subtitle">{profiles.length} creator{profiles.length !== 1 ? 's' : ''} tracked from assessment complete through managed creator.</p>
         </div>
+        <Link to="/cockpit/settings/assessment-templates?invite=1" className="btn-primary">New Assessment Invite</Link>
       </header>
 
       <div className="table-shell">

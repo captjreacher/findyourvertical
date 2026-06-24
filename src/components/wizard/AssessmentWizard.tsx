@@ -61,6 +61,7 @@ const EMAIL_MISMATCH_MESSAGE = 'Email does not match invite';
 const EXPIRED_INVITE_MESSAGE = 'Invite expired';
 const INACTIVE_INVITE_MESSAGE = 'Invite inactive';
 const DETAIL_FIELD_CLASS = 'w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-900 placeholder-gray-500 caret-accent shadow-sm focus:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30';
+const QUESTION_TEXT_FIELD_CLASS = 'w-full max-w-lg rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-900 placeholder-gray-500 caret-accent shadow-sm focus:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30';
 
 const FALLBACK_TEMPLATE: CreatorAssessmentRuntimeTemplate = {
   id: 'legacy-fallback',
@@ -1216,7 +1217,7 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
             value={String(value ?? '')}
             onChange={e => update(question.response_key, e.target.value)}
             placeholder={String(question.config.placeholder ?? '')}
-            className="w-full max-w-lg bg-surface-2 border border-gray-300 rounded-lg px-4 py-3 text-gray-900 placeholder-gray-500 focus:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
+            className={QUESTION_TEXT_FIELD_CLASS}
           />
         )}
 
@@ -1226,7 +1227,7 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
             onChange={e => update(question.response_key, e.target.value)}
             placeholder={String(question.config.placeholder ?? '')}
             rows={Number(question.config.rows ?? 3)}
-            className="w-full max-w-lg bg-surface-2 border border-gray-300 rounded-lg px-4 py-3 text-gray-900 placeholder-gray-500 focus:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 resize-none"
+            className={`${QUESTION_TEXT_FIELD_CLASS} resize-none`}
           />
         )}
 
@@ -1239,7 +1240,7 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
               value={String(data[String(question.config.notesKey)] ?? '')}
               onChange={e => update(String(question.config.notesKey), e.target.value)}
               rows={3}
-              className="w-full max-w-lg bg-surface-2 border border-gray-300 rounded-lg px-4 py-3 text-gray-900 placeholder-gray-500 focus:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 resize-none"
+              className={`${QUESTION_TEXT_FIELD_CLASS} resize-none`}
             />
           </div>
         )}

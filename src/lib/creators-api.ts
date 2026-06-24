@@ -39,6 +39,14 @@ type TemplateItemRow = Omit<CreatorAssessmentTemplateItem, 'question'>;
 type BranchRuleRow = CreatorAssessmentBranchRule;
 type AssessmentInviteContext = Pick<CreatorAssessmentInviteLink, 'id' | 'invite_code' | 'creator_name'>;
 
+type AssessmentInviteCreatorInput = {
+  creatorProfileId?: string | null;
+  creatorName: string;
+  creatorEmail?: string | null;
+  onlyfansHandle?: string | null;
+  modelName?: string | null;
+};
+
 type CreatorProfileUpsertPayload = Pick<
   CreatorProfile,
   | 'full_name'
@@ -174,6 +182,84 @@ async function upsertCreatorProfile(payload: CreatorProfileUpsertPayload): Promi
     .single();
 
   if (error) throw new Error(`Failed to create profile: ${error.message}`);
+  return data as CreatorProfile;
+}
+
+function splitCreatorName(fullName: string): { firstName: string | null; lastName: string | null } {
+  const parts = fullName.trim().split(/\s+/).filter(Boolean);
+  return {
+    firstName: parts[0] ?? null,
+    lastName: parts.length > 1 ? parts.slice(1).join(' ') : null,
+  };
+}
+
+async function ensureCreatorProfileForInvite(input: AssessmentInviteCreatorInput): Promise<CreatorProfile> {
+  if (input.creatorProfileId) {
+    const profile = await getCreatorProfile(input.creatorProfileId);
+    if (!profile) throw new Error('Selected creator profile was not found.');
+    return profile;
+  }
+
+  const name = input.creatorName.trim();
+  const email = normalizeEmail(input.creatorEmail);
+  if (!name || !email) throw new Error('Creator name and email address are required.');
+
+  const { firstName, lastName } = splitCreatorName(name);
+  const onlyfansHandle = normalizeOnlyFansHandle(input.onlyfansHandle);
+  const modelName = normalizeNullableText(input.modelName);
+  const existing = await findExistingCreatorProfile(email, onlyfansHandle);
+
+  if (existing) {
+    const { data, error } = await supabase
+      .from('creator_profiles')
+      .update({
+        full_name: existing.full_name || name,
+        first_name: existing.first_name ?? firstName,
+        last_name: existing.last_name ?? lastName,
+        email: existing.email ?? email,
+        onlyfans_handle: existing.onlyfans_handle ?? onlyfansHandle,
+        model_name: existing.model_name ?? modelName,
+      })
+      .eq('id', existing.id)
+      .select()
+      .single();
+
+    if (error) throw new Error(`Failed to update profile for invite: ${error.message}`);
+    return data as CreatorProfile;
+  }
+
+  const { data, error } = await supabase
+    .from('creator_profiles')
+    .insert({
+    full_name: name,
+    first_name: firstName,
+    last_name: lastName,
+    email,
+    onlyfans_handle: onlyfansHandle,
+    model_name: modelName,
+    city: null,
+    country: null,
+    status: 'Assessment Complete',
+    archetype: null,
+    creator_dna_score: null,
+    brand_clarity_score: null,
+    monetisation_score: null,
+    consistency_score: null,
+    agency_opportunity_score: null,
+    management_readiness: null,
+    audience_strategy: null,
+    recommended_pricing_model: null,
+    top_vertical_1: null,
+    top_vertical_2: null,
+    top_vertical_3: null,
+    mailing_list_opt_out: false,
+    consent_to_contact: false,
+    consent_at: null,
+    })
+    .select()
+    .single();
+
+  if (error) throw new Error(`Failed to create profile for invite: ${error.message}`);
   return data as CreatorProfile;
 }
 
@@ -1317,18 +1403,32 @@ export async function createAssessmentTemplate(input: {
 
 export async function createAssessmentInviteLink(input: {
   templateId: string;
+  creatorProfileId?: string | null;
   creatorName: string;
   creatorEmail?: string | null;
+  onlyfansHandle?: string | null;
+  modelName?: string | null;
   notes?: string | null;
   expiresAt?: string | null;
 }): Promise<CreatorAssessmentInviteLink> {
+  const profile = await ensureCreatorProfileForInvite({
+    creatorProfileId: input.creatorProfileId,
+    creatorName: input.creatorName,
+    creatorEmail: input.creatorEmail,
+    onlyfansHandle: input.onlyfansHandle,
+    modelName: input.modelName,
+  });
+  const creatorName = input.creatorName.trim() || profile.full_name;
+  const creatorEmail = normalizeEmail(input.creatorEmail) ?? profile.email;
+
   const { data, error } = await (supabase as any)
     .from('creator_assessment_links')
     .insert({
       template_id: input.templateId,
+      creator_profile_id: profile.id,
       invite_code: randomInviteCode(),
-      creator_name: input.creatorName.trim(),
-      creator_email: normalizeEmail(input.creatorEmail),
+      creator_name: creatorName,
+      creator_email: creatorEmail,
       notes: normalizeNullableText(input.notes),
       status: 'Created',
       status_updated_at: new Date().toISOString(),
@@ -1339,6 +1439,18 @@ export async function createAssessmentInviteLink(input: {
     .single();
 
   if (error) throw new Error(`Failed to create invite link: ${error.message}`);
+  await trackCreatorEvent({
+    profileId: profile.id,
+    eventType: 'assessment_invite_created',
+    details: {
+      template_id: input.templateId,
+      invite_link_id: data.id,
+      invite_code: data.invite_code,
+      creator_email: creatorEmail,
+      expires_at: input.expiresAt || null,
+      notes: normalizeNullableText(input.notes),
+    },
+  }).catch(() => undefined);
   return data as CreatorAssessmentInviteLink;
 }
 

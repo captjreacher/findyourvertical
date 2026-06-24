@@ -7,6 +7,7 @@ import {
   createQuestion,
   deleteAssessmentTemplate,
   deleteQuestion,
+  getAllCreatorProfiles,
   getAssessmentInviteLinks,
   getAssessmentTemplates,
   getQuestionBank,
@@ -28,6 +29,7 @@ import type {
   CreatorAssessmentInviteLink,
   CreatorAssessmentRuntimeTemplate,
   CreatorAssessmentTemplateItem,
+  CreatorProfile,
   CreatorQuestion,
 } from '@/types/creator';
 
@@ -60,7 +62,18 @@ const BRANCH_ACTIONS: Array<{ value: AssessmentBranchAction; label: string }> = 
 ];
 const PUBLIC_ASSESSMENT_ORIGIN = 'https://findyourvertical.online';
 const EMPTY_TEMPLATE_FORM = { name: '', slug: '', description: '', duplicateFromTemplateId: '' };
-const EMPTY_INVITE_FORM = { templateId: '', creatorName: '', creatorEmail: '', expiresAt: '', notes: '' };
+const EMPTY_INVITE_FORM = {
+  templateId: '',
+  source: 'manual' as 'manual' | 'existing',
+  creatorProfileId: '',
+  creatorSearch: '',
+  creatorName: '',
+  creatorEmail: '',
+  onlyfansHandle: '',
+  modelName: '',
+  expiresAt: '',
+  notes: '',
+};
 const EMPTY_QUESTION_FORM: QuestionForm = {
   id: '',
   question_text: '',
@@ -161,6 +174,7 @@ export function AssessmentTemplates() {
 
   const [templates, setTemplates] = useState<CreatorAssessmentRuntimeTemplate[]>([]);
   const [questions, setQuestions] = useState<CreatorQuestion[]>([]);
+  const [creatorProfiles, setCreatorProfiles] = useState<CreatorProfile[]>([]);
   const [inviteLinks, setInviteLinks] = useState<CreatorAssessmentInviteLink[]>([]);
   const [questionDeleteEligibility, setQuestionDeleteEligibility] = useState<Record<string, DeleteEligibility>>({});
   const [templateDeleteEligibility, setTemplateDeleteEligibility] = useState<Record<string, DeleteEligibility>>({});
@@ -190,11 +204,24 @@ export function AssessmentTemplates() {
   const [inviteForm, setInviteForm] = useState(EMPTY_INVITE_FORM);
   const [generatedInviteUrl, setGeneratedInviteUrl] = useState('');
   const [generatedInviteStatus, setGeneratedInviteStatus] = useState('');
+  const inviteAutoOpenRef = useRef(false);
 
   const selectedTemplate = templates.find(template => template.id === templateId) ?? null;
   const includedItems = useMemo(() => [...draftItems].filter(item => item.is_included).sort(itemSort), [draftItems]);
   const selectedSection = includedItems.find(item => item.id === selectedSectionId && item.item_type === 'section_heading') ?? null;
   const activeBankQuestions = questions.filter(question => question.is_active);
+  const filteredInviteProfiles = useMemo(() => {
+    const query = inviteForm.creatorSearch.trim().toLowerCase();
+    return creatorProfiles.filter(profile => {
+      if (!query) return true;
+      return [
+        profile.full_name,
+        profile.email ?? '',
+        profile.onlyfans_handle ?? '',
+        profile.model_name ?? '',
+      ].some(value => value.toLowerCase().includes(query));
+    }).slice(0, 80);
+  }, [creatorProfiles, inviteForm.creatorSearch]);
   const saveState: SaveState = saving ? 'Saving' : error ? 'Error' : selectedTemplate && JSON.stringify(templateSnapshot(selectedTemplate)) !== JSON.stringify(templateDraftSnapshot()) ? 'Unsaved changes' : 'Saved';
 
   const usedCounts = useMemo(() => {
@@ -287,14 +314,16 @@ export function AssessmentTemplates() {
   }
 
   const load = async () => {
-    const [loadedTemplates, loadedQuestions, loadedInvites] = await Promise.all([
+    const [loadedTemplates, loadedQuestions, loadedInvites, loadedProfiles] = await Promise.all([
       getAssessmentTemplates(),
       getQuestionBank(),
       getAssessmentInviteLinks(),
+      getAllCreatorProfiles(),
     ]);
     setTemplates(loadedTemplates);
     setQuestions(loadedQuestions);
     setInviteLinks(loadedInvites);
+    setCreatorProfiles(loadedProfiles);
 
     const [questionEntries, templateEntries] = await Promise.all([
       Promise.all(loadedQuestions.map(async question => [question.id, await getQuestionDeleteEligibility(question.id)] as const)),
@@ -309,6 +338,12 @@ export function AssessmentTemplates() {
       .catch(e => setError(e instanceof Error ? e.message : 'Failed to load assessment templates'))
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    if (loading || inviteAutoOpenRef.current || new URLSearchParams(location.search).get('invite') !== '1') return;
+    inviteAutoOpenRef.current = true;
+    openInviteModal(selectedTemplate ?? templates[0]);
+  }, [loading, location.search, selectedTemplate, templates]);
 
   useEffect(() => {
     if (!selectedTemplate) return;
@@ -442,6 +477,18 @@ export function AssessmentTemplates() {
     setInviteModalOpen(true);
   };
 
+  const selectInviteCreatorProfile = (profileId: string) => {
+    const profile = creatorProfiles.find(row => row.id === profileId);
+    setInviteForm(current => ({
+      ...current,
+      creatorProfileId: profileId,
+      creatorName: profile?.full_name ?? '',
+      creatorEmail: profile?.email ?? '',
+      onlyfansHandle: profile?.onlyfans_handle ?? '',
+      modelName: profile?.model_name ?? '',
+    }));
+  };
+
   const createInvite = async (event: FormEvent) => {
     event.preventDefault();
     const template = templates.find(row => row.id === inviteForm.templateId);
@@ -449,7 +496,17 @@ export function AssessmentTemplates() {
       showError('Choose a template before creating an invite.');
       return;
     }
-    if (!inviteForm.creatorName.trim() || !inviteForm.creatorEmail.trim()) {
+    const selectedProfile = inviteForm.source === 'existing'
+      ? creatorProfiles.find(row => row.id === inviteForm.creatorProfileId)
+      : null;
+    const creatorName = selectedProfile?.full_name ?? inviteForm.creatorName;
+    const creatorEmail = selectedProfile?.email ?? inviteForm.creatorEmail;
+
+    if (inviteForm.source === 'existing' && !selectedProfile) {
+      showError('Choose an existing creator before creating an invite.');
+      return;
+    }
+    if (!creatorName.trim() || !creatorEmail?.trim()) {
       showError('Creator name and email address are required.');
       return;
     }
@@ -457,8 +514,11 @@ export function AssessmentTemplates() {
     try {
       const invite = await createAssessmentInviteLink({
         templateId: template.id,
-        creatorName: inviteForm.creatorName,
-        creatorEmail: inviteForm.creatorEmail,
+        creatorProfileId: selectedProfile?.id ?? null,
+        creatorName,
+        creatorEmail,
+        onlyfansHandle: selectedProfile?.onlyfans_handle ?? inviteForm.onlyfansHandle,
+        modelName: selectedProfile?.model_name ?? inviteForm.modelName,
         notes: inviteForm.notes || null,
         expiresAt: inviteForm.expiresAt ? new Date(inviteForm.expiresAt).toISOString() : null,
       });
@@ -772,7 +832,10 @@ export function AssessmentTemplates() {
             <h1 className="cockpit-title">Manage Templates</h1>
             <p className="cockpit-subtitle">High-level template actions only. Open a template to edit its structure.</p>
           </div>
-          <button type="button" onClick={resetTemplateForm} className="btn-primary">New Template</button>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={() => openInviteModal()} className="btn-primary">New Assessment Invite</button>
+            <button type="button" onClick={resetTemplateForm} className="btn-secondary">New Template</button>
+          </div>
         </div>
 
         <form onSubmit={createTemplate} className="cockpit-card-pad grid gap-3 lg:grid-cols-[1fr_1fr_1.4fr_220px_auto]">
@@ -829,7 +892,7 @@ export function AssessmentTemplates() {
                         <Link to={`/cockpit/settings/assessment-templates/${template.id}`} className="btn-primary">Open</Link>
                         <button type="button" onClick={() => duplicateTemplate(template)} className="btn-subtle">Duplicate</button>
                         <button type="button" onClick={() => changeTemplateStatus(template, !template.is_active)} className="btn-subtle">{template.is_active ? 'Archive' : 'Restore'}</button>
-                        <button type="button" onClick={() => openInviteModal(template)} className="btn-subtle text-accent">Create Invite</button>
+                        <button type="button" onClick={() => openInviteModal(template)} className="btn-subtle text-accent">New Assessment Invite</button>
                         <button type="button" onClick={() => deleteTemplate(template)} disabled={!deleteEligibility?.canDelete} title={deleteEligibility?.reason ?? 'Checking delete safety.'} className="btn-subtle">Delete</button>
                       </div>
                     </td>
@@ -868,7 +931,7 @@ export function AssessmentTemplates() {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <span className={`rounded-full px-3 py-1 text-xs font-semibold ${saveState === 'Saved' ? 'bg-success/10 text-success' : saveState === 'Error' ? 'bg-pink/10 text-pink' : 'bg-warn/10 text-warn'}`}>{saveState}</span>
-            <button type="button" onClick={() => openInviteModal(selectedTemplate)} className="btn-secondary">Create Invite</button>
+            <button type="button" onClick={() => openInviteModal(selectedTemplate)} className="btn-primary">New Assessment Invite</button>
             <button type="button" onClick={saveTemplate} disabled={saving || saveState === 'Saved'} title={saving ? 'Save already in progress.' : saveState === 'Saved' ? 'No unsaved changes.' : undefined} className="btn-primary">Save Template</button>
           </div>
         </div>
@@ -1250,13 +1313,21 @@ export function AssessmentTemplates() {
 
   function renderInviteModal() {
     const selectedInviteTemplate = templates.find(template => template.id === inviteForm.templateId);
+    const canCreateInvite = Boolean(
+      selectedInviteTemplate
+      && (
+        inviteForm.source === 'existing'
+          ? inviteForm.creatorProfileId
+          : inviteForm.creatorName.trim() && inviteForm.creatorEmail.trim()
+      )
+    );
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
         <div className="flex max-h-[calc(100dvh-2rem)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-surface shadow-2xl">
           <div className="flex shrink-0 items-start justify-between gap-3 border-b border-white/10 p-5">
             <div>
-              <h2 className="cockpit-section-title">Create Invite Link</h2>
-              <p className="mt-1 text-xs text-charcoal-2">Generate an assessment invite for a creator email address.</p>
+              <h2 className="cockpit-section-title">New Assessment Invite</h2>
+              <p className="mt-1 text-xs text-charcoal-2">Generate an invite for a new or existing creator.</p>
             </div>
             <button type="button" onClick={() => setInviteModalOpen(false)} className="btn-subtle">Close</button>
           </div>
@@ -1269,22 +1340,82 @@ export function AssessmentTemplates() {
                   {templates.map(template => <option key={template.id} value={template.id}>{template.name}</option>)}
                 </select>
               </label>
-              <label className="grid gap-1 text-sm font-medium text-charcoal">
-                <span>Invite Type</span>
-                <select value="manual_email" disabled className="field-control opacity-80">
-                  <option value="manual_email">Manual Email</option>
-                </select>
-              </label>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <label className="grid gap-1 text-sm font-medium text-charcoal">
-                  <span>Creator Name</span>
-                  <input value={inviteForm.creatorName} onChange={e => setInviteForm(current => ({ ...current, creatorName: e.target.value }))} required className="field-control" />
-                </label>
-                <label className="grid gap-1 text-sm font-medium text-charcoal">
-                  <span>Email Address</span>
-                  <input type="email" value={inviteForm.creatorEmail} onChange={e => setInviteForm(current => ({ ...current, creatorEmail: e.target.value }))} required className="field-control" />
-                </label>
+              <div className="grid gap-2 text-sm font-medium text-charcoal">
+                <span>Creator Source</span>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <label className={`flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 ${inviteForm.source === 'existing' ? 'border-accent bg-accent/10 text-accent' : 'border-white/10 bg-white/5'}`}>
+                    <input
+                      type="radio"
+                      checked={inviteForm.source === 'existing'}
+                      onChange={() => setInviteForm(current => ({ ...current, source: 'existing' }))}
+                      className="accent-accent"
+                    />
+                    Existing Creator
+                  </label>
+                  <label className={`flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 ${inviteForm.source === 'manual' ? 'border-accent bg-accent/10 text-accent' : 'border-white/10 bg-white/5'}`}>
+                    <input
+                      type="radio"
+                      checked={inviteForm.source === 'manual'}
+                      onChange={() => setInviteForm(current => ({ ...current, source: 'manual', creatorProfileId: '' }))}
+                      className="accent-accent"
+                    />
+                    New Creator / Manual Email
+                  </label>
+                </div>
               </div>
+
+              {inviteForm.source === 'existing' ? (
+                <div className="grid gap-3">
+                  <label className="grid gap-1 text-sm font-medium text-charcoal">
+                    <span>Search Creator</span>
+                    <input
+                      value={inviteForm.creatorSearch}
+                      onChange={e => setInviteForm(current => ({ ...current, creatorSearch: e.target.value }))}
+                      placeholder="Search by name, email, handle, or model name"
+                      className="field-control"
+                    />
+                  </label>
+                  <label className="grid gap-1 text-sm font-medium text-charcoal">
+                    <span>Existing Creator</span>
+                    <select value={inviteForm.creatorProfileId} onChange={e => selectInviteCreatorProfile(e.target.value)} required className="field-control">
+                      <option value="">Choose creator</option>
+                      {filteredInviteProfiles.map(profile => (
+                        <option key={profile.id} value={profile.id}>
+                          {profile.full_name} {profile.email ? `- ${profile.email}` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  {inviteForm.creatorProfileId && (
+                    <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-charcoal-2">
+                      {inviteForm.creatorName || 'Selected creator'} / {inviteForm.creatorEmail || 'No email on profile'}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <label className="grid gap-1 text-sm font-medium text-charcoal">
+                      <span>Creator Name</span>
+                      <input value={inviteForm.creatorName} onChange={e => setInviteForm(current => ({ ...current, creatorName: e.target.value }))} required className="field-control" />
+                    </label>
+                    <label className="grid gap-1 text-sm font-medium text-charcoal">
+                      <span>Email Address</span>
+                      <input type="email" value={inviteForm.creatorEmail} onChange={e => setInviteForm(current => ({ ...current, creatorEmail: e.target.value }))} required className="field-control" />
+                    </label>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <label className="grid gap-1 text-sm font-medium text-charcoal">
+                      <span>OnlyFans Handle</span>
+                      <input value={inviteForm.onlyfansHandle} onChange={e => setInviteForm(current => ({ ...current, onlyfansHandle: e.target.value }))} placeholder="@creator" className="field-control" />
+                    </label>
+                    <label className="grid gap-1 text-sm font-medium text-charcoal">
+                      <span>Model Name</span>
+                      <input value={inviteForm.modelName} onChange={e => setInviteForm(current => ({ ...current, modelName: e.target.value }))} className="field-control" />
+                    </label>
+                  </div>
+                </>
+              )}
               <label className="grid gap-1 text-sm font-medium text-charcoal">
                 <span>Expiry Date</span>
                 <input type="date" value={inviteForm.expiresAt} onChange={e => setInviteForm(current => ({ ...current, expiresAt: e.target.value }))} className="field-control" />
@@ -1308,7 +1439,7 @@ export function AssessmentTemplates() {
             </div>
             <div className="flex shrink-0 justify-end gap-2 border-t border-white/10 bg-surface-3/60 p-4">
               <button type="button" onClick={() => setInviteModalOpen(false)} className="btn-subtle">Cancel</button>
-              <button type="submit" disabled={saving || !selectedInviteTemplate} title={!selectedInviteTemplate ? 'Choose a template first.' : saving ? 'Invite creation already in progress.' : undefined} className="btn-primary">{saving ? 'Creating...' : 'Create Invite Link'}</button>
+              <button type="submit" disabled={saving || !canCreateInvite} title={!selectedInviteTemplate ? 'Choose a template first.' : saving ? 'Invite creation already in progress.' : !canCreateInvite ? 'Choose a creator or enter name and email.' : undefined} className="btn-primary">{saving ? 'Creating...' : 'Create Invite Link'}</button>
             </div>
           </form>
         </div>
