@@ -31,6 +31,7 @@ import type {
 type DraftItem = CreatorAssessmentTemplateItem;
 type DeleteEligibility = { canDelete: boolean; reason?: string };
 type SaveState = 'Saved' | 'Unsaved changes' | 'Saving' | 'Error';
+type OptionDraft = { id: string; label: string };
 type QuestionForm = {
   id: string;
   question_text: string;
@@ -40,7 +41,9 @@ type QuestionForm = {
   question_type: AssessmentQuestionType;
   section: string;
   scoring_dimension: string;
-  optionsText: string;
+  options: OptionDraft[];
+  scaleMin: number;
+  scaleMax: number;
   is_active: boolean;
 };
 
@@ -57,7 +60,9 @@ const EMPTY_QUESTION_FORM: QuestionForm = {
   question_type: 'long_text',
   section: 'About You',
   scoring_dimension: '',
-  optionsText: '',
+  options: [],
+  scaleMin: 1,
+  scaleMax: 10,
   is_active: true,
 };
 
@@ -96,18 +101,25 @@ function inviteStatus(invite: CreatorAssessmentInviteLink): string {
   return invite.status ?? 'Created';
 }
 
-function optionsToText(options: AssessmentQuestionOption[] | null | undefined): string {
+function optionsToDrafts(options: AssessmentQuestionOption[] | null | undefined): OptionDraft[] {
   return (options ?? [])
-    .map(option => typeof option === 'string' ? option : option.label || option.value)
-    .filter(Boolean)
-    .join('\n');
+    .map((option, index) => ({
+      id: `option-${index}-${typeof option === 'string' ? option : option.value}`,
+      label: typeof option === 'string' ? option : option.label || option.value,
+    }))
+    .filter(option => option.label);
 }
 
-function textToOptions(value: string): AssessmentQuestionOption[] {
-  return value
-    .split('\n')
-    .map(option => option.trim())
-    .filter(Boolean);
+function draftsToOptions(options: OptionDraft[]): AssessmentQuestionOption[] {
+  return options
+    .map(option => option.label.trim())
+    .filter(Boolean)
+    .map(label => ({ value: normalizeKey(label) || label, label }));
+}
+
+function scaleNumber(value: unknown, fallback: number): number {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
 }
 
 function questionToForm(question: CreatorQuestion): QuestionForm {
@@ -120,7 +132,9 @@ function questionToForm(question: CreatorQuestion): QuestionForm {
     question_type: question.question_type,
     section: question.section,
     scoring_dimension: question.scoring_dimension ?? '',
-    optionsText: optionsToText(question.options),
+    options: optionsToDrafts(question.options),
+    scaleMin: scaleNumber(question.config?.min, 1),
+    scaleMax: scaleNumber(question.config?.max, 10),
     is_active: question.is_active,
   };
 }
@@ -159,6 +173,7 @@ export function AssessmentTemplates() {
 
   const [questionSearch, setQuestionSearch] = useState('');
   const [questionForm, setQuestionForm] = useState<QuestionForm>(EMPTY_QUESTION_FORM);
+  const [questionEditorOpen, setQuestionEditorOpen] = useState(false);
 
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
   const [inviteForm, setInviteForm] = useState(EMPTY_INVITE_FORM);
@@ -439,6 +454,34 @@ export function AssessmentTemplates() {
     showSuccess('Invite URL copied.');
   };
 
+  const openNewQuestionEditor = () => {
+    setQuestionForm(EMPTY_QUESTION_FORM);
+    setQuestionEditorOpen(true);
+  };
+
+  const openEditQuestionEditor = (question: CreatorQuestion) => {
+    setQuestionForm(questionToForm(question));
+    setQuestionEditorOpen(true);
+  };
+
+  const openDuplicateQuestionEditor = (question: CreatorQuestion) => {
+    const duplicate = questionToForm(question);
+    setQuestionForm({
+      ...duplicate,
+      id: '',
+      question_text: `${duplicate.question_text} (copy)`,
+      question_key: `${duplicate.question_key}_copy`,
+      response_key: `${duplicate.response_key}_copy`,
+      is_active: true,
+    });
+    setQuestionEditorOpen(true);
+  };
+
+  const closeQuestionEditor = () => {
+    setQuestionEditorOpen(false);
+    setQuestionForm(EMPTY_QUESTION_FORM);
+  };
+
   const saveTemplate = async () => {
     if (!selectedTemplate) return;
     setSaving(true);
@@ -535,6 +578,14 @@ export function AssessmentTemplates() {
       showError('Question text is required.');
       return;
     }
+    if (['single_choice', 'multi_choice'].includes(questionForm.question_type) && draftsToOptions(questionForm.options).length === 0) {
+      showError('Add at least one answer option for single or multi select questions.');
+      return;
+    }
+    if (questionForm.question_type === 'scale' && questionForm.scaleMin >= questionForm.scaleMax) {
+      showError('Scale minimum must be lower than scale maximum.');
+      return;
+    }
     const payload = {
       question_key: normalizeKey(questionForm.question_key || questionForm.question_text),
       response_key: normalizeKey(questionForm.response_key || questionForm.question_key || questionForm.question_text),
@@ -543,7 +594,8 @@ export function AssessmentTemplates() {
       section: questionForm.section || 'General',
       question_type: questionForm.question_type,
       scoring_dimension: questionForm.scoring_dimension || null,
-      options: ['single_choice', 'multi_choice'].includes(questionForm.question_type) ? textToOptions(questionForm.optionsText) : [],
+      options: ['single_choice', 'multi_choice'].includes(questionForm.question_type) ? draftsToOptions(questionForm.options) : [],
+      config: questionForm.question_type === 'scale' ? { min: questionForm.scaleMin, max: questionForm.scaleMax } : {},
       parent_question_key: null,
       show_when_value: null,
       show_when_operator: 'equals' as const,
@@ -556,10 +608,11 @@ export function AssessmentTemplates() {
         else await archiveQuestion(questionForm.id);
         showSuccess('Question updated.');
       } else {
-        await createQuestion(payload);
+        const createdQuestion = await createQuestion(payload);
+        if (!questionForm.is_active) await archiveQuestion(createdQuestion.id);
         showSuccess('Question created.');
       }
-      setQuestionForm(EMPTY_QUESTION_FORM);
+      closeQuestionEditor();
       await load();
     } catch (e) {
       showError(e instanceof Error ? e.message : 'Failed to save question');
@@ -569,25 +622,40 @@ export function AssessmentTemplates() {
   };
 
   const duplicateQuestion = async (question: CreatorQuestion) => {
-    setSaving(true);
-    try {
-      await createQuestion({
-        question_key: `${question.question_key}_copy`,
-        response_key: `${question.response_key}_copy`,
-        question_text: `${question.question_text} (copy)`,
-        help_text: question.help_text,
-        section: question.section,
-        question_type: question.question_type,
-        scoring_dimension: question.scoring_dimension,
-        options: question.options,
-      });
-      await load();
-      showSuccess('Question duplicated.');
-    } catch (e) {
-      showError(e instanceof Error ? e.message : 'Failed to duplicate question');
-    } finally {
-      setSaving(false);
-    }
+    openDuplicateQuestionEditor(question);
+  };
+
+  const addOption = () => {
+    setQuestionForm(current => ({
+      ...current,
+      options: [...current.options, { id: `option-${Date.now()}`, label: '' }],
+    }));
+  };
+
+  const updateOption = (id: string, label: string) => {
+    setQuestionForm(current => ({
+      ...current,
+      options: current.options.map(option => option.id === id ? { ...option, label } : option),
+    }));
+  };
+
+  const removeOption = (id: string) => {
+    setQuestionForm(current => ({
+      ...current,
+      options: current.options.filter(option => option.id !== id),
+    }));
+  };
+
+  const moveOption = (id: string, direction: -1 | 1) => {
+    setQuestionForm(current => {
+      const options = [...current.options];
+      const index = options.findIndex(option => option.id === id);
+      const target = index + direction;
+      if (index < 0 || target < 0 || target >= options.length) return current;
+      const [option] = options.splice(index, 1);
+      options.splice(target, 0, option);
+      return { ...current, options };
+    });
   };
 
   const questionStatusAction = async (question: CreatorQuestion, action: 'archive' | 'restore' | 'delete') => {
@@ -600,7 +668,7 @@ export function AssessmentTemplates() {
       if (action === 'delete') await deleteQuestion(question.id);
       await load();
       showSuccess(action === 'archive' ? 'Question archived.' : action === 'restore' ? 'Question restored.' : 'Question deleted.');
-      if (questionForm.id === question.id) setQuestionForm(EMPTY_QUESTION_FORM);
+      if (questionForm.id === question.id) closeQuestionEditor();
     } catch (e) {
       showError(e instanceof Error ? e.message : `Failed to ${action} question`);
     } finally {
@@ -643,7 +711,7 @@ export function AssessmentTemplates() {
             <option value="">Blank template</option>
             {templates.map(template => <option key={template.id} value={template.id}>Duplicate {template.name}</option>)}
           </select>
-          <button type="submit" disabled={saving || !templateForm.name.trim()} className="btn-primary">{saving ? 'Working...' : 'Create'}</button>
+          <button type="submit" disabled={saving || !templateForm.name.trim()} title={!templateForm.name.trim() ? 'Template name is required.' : saving ? 'Save already in progress.' : undefined} className="btn-primary">{saving ? 'Working...' : 'Create'}</button>
         </form>
 
         <div className="table-shell">
@@ -678,7 +746,7 @@ export function AssessmentTemplates() {
                         <button type="button" onClick={() => duplicateTemplate(template)} className="btn-subtle">Duplicate</button>
                         <button type="button" onClick={() => changeTemplateStatus(template, !template.is_active)} className="btn-subtle">{template.is_active ? 'Archive' : 'Restore'}</button>
                         <button type="button" onClick={() => openInviteModal(template)} className="btn-subtle text-accent">Create Invite</button>
-                        <button type="button" onClick={() => deleteTemplate(template)} disabled={!deleteEligibility?.canDelete} title={deleteEligibility?.reason} className="btn-subtle">Delete</button>
+                        <button type="button" onClick={() => deleteTemplate(template)} disabled={!deleteEligibility?.canDelete} title={deleteEligibility?.reason ?? 'Checking delete safety.'} className="btn-subtle">Delete</button>
                       </div>
                     </td>
                   </tr>
@@ -717,7 +785,7 @@ export function AssessmentTemplates() {
           <div className="flex flex-wrap items-center gap-2">
             <span className={`rounded-full px-3 py-1 text-xs font-semibold ${saveState === 'Saved' ? 'bg-success/10 text-success' : saveState === 'Error' ? 'bg-pink/10 text-pink' : 'bg-warn/10 text-warn'}`}>{saveState}</span>
             <button type="button" onClick={() => openInviteModal(selectedTemplate)} className="btn-secondary">Create Invite</button>
-            <button type="button" onClick={saveTemplate} disabled={saving || saveState === 'Saved'} className="btn-primary">Save Template</button>
+            <button type="button" onClick={saveTemplate} disabled={saving || saveState === 'Saved'} title={saving ? 'Save already in progress.' : saveState === 'Saved' ? 'No unsaved changes.' : undefined} className="btn-primary">Save Template</button>
           </div>
         </div>
 
@@ -737,7 +805,7 @@ export function AssessmentTemplates() {
                 </label>
                 <label className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm">
                   <span>Default template</span>
-                  <input type="checkbox" checked={templateDefault} disabled={!canSetDefault && !templateDefault} onChange={e => setTemplateDefault(e.target.checked)} className="accent-accent disabled:opacity-40" />
+                  <input type="checkbox" checked={templateDefault} disabled={!canSetDefault && !templateDefault} title={!canSetDefault && !templateDefault ? 'Template must be active and include at least one active question.' : undefined} onChange={e => setTemplateDefault(e.target.checked)} className="accent-accent disabled:opacity-40" />
                 </label>
                 {!canSetDefault && !templateDefault && <p className="text-xs text-charcoal-2">A default template must be active and include at least one active question.</p>}
               </div>
@@ -811,15 +879,21 @@ export function AssessmentTemplates() {
                 </div>
                 <button type="button" onClick={() => setBankDrawerOpen(false)} className="btn-subtle">Close</button>
               </div>
+              <p className="mb-3 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs text-charcoal-2">
+                Duplicate placements are supported: each add creates a separate template item, so the same bank question can appear in more than one section when needed.
+              </p>
               <input value={bankSearch} onChange={e => setBankSearch(e.target.value)} placeholder="Search bank questions" className="field-control mb-4 w-full" />
               <div className="space-y-3">
-                {filteredBankQuestions.map(question => (
-                  <div key={question.id} className="rounded-2xl border border-white/10 bg-white/5 p-3">
-                    <p className="text-sm font-semibold text-charcoal">{question.question_text}</p>
-                    <p className="mt-1 text-xs text-charcoal-2">{question.question_key} / {question.section}</p>
-                    <button type="button" onClick={() => addQuestionToTemplate(question)} className="btn-primary mt-3">Add to Template</button>
-                  </div>
-                ))}
+                {filteredBankQuestions.map(question => {
+                  const placementCount = includedItems.filter(item => item.question_id === question.id).length;
+                  return (
+                    <div key={question.id} className="rounded-2xl border border-white/10 bg-white/5 p-3">
+                      <p className="text-sm font-semibold text-charcoal">{question.question_text}</p>
+                      <p className="mt-1 text-xs text-charcoal-2">{question.question_key} / {question.section}{placementCount > 0 ? ` / already placed ${placementCount} time${placementCount === 1 ? '' : 's'}` : ''}</p>
+                      <button type="button" onClick={() => addQuestionToTemplate(question)} className="btn-primary mt-3">{placementCount > 0 ? 'Add Again' : 'Add to Template'}</button>
+                    </div>
+                  );
+                })}
                 {filteredBankQuestions.length === 0 && <p className="text-sm text-charcoal-2">No matching active questions.</p>}
               </div>
             </div>
@@ -832,8 +906,8 @@ export function AssessmentTemplates() {
   function ItemActions({ item, index }: { item: DraftItem; index: number }) {
     return (
       <div className="flex flex-wrap gap-2">
-        <button type="button" onClick={() => moveItem(item.id, -1)} disabled={index === 0} className="btn-subtle">Up</button>
-        <button type="button" onClick={() => moveItem(item.id, 1)} disabled={index === includedItems.length - 1} className="btn-subtle">Down</button>
+        <button type="button" onClick={() => moveItem(item.id, -1)} disabled={index === 0} title={index === 0 ? 'Already first item.' : undefined} className="btn-subtle">Up</button>
+        <button type="button" onClick={() => moveItem(item.id, 1)} disabled={index === includedItems.length - 1} title={index === includedItems.length - 1 ? 'Already last item.' : undefined} className="btn-subtle">Down</button>
         <button type="button" onClick={() => removeItem(item.id)} className="btn-subtle">Remove</button>
       </div>
     );
@@ -848,10 +922,13 @@ export function AssessmentTemplates() {
             <h1 className="cockpit-title">Manage Question Bank</h1>
             <p className="cockpit-subtitle">Reusable question records only. Template structure is edited on each template detail page.</p>
           </div>
-          <Link to="/cockpit/settings/assessment-templates" className="btn-secondary">Templates</Link>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={openNewQuestionEditor} className="btn-primary">Add Question</button>
+            <Link to="/cockpit/settings/assessment-templates" className="btn-secondary">Templates</Link>
+          </div>
         </div>
 
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_420px]">
+        <div className="grid gap-4">
           <section className="cockpit-panel">
             <div className="cockpit-panel-header">
               <input value={questionSearch} onChange={e => setQuestionSearch(e.target.value)} placeholder="Search questions" className="field-control w-full" />
@@ -882,10 +959,10 @@ export function AssessmentTemplates() {
                         <td>{usedCounts[question.id] ?? 0} template{(usedCounts[question.id] ?? 0) === 1 ? '' : 's'}</td>
                         <td>
                           <div className="flex flex-wrap gap-2">
-                            <button type="button" onClick={() => setQuestionForm(questionToForm(question))} className="btn-primary">Edit</button>
+                            <button type="button" onClick={() => openEditQuestionEditor(question)} className="btn-primary">Edit</button>
                             <button type="button" onClick={() => duplicateQuestion(question)} className="btn-subtle">Duplicate</button>
                             <button type="button" onClick={() => questionStatusAction(question, question.is_active ? 'archive' : 'restore')} className="btn-subtle">{question.is_active ? 'Archive' : 'Restore'}</button>
-                            <button type="button" onClick={() => questionStatusAction(question, 'delete')} disabled={!eligibility?.canDelete} title={eligibility?.reason} className="btn-subtle">Delete</button>
+                            <button type="button" onClick={() => questionStatusAction(question, 'delete')} disabled={!eligibility?.canDelete} title={eligibility?.reason ?? 'Checking delete safety.'} className="btn-subtle">Delete</button>
                           </div>
                         </td>
                       </tr>
@@ -895,46 +972,109 @@ export function AssessmentTemplates() {
               </table>
             </div>
           </section>
-
-          <aside className="cockpit-panel">
-            <div className="cockpit-panel-header flex items-center justify-between gap-3">
-              <h2 className="cockpit-section-title">{questionForm.id ? 'Edit Question' : 'New Bank Question'}</h2>
-              {questionForm.id && <button type="button" onClick={() => setQuestionForm(EMPTY_QUESTION_FORM)} className="btn-subtle">New</button>}
-            </div>
-            <form onSubmit={submitQuestion} className="space-y-3 p-4">
-              <textarea value={questionForm.question_text} onChange={e => {
-                const text = e.target.value;
-                setQuestionForm(current => ({
-                  ...current,
-                  question_text: text,
-                  question_key: current.id ? current.question_key : normalizeKey(text),
-                  response_key: current.id ? current.response_key : normalizeKey(text),
-                }));
-              }} placeholder="Question text" rows={3} required className="field-control w-full resize-none" />
-              <textarea value={questionForm.help_text} onChange={e => setQuestionForm(current => ({ ...current, help_text: e.target.value }))} placeholder="Help text" rows={2} className="field-control w-full resize-none" />
-              <div className="grid grid-cols-2 gap-3">
-                <input value={questionForm.question_key} onChange={e => setQuestionForm(current => ({ ...current, question_key: normalizeKey(e.target.value) }))} placeholder="question_key" required className="field-control" />
-                <input value={questionForm.response_key} onChange={e => setQuestionForm(current => ({ ...current, response_key: normalizeKey(e.target.value) }))} placeholder="response_key" required className="field-control" />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <select value={questionForm.question_type} onChange={e => setQuestionForm(current => ({ ...current, question_type: e.target.value as AssessmentQuestionType }))} className="field-control">
-                  {QUESTION_TYPES.map(type => <option key={type} value={type}>{type}</option>)}
-                </select>
-                <input value={questionForm.section} onChange={e => setQuestionForm(current => ({ ...current, section: e.target.value }))} placeholder="Section/category" className="field-control" />
-              </div>
-              <input value={questionForm.scoring_dimension} onChange={e => setQuestionForm(current => ({ ...current, scoring_dimension: e.target.value }))} placeholder="Scoring dimension" className="field-control w-full" />
-              {['single_choice', 'multi_choice'].includes(questionForm.question_type) && (
-                <textarea value={questionForm.optionsText} onChange={e => setQuestionForm(current => ({ ...current, optionsText: e.target.value }))} placeholder="One option per line" rows={5} className="field-control w-full resize-none" />
-              )}
-              <label className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm">
-                <span>Active question</span>
-                <input type="checkbox" checked={questionForm.is_active} onChange={e => setQuestionForm(current => ({ ...current, is_active: e.target.checked }))} className="accent-accent" />
-              </label>
-              <button type="submit" disabled={saving} className="btn-primary w-full">{saving ? 'Saving...' : questionForm.id ? 'Save Question' : 'Create Question'}</button>
-            </form>
-          </aside>
         </div>
+
+        {questionEditorOpen && renderQuestionEditorDrawer()}
       </>
+    );
+  }
+
+  function renderQuestionEditorDrawer() {
+    const needsOptions = ['single_choice', 'multi_choice'].includes(questionForm.question_type);
+    const canSubmitQuestion = Boolean(
+      questionForm.question_text.trim()
+      && questionForm.question_key.trim()
+      && questionForm.response_key.trim()
+      && (!needsOptions || draftsToOptions(questionForm.options).length > 0)
+      && (questionForm.question_type !== 'scale' || questionForm.scaleMin < questionForm.scaleMax)
+    );
+    const submitReason = !questionForm.question_text.trim()
+      ? 'Question text is required.'
+      : !questionForm.question_key.trim() || !questionForm.response_key.trim()
+        ? 'Question key and response key are required.'
+        : needsOptions && draftsToOptions(questionForm.options).length === 0
+          ? 'Add at least one answer option.'
+          : questionForm.question_type === 'scale' && questionForm.scaleMin >= questionForm.scaleMax
+            ? 'Scale minimum must be lower than scale maximum.'
+            : undefined;
+
+    return (
+      <div className="fixed inset-0 z-50 flex justify-end bg-black/50">
+        <div className="h-full w-full max-w-2xl overflow-y-auto border-l border-white/10 bg-surface p-5 shadow-2xl">
+          <div className="mb-4 flex items-start justify-between gap-3">
+            <div>
+              <h2 className="cockpit-section-title">{questionForm.id ? 'Edit Question' : 'Add Question'}</h2>
+              <p className="mt-1 text-xs text-charcoal-2">Create and edit reusable bank questions only.</p>
+            </div>
+            <button type="button" onClick={closeQuestionEditor} className="btn-subtle">Close</button>
+          </div>
+
+          <form onSubmit={submitQuestion} className="space-y-3">
+            <textarea value={questionForm.question_text} onChange={e => {
+              const text = e.target.value;
+              setQuestionForm(current => ({
+                ...current,
+                question_text: text,
+                question_key: current.id ? current.question_key : normalizeKey(text),
+                response_key: current.id ? current.response_key : normalizeKey(text),
+              }));
+            }} placeholder="Question text" rows={3} required className="field-control w-full resize-none" />
+            <textarea value={questionForm.help_text} onChange={e => setQuestionForm(current => ({ ...current, help_text: e.target.value }))} placeholder="Help text" rows={2} className="field-control w-full resize-none" />
+            <div className="grid grid-cols-2 gap-3">
+              <input value={questionForm.question_key} onChange={e => setQuestionForm(current => ({ ...current, question_key: normalizeKey(e.target.value) }))} placeholder="question_key" required className="field-control" />
+              <input value={questionForm.response_key} onChange={e => setQuestionForm(current => ({ ...current, response_key: normalizeKey(e.target.value) }))} placeholder="response_key" required className="field-control" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <select value={questionForm.question_type} onChange={e => setQuestionForm(current => ({ ...current, question_type: e.target.value as AssessmentQuestionType }))} className="field-control">
+                {QUESTION_TYPES.map(type => <option key={type} value={type}>{type}</option>)}
+              </select>
+              <input value={questionForm.section} onChange={e => setQuestionForm(current => ({ ...current, section: e.target.value }))} placeholder="Section/category" className="field-control" />
+            </div>
+            <input value={questionForm.scoring_dimension} onChange={e => setQuestionForm(current => ({ ...current, scoring_dimension: e.target.value }))} placeholder="Scoring dimension" className="field-control w-full" />
+
+            {needsOptions && (
+              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-3">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-charcoal">Answer Options</p>
+                    <p className="mt-1 text-xs text-charcoal-2">Add, edit, delete, and reorder selectable answers.</p>
+                  </div>
+                  <button type="button" onClick={addOption} className="btn-secondary">Add Option</button>
+                </div>
+                <div className="space-y-2">
+                  {questionForm.options.map((option, index) => (
+                    <div key={option.id} className="grid gap-2 sm:grid-cols-[1fr_auto]">
+                      <input value={option.label} onChange={e => updateOption(option.id, e.target.value)} placeholder={`Option ${index + 1}`} className="field-control" />
+                      <div className="flex gap-2">
+                        <button type="button" onClick={() => moveOption(option.id, -1)} disabled={index === 0} title={index === 0 ? 'Already first option.' : undefined} className="btn-subtle">Up</button>
+                        <button type="button" onClick={() => moveOption(option.id, 1)} disabled={index === questionForm.options.length - 1} title={index === questionForm.options.length - 1 ? 'Already last option.' : undefined} className="btn-subtle">Down</button>
+                        <button type="button" onClick={() => removeOption(option.id)} className="btn-subtle">Delete</button>
+                      </div>
+                    </div>
+                  ))}
+                  {questionForm.options.length === 0 && <p className="text-sm text-charcoal-2">No answer options yet.</p>}
+                </div>
+              </div>
+            )}
+
+            {questionForm.question_type === 'scale' && (
+              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-3">
+                <p className="mb-3 text-sm font-semibold text-charcoal">Scale / Rating</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <input type="number" value={questionForm.scaleMin} onChange={e => setQuestionForm(current => ({ ...current, scaleMin: Number(e.target.value) }))} min={0} className="field-control" aria-label="Scale minimum" />
+                  <input type="number" value={questionForm.scaleMax} onChange={e => setQuestionForm(current => ({ ...current, scaleMax: Number(e.target.value) }))} min={1} className="field-control" aria-label="Scale maximum" />
+                </div>
+              </div>
+            )}
+
+            <label className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm">
+              <span>Active question</span>
+              <input type="checkbox" checked={questionForm.is_active} onChange={e => setQuestionForm(current => ({ ...current, is_active: e.target.checked }))} className="accent-accent" />
+            </label>
+            <button type="submit" disabled={saving || !canSubmitQuestion} title={saving ? 'Question save already in progress.' : submitReason} className="btn-primary w-full">{saving ? 'Saving...' : questionForm.id ? 'Save Question' : 'Create Question'}</button>
+          </form>
+        </div>
+      </div>
     );
   }
 
@@ -962,7 +1102,7 @@ export function AssessmentTemplates() {
             </div>
             <input type="date" value={inviteForm.expiresAt} onChange={e => setInviteForm(current => ({ ...current, expiresAt: e.target.value }))} className="field-control" aria-label="Optional expiry date" />
             <textarea value={inviteForm.notes} onChange={e => setInviteForm(current => ({ ...current, notes: e.target.value }))} rows={3} placeholder="Optional notes/internal label" className="field-control resize-none" />
-            <button type="submit" disabled={saving || !selectedInviteTemplate} className="btn-primary">{saving ? 'Creating...' : 'Create Invite Link'}</button>
+            <button type="submit" disabled={saving || !selectedInviteTemplate} title={!selectedInviteTemplate ? 'Choose a template first.' : saving ? 'Invite creation already in progress.' : undefined} className="btn-primary">{saving ? 'Creating...' : 'Create Invite Link'}</button>
           </form>
 
           {generatedInviteUrl && (

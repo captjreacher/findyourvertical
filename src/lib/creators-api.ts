@@ -829,6 +829,7 @@ export async function createQuestion(input: {
   show_when_value?: string | null;
   show_when_operator?: 'equals' | 'includes';
   options?: unknown[];
+  config?: Record<string, unknown>;
 }): Promise<CreatorQuestion> {
   const { data, error } = await supabase
     .from('creator_question_bank')
@@ -844,7 +845,7 @@ export async function createQuestion(input: {
       show_when_value: input.show_when_value ?? null,
       show_when_operator: input.show_when_operator ?? 'equals',
       options: input.options ?? [],
-      config: {},
+      config: input.config ?? {},
       is_active: true,
     })
     .select()
@@ -856,7 +857,7 @@ export async function createQuestion(input: {
 
 export async function updateQuestion(
   id: string,
-  input: Pick<CreatorQuestion, 'question_text' | 'help_text'> & Pick<Partial<CreatorQuestion>, 'question_key' | 'response_key' | 'question_type' | 'options' | 'section' | 'scoring_dimension' | 'parent_question_key' | 'show_when_value' | 'show_when_operator'>
+  input: Pick<CreatorQuestion, 'question_text' | 'help_text'> & Pick<Partial<CreatorQuestion>, 'question_key' | 'response_key' | 'question_type' | 'options' | 'config' | 'section' | 'scoring_dimension' | 'parent_question_key' | 'show_when_value' | 'show_when_operator'>
 ): Promise<CreatorQuestion> {
   const { data, error } = await supabase
     .from('creator_question_bank')
@@ -872,6 +873,7 @@ export async function updateQuestion(
       ...(input.show_when_value !== undefined ? { show_when_value: input.show_when_value } : {}),
       ...(input.show_when_operator !== undefined ? { show_when_operator: input.show_when_operator } : {}),
       ...(input.options ? { options: input.options } : {}),
+      ...(input.config !== undefined ? { config: input.config } : {}),
     })
     .eq('id', id)
     .select()
@@ -1024,8 +1026,15 @@ export async function saveTemplateItems(
   templateId: string,
   items: Array<Pick<CreatorAssessmentTemplateItem, 'id' | 'item_type' | 'question_id' | 'title' | 'description' | 'is_included' | 'sort_order'>>
 ): Promise<void> {
+  const isPersistedItemId = (id: unknown): id is string => (
+    typeof id === 'string'
+    && id.length > 0
+    && !id.startsWith('new-')
+    && !id.includes(':')
+  );
+
   const existingIds = items
-    .filter(item => !item.id.startsWith('new-') && !item.id.includes(':'))
+    .filter(item => isPersistedItemId(item.id))
     .map(item => item.id);
 
   const { data: existingRows, error: existingError } = await (supabase as any)
@@ -1049,7 +1058,7 @@ export async function saveTemplateItems(
   }
 
   const rows = items.map(item => ({
-    ...(item.id.startsWith('new-') || item.id.includes(':') ? {} : { id: item.id }),
+    id: isPersistedItemId(item.id) ? item.id : null,
     template_id: templateId,
     item_type: item.item_type,
     question_id: item.item_type === 'question' ? item.question_id : null,
@@ -1059,12 +1068,23 @@ export async function saveTemplateItems(
     sort_order: item.sort_order,
   }));
 
-  if (rows.length > 0) {
+  const existingRowsToUpsert = rows.filter(row => row.id);
+  const newRowsToInsert = rows.map(({ id, ...row }) => row).filter((_, index) => !rows[index].id);
+
+  if (existingRowsToUpsert.length > 0) {
     const { error } = await (supabase as any)
       .from('creator_assessment_template_items')
-      .upsert(rows);
+      .upsert(existingRowsToUpsert);
 
     if (error) throw new Error(`Failed to save template items: ${error.message}`);
+  }
+
+  if (newRowsToInsert.length > 0) {
+    const { error } = await (supabase as any)
+      .from('creator_assessment_template_items')
+      .insert(newRowsToInsert);
+
+    if (error) throw new Error(`Failed to save new template items: ${error.message}`);
   }
 
   const legacyQuestionRows = new Map<string, Pick<CreatorAssessmentQuestion, 'id' | 'is_included' | 'sort_order'>>();
