@@ -18,6 +18,7 @@ import type {
   CreatorAssessmentTemplateQuestion,
   CreatorAssessmentTemplateItem,
   CreatorAssessmentInviteLink,
+  CreatorAssessmentBranchRule,
   CreatorInviteRequest,
   CreatorInviteRequestStatus,
   CreatorQuestion,
@@ -35,6 +36,7 @@ type TemplateQuestionRow = CreatorAssessmentTemplateQuestion & {
 
 type TemplateQuestionJoinRow = Omit<CreatorAssessmentTemplateQuestion, 'question'>;
 type TemplateItemRow = Omit<CreatorAssessmentTemplateItem, 'question'>;
+type BranchRuleRow = CreatorAssessmentBranchRule;
 type AssessmentInviteContext = Pick<CreatorAssessmentInviteLink, 'id' | 'invite_code' | 'creator_name'>;
 
 type CreatorProfileUpsertPayload = Pick<
@@ -178,7 +180,8 @@ async function upsertCreatorProfile(payload: CreatorProfileUpsertPayload): Promi
 function flattenTemplate(
   template: CreatorAssessmentTemplate,
   rows: TemplateQuestionRow[] | null | undefined,
-  itemRows?: TemplateItemRow[] | null
+  itemRows?: TemplateItemRow[] | null,
+  branchRuleRows?: BranchRuleRow[] | null
 ): CreatorAssessmentRuntimeTemplate {
   const questionById = new Map(
     (rows ?? [])
@@ -223,6 +226,7 @@ function flattenTemplate(
   return {
     ...template,
     questions: itemQuestions.length > 0 ? itemQuestions : legacyQuestions,
+    branch_rules: branchRuleRows ?? [],
     items: items.length > 0 ? items : legacyQuestions.map(question => ({
       id: `${question.template_id}:${question.id}`,
       template_id: question.template_id,
@@ -237,6 +241,29 @@ function flattenTemplate(
       question,
     })),
   };
+}
+
+async function loadBranchRuleRows(templateIds: string[]): Promise<BranchRuleRow[]> {
+  if (templateIds.length === 0) return [];
+
+  const { data, error } = await (supabase as any)
+    .from('creator_assessment_branch_rules')
+    .select('*')
+    .in('template_id', templateIds);
+
+  if (error) {
+    const message = String(error.message ?? '');
+    if (
+      message.includes('creator_assessment_branch_rules')
+      || message.includes('schema cache')
+      || message.includes('does not exist')
+    ) {
+      return [];
+    }
+    throw new Error(`Failed to load branch rules: ${message}`);
+  }
+
+  return (data ?? []) as BranchRuleRow[];
 }
 
 async function loadTemplateQuestionRows(templateIds: string[]): Promise<TemplateQuestionRow[]> {
@@ -298,12 +325,13 @@ export async function getDefaultAssessmentTemplate(): Promise<CreatorAssessmentR
   if (!data) return null;
 
   const template = data as CreatorAssessmentTemplate;
-  const [questionRows, itemRows] = await Promise.all([
+  const [questionRows, itemRows, branchRuleRows] = await Promise.all([
     loadTemplateQuestionRows([template.id]),
     loadTemplateItemRows([template.id]),
+    loadBranchRuleRows([template.id]),
   ]);
 
-  return flattenTemplate(template, questionRows, itemRows);
+  return flattenTemplate(template, questionRows, itemRows, branchRuleRows);
 }
 
 export async function getAssessmentTemplateBySlug(slug: string): Promise<CreatorAssessmentRuntimeTemplate | null> {
@@ -320,28 +348,61 @@ export async function getAssessmentTemplateBySlug(slug: string): Promise<Creator
   if (!data) return null;
 
   const template = data as CreatorAssessmentTemplate;
-  const [questionRows, itemRows] = await Promise.all([
+  const [questionRows, itemRows, branchRuleRows] = await Promise.all([
     loadTemplateQuestionRows([template.id]),
     loadTemplateItemRows([template.id]),
+    loadBranchRuleRows([template.id]),
   ]);
 
-  return flattenTemplate(template, questionRows, itemRows);
+  return flattenTemplate(template, questionRows, itemRows, branchRuleRows);
 }
 
 export async function getAssessmentInviteLink(inviteCode: string): Promise<CreatorAssessmentInviteLink | null> {
   const code = inviteCode.trim();
   if (!code) return null;
 
+  const { data: rpcData, error: rpcError } = await (supabase as any)
+    .rpc('get_creator_assessment_invite_status', { p_invite_code: code });
+
+  if (!rpcError) {
+    const row = Array.isArray(rpcData) ? rpcData[0] : rpcData;
+    return (row ?? null) as CreatorAssessmentInviteLink | null;
+  }
+
   const { data, error } = await (supabase as any)
     .from('creator_assessment_links')
     .select('*')
     .eq('invite_code', code)
-    .eq('is_active', true)
-    .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
     .maybeSingle();
 
   if (error) throw new Error(`Failed to load invite link: ${error.message}`);
   return (data ?? null) as CreatorAssessmentInviteLink | null;
+}
+
+export async function setAssessmentInviteStatus(
+  inviteCode: string | null | undefined,
+  status: 'Opened' | 'Email Verified' | 'Started' | 'Completed'
+): Promise<void> {
+  const code = inviteCode?.trim();
+  if (!code) return;
+
+  const { error } = await (supabase as any)
+    .rpc('set_creator_assessment_invite_status', {
+      p_invite_code: code,
+      p_status: status,
+    });
+
+  if (error) {
+    const message = String(error.message ?? '');
+    if (
+      message.includes('set_creator_assessment_invite_status')
+      || message.includes('schema cache')
+      || message.includes('does not exist')
+    ) {
+      return;
+    }
+    throw new Error(`Failed to update invite status: ${message}`);
+  }
 }
 
 export async function submitAssessment(
@@ -959,9 +1020,10 @@ export async function getAssessmentTemplates(): Promise<CreatorAssessmentRuntime
 
   const templates = (data ?? []) as CreatorAssessmentTemplate[];
   const templateIds = templates.map(template => template.id);
-  const [questionRows, itemRows] = await Promise.all([
+  const [questionRows, itemRows, branchRuleRows] = await Promise.all([
     loadTemplateQuestionRows(templateIds),
     loadTemplateItemRows(templateIds),
+    loadBranchRuleRows(templateIds),
   ]);
 
   const questionsByTemplate = new Map<string, TemplateQuestionRow[]>();
@@ -974,10 +1036,16 @@ export async function getAssessmentTemplates(): Promise<CreatorAssessmentRuntime
     itemsByTemplate.set(row.template_id, [...(itemsByTemplate.get(row.template_id) ?? []), row]);
   }
 
+  const branchRulesByTemplate = new Map<string, BranchRuleRow[]>();
+  for (const row of branchRuleRows) {
+    branchRulesByTemplate.set(row.template_id, [...(branchRulesByTemplate.get(row.template_id) ?? []), row]);
+  }
+
   return templates.map(template => flattenTemplate(
     template,
     questionsByTemplate.get(template.id) ?? [],
-    itemsByTemplate.get(template.id) ?? []
+    itemsByTemplate.get(template.id) ?? [],
+    branchRulesByTemplate.get(template.id) ?? []
   ));
 }
 
@@ -1100,6 +1168,41 @@ export async function saveTemplateItems(
   await saveTemplateQuestions(templateId, Array.from(legacyQuestionRows.values()));
 }
 
+export async function saveTemplateBranchRules(
+  templateId: string,
+  rules: Array<Pick<CreatorAssessmentBranchRule, 'source_question_id' | 'option_value' | 'action' | 'target_question_id' | 'target_section_item_id'>>
+): Promise<void> {
+  const { error: deleteError } = await (supabase as any)
+    .from('creator_assessment_branch_rules')
+    .delete()
+    .eq('template_id', templateId);
+
+  if (deleteError) throw new Error(`Failed to clear branch rules: ${deleteError.message}`);
+
+  const rows = rules
+    .filter(rule => (
+      rule.action === 'end'
+      || (rule.action === 'jump_question' && rule.target_question_id)
+      || (rule.action === 'jump_section' && rule.target_section_item_id)
+    ))
+    .map(rule => ({
+      template_id: templateId,
+      source_question_id: rule.source_question_id,
+      option_value: rule.option_value,
+      action: rule.action,
+      target_question_id: rule.action === 'jump_question' ? rule.target_question_id : null,
+      target_section_item_id: rule.action === 'jump_section' ? rule.target_section_item_id : null,
+    }));
+
+  if (rows.length === 0) return;
+
+  const { error } = await (supabase as any)
+    .from('creator_assessment_branch_rules')
+    .insert(rows);
+
+  if (error) throw new Error(`Failed to save branch rules: ${error.message}`);
+}
+
 export async function createAssessmentTemplate(input: {
   name: string;
   slug?: string | null;
@@ -1124,13 +1227,13 @@ export async function createAssessmentTemplate(input: {
   if (input.duplicateFromTemplateId) {
     const { data: itemRows, error: itemRowsError } = await (supabase as any)
       .from('creator_assessment_template_items')
-      .select('item_type,question_id,title,description,is_included,sort_order')
+      .select('id,item_type,question_id,title,description,is_included,sort_order')
       .eq('template_id', input.duplicateFromTemplateId);
 
     if (itemRowsError) throw new Error(`Failed to duplicate template items: ${itemRowsError.message}`);
 
     if ((itemRows ?? []).length > 0) {
-      const { error: insertItemsError } = await (supabase as any)
+      const { data: insertedItems, error: insertItemsError } = await (supabase as any)
         .from('creator_assessment_template_items')
         .insert((itemRows ?? []).map((row: any) => ({
           template_id: template.id,
@@ -1140,9 +1243,52 @@ export async function createAssessmentTemplate(input: {
           description: row.description,
           is_included: row.is_included,
           sort_order: row.sort_order,
-        })));
+        })))
+        .select('id,sort_order,item_type,title');
 
       if (insertItemsError) throw new Error(`Failed to attach duplicated template items: ${insertItemsError.message}`);
+
+      const oldSectionRows = (itemRows ?? []).filter((row: any) => row.item_type === 'section_heading');
+      const newSectionRows = (insertedItems ?? []).filter((row: any) => row.item_type === 'section_heading');
+      const sectionIdMap = new Map<string, string>();
+      oldSectionRows.forEach((oldRow: any, index: number) => {
+        const match = newSectionRows.find((newRow: any) => newRow.sort_order === oldRow.sort_order && newRow.title === oldRow.title)
+          ?? newSectionRows[index];
+        if (match) sectionIdMap.set(oldRow.id, match.id);
+      });
+
+      const { data: branchRules, error: branchRulesError } = await (supabase as any)
+        .from('creator_assessment_branch_rules')
+        .select('source_question_id,option_value,action,target_question_id,target_section_item_id')
+        .eq('template_id', input.duplicateFromTemplateId);
+
+      if (branchRulesError) {
+        const message = String(branchRulesError.message ?? '');
+        if (
+          !message.includes('creator_assessment_branch_rules')
+          && !message.includes('schema cache')
+          && !message.includes('does not exist')
+        ) {
+          throw new Error(`Failed to duplicate branch rules: ${message}`);
+        }
+      } else if ((branchRules ?? []).length > 0) {
+        const duplicatedRules = (branchRules ?? []).map((rule: any) => ({
+          template_id: template.id,
+          source_question_id: rule.source_question_id,
+          option_value: rule.option_value,
+          action: rule.action,
+          target_question_id: rule.target_question_id,
+          target_section_item_id: rule.target_section_item_id ? sectionIdMap.get(rule.target_section_item_id) ?? null : null,
+        })).filter((rule: any) => rule.action !== 'jump_section' || rule.target_section_item_id);
+
+        if (duplicatedRules.length > 0) {
+          const { error: insertRulesError } = await (supabase as any)
+            .from('creator_assessment_branch_rules')
+            .insert(duplicatedRules);
+
+          if (insertRulesError) throw new Error(`Failed to attach duplicated branch rules: ${insertRulesError.message}`);
+        }
+      }
     }
 
     const { data: rows, error: rowsError } = await supabase

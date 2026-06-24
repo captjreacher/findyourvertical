@@ -25,9 +25,8 @@ export function CockpitLayout() {
               FYV
             </div>
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-accent">MGRNZ</p>
               <h1 className="text-base font-bold tracking-normal text-white">Find Your Vertical</h1>
-              <p className="mt-0.5 text-xs text-slate-400">Creator Advisory Platform</p>
+              <p className="mt-0.5 text-xs text-slate-400">Modelling Creator Talent</p>
             </div>
           </div>
           <button

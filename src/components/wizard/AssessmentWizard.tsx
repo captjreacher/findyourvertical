@@ -4,6 +4,7 @@ import {
   getAssessmentInviteLink,
   getAssessmentTemplateBySlug,
   getDefaultAssessmentTemplate,
+  setAssessmentInviteStatus,
   submitAssessment,
 } from '@/lib/creators-api';
 import type {
@@ -54,8 +55,10 @@ const SECTION_DESCRIPTIONS: Record<string, string> = {
   'Options for the Future': "Share where you'd like your creator journey to go and how success looks for you.",
 };
 const INVITE_ONLY_MODE = true;
-const INVALID_INVITE_MESSAGE = 'This assessment link is invalid or has expired. Please contact the person who sent it to you.';
-const EMAIL_MISMATCH_MESSAGE = 'This assessment link is assigned to a different email address. Please check the email address or contact us.';
+const INVALID_INVITE_MESSAGE = 'Invite not found';
+const EMAIL_MISMATCH_MESSAGE = 'Email does not match invite';
+const EXPIRED_INVITE_MESSAGE = 'Invite expired';
+const INACTIVE_INVITE_MESSAGE = 'Invite inactive';
 
 const FALLBACK_TEMPLATE: CreatorAssessmentRuntimeTemplate = {
   id: 'legacy-fallback',
@@ -123,7 +126,7 @@ const FALLBACK_TEMPLATE: CreatorAssessmentRuntimeTemplate = {
       show_when_value: null,
       show_when_operator: 'equals',
       options: [],
-      config: { placeholder: 'E.g., astrology, vintage fashion, conspiracy theories…' },
+      config: { placeholder: 'E.g., astrology, vintage fashion, conspiracy theoriesâ€¦' },
       is_active: true,
       created_at: '',
       updated_at: '',
@@ -467,6 +470,17 @@ function normalizeEmailInput(value: string): string {
   return value.trim().toLowerCase();
 }
 
+function inviteIsExpired(invite: CreatorAssessmentInviteLink): boolean {
+  return Boolean(invite.expires_at && new Date(invite.expires_at).getTime() < Date.now());
+}
+
+function inviteUnavailableMessage(invite: CreatorAssessmentInviteLink | null): string {
+  if (!invite) return INVALID_INVITE_MESSAGE;
+  if (!invite.is_active || invite.status === 'Revoked') return INACTIVE_INVITE_MESSAGE;
+  if (inviteIsExpired(invite) || invite.status === 'Expired') return EXPIRED_INVITE_MESSAGE;
+  return '';
+}
+
 function AssessmentNotFound() {
   return (
     <div className="min-h-[100dvh] w-full px-4 py-10">
@@ -553,8 +567,13 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
         try {
           const invite = await getAssessmentInviteLink(inviteRef);
           if (!mounted) return;
-          if (invite?.template_id === nextTemplate.id) {
+          const unavailableMessage = inviteUnavailableMessage(invite);
+          if (unavailableMessage) {
+            setInviteLink(null);
+            setInviteAccessError(unavailableMessage);
+          } else if (invite?.template_id === nextTemplate.id) {
             setInviteLink(invite);
+            void setAssessmentInviteStatus(invite.invite_code, 'Opened').catch(() => undefined);
           } else {
             setInviteLink(null);
             setInviteAccessError(INVALID_INVITE_MESSAGE);
@@ -640,17 +659,19 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
     setVerificationError('');
     setVerifiedEmail(enteredEmail);
     setData(current => ({ ...current, email: enteredEmail }));
+    void setAssessmentInviteStatus(inviteLink.invite_code, 'Email Verified').catch(() => undefined);
   };
 
   const sections = useMemo(() => {
     const includedItems = (template?.items ?? []).filter(item => item.is_included);
     if (includedItems.length > 0) {
-      const itemSections: { section: string; description?: string | null; questions: CreatorAssessmentQuestion[] }[] = [];
-      let currentSection: { section: string; description?: string | null; questions: CreatorAssessmentQuestion[] } | null = null;
+      const itemSections: { id: string; section: string; description?: string | null; questions: CreatorAssessmentQuestion[] }[] = [];
+      let currentSection: { id: string; section: string; description?: string | null; questions: CreatorAssessmentQuestion[] } | null = null;
 
       for (const item of includedItems.sort((a, b) => a.sort_order - b.sort_order)) {
         if (item.item_type === 'section_heading') {
           currentSection = {
+            id: item.id,
             section: item.title?.trim() || 'Unsectioned Questions',
             description: item.description,
             questions: [],
@@ -669,6 +690,7 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
 
         if (!currentSection) {
           currentSection = {
+            id: `section-${item.template_id}-unsectioned`,
             section: 'Unsectioned Questions',
             description: null,
             questions: [],
@@ -697,6 +719,7 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
         return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
       })
       .map(([section, questions]) => ({
+        id: `section-${section}`,
         section,
         description: SECTION_DESCRIPTIONS[section] ?? null,
         questions: questions.sort((a, b) => a.sort_order - b.sort_order),
@@ -707,15 +730,13 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
     () => sections.flatMap(section => section.questions),
     [sections]
   );
-  const steps = ['Details', ...sections.map(x => x.section), 'Submit'];
+  const steps = ['Details', ...templateQuestions.map(question => question.question_text), 'Submit'];
   const isDetailsStep = step === 0;
-  const activeSection = sections[step - 1];
+  const activeQuestion = templateQuestions[step - 1] ?? null;
+  const activeSection = activeQuestion
+    ? sections.find(section => section.questions.some(question => question.id === activeQuestion.id)) ?? null
+    : null;
   const isSubmitStep = step === steps.length - 1;
-  const visibleActiveSectionQuestions = useMemo(() => {
-    if (!activeSection) return [];
-
-    return activeSection.questions.filter(question => isVisible(question, data, templateQuestions));
-  }, [activeSection, data, templateQuestions]);
 
   const update = (key: string, value: unknown) => {
     setData(d => ({ ...d, [key]: value }));
@@ -736,6 +757,64 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
     });
   };
 
+  const branchRuleForQuestion = (question: CreatorAssessmentQuestion) => {
+    const selectedValue = data[question.response_key];
+    const selectedValues = Array.isArray(selectedValue) ? selectedValue.map(String) : [String(selectedValue ?? '')];
+    const optionOrder = activeOptions(question).map(option => optionValue(option));
+
+    for (const option of optionOrder) {
+      if (!selectedValues.includes(option)) continue;
+      const rule = (template?.branch_rules ?? []).find(item => (
+        item.source_question_id === question.id
+        && item.option_value === option
+        && item.action !== 'continue'
+      ));
+      if (rule) return rule;
+    }
+
+    return null;
+  };
+
+  const stepForQuestionId = (questionId: string | null | undefined): number | null => {
+    if (!questionId) return null;
+    const index = templateQuestions.findIndex(question => question.id === questionId && isVisible(question, data, templateQuestions));
+    return index >= 0 ? index + 1 : null;
+  };
+
+  const stepForSectionId = (sectionId: string | null | undefined): number | null => {
+    if (!sectionId) return null;
+    const section = sections.find(item => item.id === sectionId);
+    const firstVisibleQuestion = section?.questions.find(question => isVisible(question, data, templateQuestions));
+    return stepForQuestionId(firstVisibleQuestion?.id);
+  };
+
+  const continueFromCurrentStep = () => {
+    if (isDetailsStep) {
+      void setAssessmentInviteStatus(inviteLink?.invite_code, 'Started').catch(() => undefined);
+      setStep(1);
+      return;
+    }
+
+    if (!activeQuestion) {
+      setStep(current => Math.min(current + 1, steps.length - 1));
+      return;
+    }
+
+    const rule = branchRuleForQuestion(activeQuestion);
+    if (rule?.action === 'end') {
+      setStep(steps.length - 1);
+      return;
+    }
+
+    const targetStep = rule?.action === 'jump_question'
+      ? stepForQuestionId(rule.target_question_id)
+      : rule?.action === 'jump_section'
+        ? stepForSectionId(rule.target_section_item_id)
+        : null;
+
+    setStep(targetStep ?? Math.min(step + 1, steps.length - 1));
+  };
+
   const canNext = (): boolean => {
     if (isDetailsStep) {
       return Boolean(
@@ -752,14 +831,11 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
       return canNextDetails();
     }
 
-    return (activeSection?.questions ?? [])
-      .filter(question => isVisible(question, data, templateQuestions))
-      .every(question => {
-        if (!question.config.required) return true;
-        const value = data[question.response_key];
-        if (Array.isArray(value)) return value.length > 0;
-        return value !== '' && value !== null && value !== undefined;
-      });
+    if (!activeQuestion || !isVisible(activeQuestion, data, templateQuestions)) return true;
+    if (!activeQuestion.config.required) return true;
+    const value = data[activeQuestion.response_key];
+    if (Array.isArray(value)) return value.length > 0;
+    return value !== '' && value !== null && value !== undefined;
   };
 
   const canNextDetails = (): boolean => Boolean(
@@ -770,6 +846,12 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
     && textValue(data.country)
     && (verifiedEmail || textValue(data.email))
   );
+
+  useEffect(() => {
+    if (isDetailsStep || isSubmitStep || !activeQuestion) return;
+    if (isVisible(activeQuestion, data, templateQuestions)) return;
+    setStep(current => Math.min(current + 1, steps.length - 1));
+  }, [activeQuestion, data, isDetailsStep, isSubmitStep, steps.length, templateQuestions]);
 
   const handleSubmit = async () => {
     setSubmitting(true);
@@ -791,6 +873,7 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
         email: normalizeEmailInput(verifiedEmail || textValue(data.email)),
         consent: !data.mailing_list_opt_out,
       };
+      if (!sanitizedData.audience_target) sanitizedData.audience_target = 'masses';
 
       for (const question of templateQuestions) {
         if (!question.parent_question_key || visibleResponseKeys.has(question.response_key)) continue;
@@ -808,6 +891,7 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
           }
         : template;
       const result = await submitAssessment(sanitizedData, visibleTemplate, inviteLink);
+      void setAssessmentInviteStatus(inviteLink?.invite_code, 'Completed').catch(() => undefined);
       setSubmittedReportSlug(result.report.report_slug);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Something went wrong');
@@ -819,7 +903,7 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
   const renderDetailsStep = () => (
     <div className="mx-auto max-w-2xl space-y-6 animate-in">
       <div className="space-y-3">
-        <h2 className="font-display text-xl font-semibold">Find Your Vertical – Modelling Creator Talent</h2>
+        <h2 className="font-display text-xl font-semibold">Find Your Vertical â€“ Modelling Creator Talent</h2>
         <p className="text-sm leading-6 text-gray-600">
           Find Your Vertical is designed to identify your strongest creator positioning, content opportunities, monetisation potential, and long-term growth paths.
         </p>
@@ -1119,7 +1203,7 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
           <div className="space-y-6">
             <div className="space-y-3">
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-accent">Assessment saved</p>
-              <h1 className="font-display text-3xl font-bold text-gray-900 sm:text-4xl">Assessment Complete 🎉</h1>
+              <h1 className="font-display text-3xl font-bold text-gray-900 sm:text-4xl">Assessment Complete ðŸŽ‰</h1>
               <div className="space-y-3 text-sm leading-6 text-gray-700 sm:text-base">
                 <p>Thanks for completing your Find Your Vertical assessment.</p>
                 <p>We've analysed your responses and generated your personalised creator profile.</p>
@@ -1129,9 +1213,9 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
             <div className="rounded-xl border border-gray-200 bg-gray-50 p-5">
               <h2 className="font-display text-lg font-semibold text-gray-900">What happens next?</h2>
               <ul className="mt-4 space-y-3 text-sm leading-6 text-gray-700">
-                <li className="flex gap-3"><span className="text-success">✓</span><span>Your assessment has been saved.</span></li>
-                <li className="flex gap-3"><span className="text-success">✓</span><span>Your Creator DNA, Brand Clarity, Monetisation, Consistency, and Agency Opportunity scores have been calculated.</span></li>
-                <li className="flex gap-3"><span className="text-success">✓</span><span>Your personalised report is ready to view.</span></li>
+                <li className="flex gap-3"><span className="text-success">âœ“</span><span>Your assessment has been saved.</span></li>
+                <li className="flex gap-3"><span className="text-success">âœ“</span><span>Your Creator DNA, Brand Clarity, Monetisation, Consistency, and Agency Opportunity scores have been calculated.</span></li>
+                <li className="flex gap-3"><span className="text-success">âœ“</span><span>Your personalised report is ready to view.</span></li>
               </ul>
             </div>
 
@@ -1148,14 +1232,14 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
 
             <div className="flex flex-col gap-3 border-t border-gray-200 pt-6 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm text-gray-500">
-                Preparing your report� Redirecting in {redirectCountdown} {redirectCountdown === 1 ? 'second' : 'seconds'}.
+                Preparing your report… Redirecting in {redirectCountdown} {redirectCountdown === 1 ? 'second' : 'seconds'}.
               </p>
               <button
                 type="button"
                 onClick={goToSubmittedReport}
                 className="inline-flex items-center justify-center rounded-lg bg-accent px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-accent-2"
               >
-                View My Report →
+                View My Report â†’
               </button>
             </div>
           </div>
@@ -1167,7 +1251,7 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
-        <p className="text-gray-500 text-sm">Loading Assessment…</p>
+        <p className="text-gray-500 text-sm">Loading Assessmentâ€¦</p>
       </div>
     );
   }
@@ -1193,9 +1277,11 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
 
         <div className="mx-auto mb-6 flex max-w-xl gap-2 overflow-x-auto pb-1 sm:mb-10">
           {steps.map((label, i) => (
-            <div key={label} className="min-w-20 flex-1">
+            <div key={`${label}-${i}`} className="min-w-20 flex-1">
               <div className={`h-1 rounded-full transition-colors ${i <= step ? 'bg-accent' : 'bg-surface-3'}`} />
-              <span className={`text-xs mt-1 block ${i <= step ? 'text-accent' : 'text-gray-600'}`}>{label}</span>
+              <span className={`text-xs mt-1 block ${i <= step ? 'text-accent' : 'text-gray-600'}`}>
+                {i === 0 || i === steps.length - 1 ? label : `Q${i}`}
+              </span>
             </div>
           ))}
         </div>
@@ -1208,7 +1294,7 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
 
         {isDetailsStep && renderDetailsStep()}
 
-        {!isDetailsStep && !isSubmitStep && activeSection && (
+        {!isDetailsStep && !isSubmitStep && activeQuestion && activeSection && (
           <div className="mx-auto max-w-2xl space-y-6 animate-in">
             <div>
               <h2 className="font-display text-xl font-semibold">{activeSection.section}</h2>
@@ -1216,7 +1302,7 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
                 <p className="mt-2 text-sm leading-6 text-gray-500">{activeSection.description}</p>
               )}
             </div>
-            {visibleActiveSectionQuestions.map(question => renderQuestion(question))}
+            {renderQuestion(activeQuestion)}
           </div>
         )}
 
@@ -1240,7 +1326,7 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
           )}
           {!isSubmitStep ? (
             <button
-              onClick={() => setStep(s => s + 1)}
+              onClick={continueFromCurrentStep}
               disabled={!canNext()}
               className="ml-auto px-6 py-2.5 rounded-lg bg-accent hover:bg-accent-2 text-white font-semibold text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
@@ -1252,7 +1338,7 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
               disabled={!canNext() || submitting}
               className="ml-auto px-6 py-2.5 rounded-lg bg-accent hover:bg-accent-2 text-white font-semibold text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              {submitting ? 'Generating Report…' : 'Get My Vertical Report'}
+              {submitting ? 'Generating Reportâ€¦' : 'Get My Vertical Report'}
             </button>
           )}
         </div>

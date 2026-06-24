@@ -71,7 +71,7 @@ export function ReportPage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="animate-pulse text-gray-500">Loading Report…</div>
+        <div className="animate-pulse text-gray-500">Loading Reportâ€¦</div>
       </div>
     );
   }
@@ -230,7 +230,7 @@ export function ReportPage() {
           <div className="space-y-3 text-sm leading-6 text-gray-600">
             <p>This report is designed to help you understand where your greatest creator opportunities exist today.</p>
             <p>The recommendations are based on your responses, creator profile, content preferences, commercial goals, and growth readiness.</p>
-            <p>Use this report as a starting point—not a final destination. The most successful creators continuously refine their positioning, content strategy, and audience focus over time.</p>
+            <p>Use this report as a starting pointâ€”not a final destination. The most successful creators continuously refine their positioning, content strategy, and audience focus over time.</p>
             <p>Review your results below and pay particular attention to the recommended actions and opportunities with the highest potential impact.</p>
           </div>
         </section>
@@ -285,7 +285,7 @@ export function ReportPage() {
           </div>
           <div className="bg-surface border border-accent/20 rounded-xl p-5">
             <h3 className="font-semibold text-accent mb-3 text-sm uppercase tracking-wide">Growth</h3>
-            <ul className="space-y-2">{d.archetype_growth.map(s => <li key={s} className="text-sm text-gray-700 flex gap-2"><span className="text-accent">→</span>{s}</li>)}</ul>
+            <ul className="space-y-2">{d.archetype_growth.map(s => <li key={s} className="text-sm text-gray-700 flex gap-2"><span className="text-accent">â†’</span>{s}</li>)}</ul>
           </div>
         </section>
 
@@ -409,7 +409,7 @@ export function ReportPage() {
           <div className="w-full max-w-md rounded-xl border border-gray-200 bg-surface p-5 shadow-2xl">
             <h2 className="font-display text-xl font-semibold">{AGENCY_PROMPT_COPY}</h2>
             <p className="mt-3 text-sm leading-6 text-gray-600">
-              A short MGRNZ strategy discussion can help translate your report into the most relevant next steps for your goals.
+              A short Find Your Vertical strategy discussion can help translate your report into the most relevant next steps for your goals.
             </p>
             {actionError && <p className="mt-4 rounded-lg border border-pink/30 bg-pink/10 px-3 py-2 text-sm text-pink">{actionError}</p>}
             <div className="mt-5 flex flex-col gap-3">
@@ -418,7 +418,7 @@ export function ReportPage() {
                 disabled={promptWorking}
                 className="rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold text-white hover:bg-accent-2 disabled:opacity-50"
               >
-                {promptWorking ? 'Opening Calendar�' : "Yes, I'd Like to Discuss My Results"}
+                {promptWorking ? 'Opening Calendar…' : "Yes, I'd Like to Discuss My Results"}
               </button>
               <button
                 onClick={continueWithoutAgency}
@@ -525,7 +525,7 @@ function createReportPdfBlob(report: ReportData, publicScores: Record<string, nu
     y -= fontSize + 5;
   };
 
-  addLine('MGRNZ Creator Assessment', 10);
+  addLine('Find Your Vertical Creator Assessment', 10);
   addLine('Find Your Vertical Report', 18);
   addLine(report.archetype, 14);
   wrapPdfText(report.archetype_description).forEach(line => addLine(line));

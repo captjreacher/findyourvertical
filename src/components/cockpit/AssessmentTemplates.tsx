@@ -14,6 +14,7 @@ import {
   getTemplateDeleteEligibility,
   restoreQuestion,
   saveTemplateItems,
+  saveTemplateBranchRules,
   setDefaultTemplate,
   setTemplateActive,
   updateAssessmentTemplate,
@@ -21,7 +22,9 @@ import {
 } from '@/lib/creators-api';
 import type {
   AssessmentQuestionOption,
+  AssessmentBranchAction,
   AssessmentQuestionType,
+  CreatorAssessmentBranchRule,
   CreatorAssessmentInviteLink,
   CreatorAssessmentRuntimeTemplate,
   CreatorAssessmentTemplateItem,
@@ -32,6 +35,7 @@ type DraftItem = CreatorAssessmentTemplateItem;
 type DeleteEligibility = { canDelete: boolean; reason?: string };
 type SaveState = 'Saved' | 'Unsaved changes' | 'Saving' | 'Error';
 type OptionDraft = { id: string; label: string };
+type BranchRuleDraft = Pick<CreatorAssessmentBranchRule, 'source_question_id' | 'option_value' | 'action' | 'target_question_id' | 'target_section_item_id'>;
 type QuestionForm = {
   id: string;
   question_text: string;
@@ -48,6 +52,12 @@ type QuestionForm = {
 };
 
 const QUESTION_TYPES: AssessmentQuestionType[] = ['short_text', 'long_text', 'single_choice', 'multi_choice', 'boolean', 'scale'];
+const BRANCH_ACTIONS: Array<{ value: AssessmentBranchAction; label: string }> = [
+  { value: 'continue', label: 'Continue to next question' },
+  { value: 'jump_question', label: 'Jump to question' },
+  { value: 'jump_section', label: 'Jump to section' },
+  { value: 'end', label: 'End assessment' },
+];
 const PUBLIC_ASSESSMENT_ORIGIN = 'https://findyourvertical.online';
 const EMPTY_TEMPLATE_FORM = { name: '', slug: '', description: '', duplicateFromTemplateId: '' };
 const EMPTY_INVITE_FORM = { templateId: '', creatorName: '', creatorEmail: '', expiresAt: '', notes: '' };
@@ -167,6 +177,7 @@ export function AssessmentTemplates() {
   const [templateActive, setTemplateActiveDraft] = useState(false);
   const [templateDefault, setTemplateDefault] = useState(false);
   const [draftItems, setDraftItems] = useState<DraftItem[]>([]);
+  const [branchRules, setBranchRules] = useState<BranchRuleDraft[]>([]);
   const [selectedSectionId, setSelectedSectionId] = useState('');
   const [bankDrawerOpen, setBankDrawerOpen] = useState(false);
   const [bankSearch, setBankSearch] = useState('');
@@ -246,6 +257,13 @@ export function AssessmentTemplates() {
         description: item.description ?? '',
         sort_order: item.sort_order,
       })),
+      branchRules: (template.branch_rules ?? []).map(rule => ({
+        source_question_id: rule.source_question_id,
+        option_value: rule.option_value,
+        action: rule.action,
+        target_question_id: rule.target_question_id,
+        target_section_item_id: rule.target_section_item_id,
+      })),
     };
   }
 
@@ -264,6 +282,7 @@ export function AssessmentTemplates() {
         description: item.description ?? '',
         sort_order: item.sort_order,
       })),
+      branchRules,
     };
   }
 
@@ -299,6 +318,13 @@ export function AssessmentTemplates() {
     setTemplateActiveDraft(selectedTemplate.is_active);
     setTemplateDefault(selectedTemplate.is_default);
     setDraftItems(includedItemsFor(selectedTemplate));
+    setBranchRules((selectedTemplate.branch_rules ?? []).map(rule => ({
+      source_question_id: rule.source_question_id,
+      option_value: rule.option_value,
+      action: rule.action,
+      target_question_id: rule.target_question_id,
+      target_section_item_id: rule.target_section_item_id,
+    })));
     setSelectedSectionId('');
     setBankDrawerOpen(false);
   }, [selectedTemplate?.id]);
@@ -493,6 +519,7 @@ export function AssessmentTemplates() {
       });
       if (templateActive !== selectedTemplate.is_active) await setTemplateActive(selectedTemplate.id, templateActive);
       await saveTemplateItems(selectedTemplate.id, includedItems);
+      await saveTemplateBranchRules(selectedTemplate.id, branchRules);
       if (templateDefault && !selectedTemplate.is_default) await setDefaultTemplate(selectedTemplate.id);
       await load();
       showSuccess('Template saved.');
@@ -544,6 +571,51 @@ export function AssessmentTemplates() {
     const [item] = rows.splice(index, 1);
     rows.splice(target, 0, item);
     setDraftItems(rows.map((row, orderIndex) => ({ ...row, sort_order: (orderIndex + 1) * 10 })));
+  };
+
+  const branchableQuestionItems = useMemo(
+    () => includedItems.filter(item => item.item_type === 'question' && item.question?.is_active),
+    [includedItems]
+  );
+
+  const sectionItems = useMemo(
+    () => includedItems.filter(item => item.item_type === 'section_heading'),
+    [includedItems]
+  );
+
+  const getBranchRule = (questionId: string, optionValue: string): BranchRuleDraft => (
+    branchRules.find(rule => rule.source_question_id === questionId && rule.option_value === optionValue) ?? {
+      source_question_id: questionId,
+      option_value: optionValue,
+      action: 'continue',
+      target_question_id: null,
+      target_section_item_id: null,
+    }
+  );
+
+  const updateBranchRule = (
+    questionId: string,
+    optionValue: string,
+    changes: Partial<BranchRuleDraft>
+  ) => {
+    setBranchRules(current => {
+      const base = current.find(rule => rule.source_question_id === questionId && rule.option_value === optionValue) ?? {
+        source_question_id: questionId,
+        option_value: optionValue,
+        action: 'continue' as AssessmentBranchAction,
+        target_question_id: null,
+        target_section_item_id: null,
+      };
+      const next: BranchRuleDraft = {
+        ...base,
+        ...changes,
+        target_question_id: changes.action && changes.action !== 'jump_question' ? null : changes.target_question_id ?? base.target_question_id,
+        target_section_item_id: changes.action && changes.action !== 'jump_section' ? null : changes.target_section_item_id ?? base.target_section_item_id,
+      };
+      const without = current.filter(rule => !(rule.source_question_id === questionId && rule.option_value === optionValue));
+      if (next.action === 'continue') return without;
+      return [...without, next];
+    });
   };
 
   const addQuestionToTemplate = (question: CreatorQuestion) => {
@@ -704,13 +776,25 @@ export function AssessmentTemplates() {
         </div>
 
         <form onSubmit={createTemplate} className="cockpit-card-pad grid gap-3 lg:grid-cols-[1fr_1fr_1.4fr_220px_auto]">
-          <input ref={newTemplateNameRef} value={templateForm.name} onChange={e => setTemplateForm(current => ({ ...current, name: e.target.value, slug: current.slug || normalizeSlug(e.target.value) }))} placeholder="Template name" required className="field-control" />
-          <input value={templateForm.slug} onChange={e => setTemplateForm(current => ({ ...current, slug: normalizeSlug(e.target.value) }))} placeholder="slug" className="field-control" />
-          <input value={templateForm.description} onChange={e => setTemplateForm(current => ({ ...current, description: e.target.value }))} placeholder="Description" className="field-control" />
-          <select value={templateForm.duplicateFromTemplateId} onChange={e => setTemplateForm(current => ({ ...current, duplicateFromTemplateId: e.target.value }))} className="field-control">
-            <option value="">Blank template</option>
-            {templates.map(template => <option key={template.id} value={template.id}>Duplicate {template.name}</option>)}
-          </select>
+          <label className="grid gap-1 text-sm font-medium text-charcoal">
+            <span>Template Name</span>
+            <input ref={newTemplateNameRef} value={templateForm.name} onChange={e => setTemplateForm(current => ({ ...current, name: e.target.value, slug: current.slug || normalizeSlug(e.target.value) }))} required className="field-control" />
+          </label>
+          <label className="grid gap-1 text-sm font-medium text-charcoal">
+            <span>Template Slug</span>
+            <input value={templateForm.slug} onChange={e => setTemplateForm(current => ({ ...current, slug: normalizeSlug(e.target.value) }))} className="field-control" />
+          </label>
+          <label className="grid gap-1 text-sm font-medium text-charcoal">
+            <span>Template Description</span>
+            <input value={templateForm.description} onChange={e => setTemplateForm(current => ({ ...current, description: e.target.value }))} className="field-control" />
+          </label>
+          <label className="grid gap-1 text-sm font-medium text-charcoal">
+            <span>Starting Point</span>
+            <select value={templateForm.duplicateFromTemplateId} onChange={e => setTemplateForm(current => ({ ...current, duplicateFromTemplateId: e.target.value }))} className="field-control">
+              <option value="">Blank template</option>
+              {templates.map(template => <option key={template.id} value={template.id}>Duplicate {template.name}</option>)}
+            </select>
+          </label>
           <button type="submit" disabled={saving || !templateForm.name.trim()} title={!templateForm.name.trim() ? 'Template name is required.' : saving ? 'Save already in progress.' : undefined} className="btn-primary">{saving ? 'Working...' : 'Create'}</button>
         </form>
 
@@ -796,9 +880,18 @@ export function AssessmentTemplates() {
                 <h2 className="cockpit-section-title">Template Settings</h2>
               </div>
               <div className="space-y-3 p-4">
-                <input value={templateName} onChange={e => setTemplateName(e.target.value)} placeholder="Name" className="field-control w-full" />
-                <input value={templateSlug} onChange={e => setTemplateSlug(normalizeSlug(e.target.value))} placeholder="Slug" className="field-control w-full" />
-                <textarea value={templateDescription} onChange={e => setTemplateDescription(e.target.value)} rows={3} placeholder="Description" className="field-control w-full resize-none" />
+                <label className="grid gap-1 text-sm font-medium text-charcoal">
+                  <span>Template Name</span>
+                  <input value={templateName} onChange={e => setTemplateName(e.target.value)} className="field-control w-full" />
+                </label>
+                <label className="grid gap-1 text-sm font-medium text-charcoal">
+                  <span>Template Slug</span>
+                  <input value={templateSlug} onChange={e => setTemplateSlug(normalizeSlug(e.target.value))} className="field-control w-full" />
+                </label>
+                <label className="grid gap-1 text-sm font-medium text-charcoal">
+                  <span>Template Description</span>
+                  <textarea value={templateDescription} onChange={e => setTemplateDescription(e.target.value)} rows={3} className="field-control w-full resize-none" />
+                </label>
                 <label className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm">
                   <span>Active template</span>
                   <input type="checkbox" checked={templateActive} onChange={e => setTemplateActiveDraft(e.target.checked)} className="accent-accent" />
@@ -855,12 +948,15 @@ export function AssessmentTemplates() {
                       <ItemActions index={index} item={item} />
                     </div>
                   ) : (
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div className="min-w-0 flex-1">
-                        <p className="font-semibold text-charcoal">{item.question?.question_text ?? 'Missing question'}</p>
-                        <p className="mt-1 text-xs text-charcoal-2">{item.question?.question_key} / {item.question?.section} / {item.question?.question_type}</p>
+                    <div className="space-y-4">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="font-semibold text-charcoal">{item.question?.question_text ?? 'Missing question'}</p>
+                          <p className="mt-1 text-xs text-charcoal-2">{item.question?.question_key} / {item.question?.section} / {item.question?.question_type}</p>
+                        </div>
+                        <ItemActions index={index} item={item} />
                       </div>
-                      <ItemActions index={index} item={item} />
+                      {item.question && ['single_choice', 'multi_choice'].includes(item.question.question_type) && renderBranchingControls(item)}
                     </div>
                   )}
                 </div>
@@ -909,6 +1005,80 @@ export function AssessmentTemplates() {
         <button type="button" onClick={() => moveItem(item.id, -1)} disabled={index === 0} title={index === 0 ? 'Already first item.' : undefined} className="btn-subtle">Up</button>
         <button type="button" onClick={() => moveItem(item.id, 1)} disabled={index === includedItems.length - 1} title={index === includedItems.length - 1 ? 'Already last item.' : undefined} className="btn-subtle">Down</button>
         <button type="button" onClick={() => removeItem(item.id)} className="btn-subtle">Remove</button>
+      </div>
+    );
+  }
+
+  function renderBranchingControls(item: DraftItem) {
+    const question = item.question;
+    if (!question) return null;
+    const options = optionsToDrafts(question.options)
+      .map(option => ({
+        value: normalizeKey(option.label) || option.label,
+        label: option.label,
+      }))
+      .filter(option => option.label);
+    if (options.length === 0) return null;
+
+    return (
+      <div className="rounded-xl border border-white/10 bg-surface-3/50 p-3">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <p className="text-sm font-semibold text-charcoal">Branching Rules</p>
+            <p className="mt-1 text-xs text-charcoal-2">Choose what happens after each answer option.</p>
+          </div>
+        </div>
+        <div className="space-y-2">
+          {options.map(option => {
+            const rule = getBranchRule(question.id, option.value);
+            return (
+              <div key={option.value} className="grid gap-2 rounded-lg border border-white/10 bg-white/[0.03] p-2 lg:grid-cols-[minmax(0,1fr)_220px_minmax(0,1fr)]">
+                <div className="min-h-10 rounded-lg bg-white/5 px-3 py-2 text-sm text-charcoal">
+                  {option.label}
+                </div>
+                <select
+                  value={rule.action}
+                  onChange={e => updateBranchRule(question.id, option.value, {
+                    action: e.target.value as AssessmentBranchAction,
+                    target_question_id: null,
+                    target_section_item_id: null,
+                  })}
+                  className="field-control"
+                  aria-label={`Branch action for ${option.label}`}
+                >
+                  {BRANCH_ACTIONS.map(action => <option key={action.value} value={action.value}>{action.label}</option>)}
+                </select>
+                {rule.action === 'jump_question' && (
+                  <select
+                    value={rule.target_question_id ?? ''}
+                    onChange={e => updateBranchRule(question.id, option.value, { target_question_id: e.target.value || null })}
+                    className="field-control"
+                    aria-label={`Target question for ${option.label}`}
+                  >
+                    <option value="">Choose target question</option>
+                    {branchableQuestionItems
+                      .filter(target => target.question_id !== question.id)
+                      .map(target => <option key={target.id} value={target.question_id ?? ''}>{target.question?.question_text}</option>)}
+                  </select>
+                )}
+                {rule.action === 'jump_section' && (
+                  <select
+                    value={rule.target_section_item_id ?? ''}
+                    onChange={e => updateBranchRule(question.id, option.value, { target_section_item_id: e.target.value || null })}
+                    className="field-control"
+                    aria-label={`Target section for ${option.label}`}
+                  >
+                    <option value="">Choose target section</option>
+                    {sectionItems.map(section => <option key={section.id} value={section.id}>{section.title || 'Untitled Section'}</option>)}
+                  </select>
+                )}
+                {(rule.action === 'continue' || rule.action === 'end') && (
+                  <div className="min-h-10 rounded-lg bg-white/5 px-3 py-2 text-sm text-charcoal-2">N/A</div>
+                )}
+              </div>
+            );
+          })}
+        </div>
       </div>
     );
   }
@@ -1081,44 +1251,66 @@ export function AssessmentTemplates() {
   function renderInviteModal() {
     const selectedInviteTemplate = templates.find(template => template.id === inviteForm.templateId);
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
-        <div className="w-full max-w-2xl rounded-2xl border border-white/10 bg-surface p-5 shadow-2xl">
-          <div className="mb-4 flex items-start justify-between gap-3">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+        <div className="flex max-h-[calc(100dvh-2rem)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-surface shadow-2xl">
+          <div className="flex shrink-0 items-start justify-between gap-3 border-b border-white/10 p-5">
             <div>
               <h2 className="cockpit-section-title">Create Invite Link</h2>
-              <p className="mt-1 text-xs text-charcoal-2">Generate an invite without entering the template editor.</p>
+              <p className="mt-1 text-xs text-charcoal-2">Generate an assessment invite for a creator email address.</p>
             </div>
             <button type="button" onClick={() => setInviteModalOpen(false)} className="btn-subtle">Close</button>
           </div>
-          <form onSubmit={createInvite} className="grid gap-3">
-            <select value={inviteForm.templateId} onChange={e => setInviteForm(current => ({ ...current, templateId: e.target.value }))} required className="field-control">
-              <option value="">Choose template</option>
-              {templates.map(template => <option key={template.id} value={template.id}>{template.name}</option>)}
-            </select>
-            <input value="Manual email" readOnly className="field-control opacity-70" aria-label="Contact source" />
-            <div className="grid gap-3 sm:grid-cols-2">
-              <input value={inviteForm.creatorName} onChange={e => setInviteForm(current => ({ ...current, creatorName: e.target.value }))} placeholder="Creator name" required className="field-control" />
-              <input type="email" value={inviteForm.creatorEmail} onChange={e => setInviteForm(current => ({ ...current, creatorEmail: e.target.value }))} placeholder="Email address" required className="field-control" />
-            </div>
-            <label className="grid gap-1 text-sm font-medium text-charcoal">
-              <span>Expiry date</span>
-              <input type="date" value={inviteForm.expiresAt} onChange={e => setInviteForm(current => ({ ...current, expiresAt: e.target.value }))} className="field-control" />
-              <span className="text-xs font-normal text-charcoal-2">Leave blank for no expiry. Created date is recorded automatically.</span>
-            </label>
-            <textarea value={inviteForm.notes} onChange={e => setInviteForm(current => ({ ...current, notes: e.target.value }))} rows={3} placeholder="Optional notes/internal label" className="field-control resize-none" />
-            <button type="submit" disabled={saving || !selectedInviteTemplate} title={!selectedInviteTemplate ? 'Choose a template first.' : saving ? 'Invite creation already in progress.' : undefined} className="btn-primary">{saving ? 'Creating...' : 'Create Invite Link'}</button>
-          </form>
-
-          {generatedInviteUrl && (
-            <div className="mt-4 rounded-2xl border border-accent/30 bg-accent/10 p-4">
-              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                <p className="text-sm font-semibold text-charcoal">Invite URL</p>
-                <span className="rounded-full bg-success/10 px-3 py-1 text-xs font-semibold text-success">{generatedInviteStatus}</span>
+          <form onSubmit={createInvite} className="flex min-h-0 flex-1 flex-col">
+            <div className="grid min-h-0 gap-3 overflow-y-auto p-5">
+              <label className="grid gap-1 text-sm font-medium text-charcoal">
+                <span>Template</span>
+                <select value={inviteForm.templateId} onChange={e => setInviteForm(current => ({ ...current, templateId: e.target.value }))} required className="field-control">
+                  <option value="">Choose template</option>
+                  {templates.map(template => <option key={template.id} value={template.id}>{template.name}</option>)}
+                </select>
+              </label>
+              <label className="grid gap-1 text-sm font-medium text-charcoal">
+                <span>Invite Type</span>
+                <select value="manual_email" disabled className="field-control opacity-80">
+                  <option value="manual_email">Manual Email</option>
+                </select>
+              </label>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="grid gap-1 text-sm font-medium text-charcoal">
+                  <span>Creator Name</span>
+                  <input value={inviteForm.creatorName} onChange={e => setInviteForm(current => ({ ...current, creatorName: e.target.value }))} required className="field-control" />
+                </label>
+                <label className="grid gap-1 text-sm font-medium text-charcoal">
+                  <span>Email Address</span>
+                  <input type="email" value={inviteForm.creatorEmail} onChange={e => setInviteForm(current => ({ ...current, creatorEmail: e.target.value }))} required className="field-control" />
+                </label>
               </div>
-              <p className="break-all text-sm text-charcoal-2">{generatedInviteUrl}</p>
-              <button type="button" onClick={() => copyInviteUrl(generatedInviteUrl)} className="btn-secondary mt-3">Copy</button>
+              <label className="grid gap-1 text-sm font-medium text-charcoal">
+                <span>Expiry Date</span>
+                <input type="date" value={inviteForm.expiresAt} onChange={e => setInviteForm(current => ({ ...current, expiresAt: e.target.value }))} className="field-control" />
+                <span className="text-xs font-normal text-charcoal-2">Optional. Leave blank for no expiry. Created date is generated automatically.</span>
+              </label>
+              <label className="grid gap-1 text-sm font-medium text-charcoal">
+                <span>Internal Notes</span>
+                <textarea value={inviteForm.notes} onChange={e => setInviteForm(current => ({ ...current, notes: e.target.value }))} rows={3} className="field-control resize-none" />
+              </label>
+
+              {generatedInviteUrl && (
+                <div className="rounded-2xl border border-accent/30 bg-accent/10 p-4">
+                  <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-sm font-semibold text-charcoal">Invite URL</p>
+                    <span className="rounded-full bg-success/10 px-3 py-1 text-xs font-semibold text-success">{generatedInviteStatus}</span>
+                  </div>
+                  <p className="break-all text-sm text-charcoal-2">{generatedInviteUrl}</p>
+                  <button type="button" onClick={() => copyInviteUrl(generatedInviteUrl)} className="btn-secondary mt-3">Copy</button>
+                </div>
+              )}
             </div>
-          )}
+            <div className="flex shrink-0 justify-end gap-2 border-t border-white/10 bg-surface-3/60 p-4">
+              <button type="button" onClick={() => setInviteModalOpen(false)} className="btn-subtle">Cancel</button>
+              <button type="submit" disabled={saving || !selectedInviteTemplate} title={!selectedInviteTemplate ? 'Choose a template first.' : saving ? 'Invite creation already in progress.' : undefined} className="btn-primary">{saving ? 'Creating...' : 'Create Invite Link'}</button>
+            </div>
+          </form>
         </div>
       </div>
     );

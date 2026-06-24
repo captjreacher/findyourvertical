@@ -134,6 +134,20 @@ export type AssessmentQuestionOption =
       is_active?: boolean;
     };
 
+export type AssessmentBranchAction = 'continue' | 'jump_question' | 'jump_section' | 'end';
+
+export interface CreatorAssessmentBranchRule {
+  id?: string;
+  template_id: string;
+  source_question_id: string;
+  option_value: string;
+  action: AssessmentBranchAction;
+  target_question_id: string | null;
+  target_section_item_id: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface CreatorQuestion {
   id: string;
   question_key: string;
@@ -200,6 +214,7 @@ export interface CreatorAssessmentTemplateItem {
 export interface CreatorAssessmentRuntimeTemplate extends CreatorAssessmentTemplate {
   questions: CreatorAssessmentQuestion[];
   items?: CreatorAssessmentTemplateItem[];
+  branch_rules?: CreatorAssessmentBranchRule[];
 }
 
 export interface CreatorAssessmentInviteLink {
