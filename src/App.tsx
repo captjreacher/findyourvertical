@@ -11,7 +11,7 @@ const ReportPage = lazy(() => import('./components/report/ReportPage').then(modu
 const CockpitLayout = lazy(() => import('./components/cockpit/CockpitLayout').then(module => ({ default: module.CockpitLayout })));
 const CreatorPipeline = lazy(() => import('./components/cockpit/CreatorPipeline').then(module => ({ default: module.CreatorPipeline })));
 const CreatorProfileView = lazy(() => import('./components/cockpit/CreatorProfileView').then(module => ({ default: module.CreatorProfileView })));
-const CreatorIntelligence = lazy(() => import('./components/cockpit/CreatorIntelligence').then(module => ({ default: module.CreatorIntelligence })));
+const CreatorIntelligence = lazy(() => import('./components/cockpit/creator-intelligence/CreatorIntelligence').then(module => ({ default: module.CreatorIntelligence })));
 const AgencyDashboard = lazy(() => import('./components/cockpit/AgencyDashboard').then(module => ({ default: module.AgencyDashboard })));
 const AuthGate = lazy(() => import('./components/cockpit/AuthGate').then(module => ({ default: module.AuthGate })));
 const AssessmentTemplates = lazy(() => import('./components/cockpit/AssessmentTemplates').then(module => ({ default: module.AssessmentTemplates })));
