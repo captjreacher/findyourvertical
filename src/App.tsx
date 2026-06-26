@@ -11,6 +11,7 @@ const ReportPage = lazy(() => import('./components/report/ReportPage').then(modu
 const CockpitLayout = lazy(() => import('./components/cockpit/CockpitLayout').then(module => ({ default: module.CockpitLayout })));
 const CreatorPipeline = lazy(() => import('./components/cockpit/CreatorPipeline').then(module => ({ default: module.CreatorPipeline })));
 const CreatorProfileView = lazy(() => import('./components/cockpit/CreatorProfileView').then(module => ({ default: module.CreatorProfileView })));
+const CreatorIntelligence = lazy(() => import('./components/cockpit/CreatorIntelligence').then(module => ({ default: module.CreatorIntelligence })));
 const AgencyDashboard = lazy(() => import('./components/cockpit/AgencyDashboard').then(module => ({ default: module.AgencyDashboard })));
 const AuthGate = lazy(() => import('./components/cockpit/AuthGate').then(module => ({ default: module.AuthGate })));
 const AssessmentTemplates = lazy(() => import('./components/cockpit/AssessmentTemplates').then(module => ({ default: module.AssessmentTemplates })));
@@ -103,6 +104,7 @@ export default function App() {
             <Route index element={<AgencyDashboard />} />
             <Route path="creators" element={<CreatorPipeline />} />
             <Route path="creators/:profileId" element={<CreatorProfileView />} />
+            <Route path="creators/:profileId/intelligence" element={<CreatorIntelligence />} />
             <Route path="settings/assessment-templates" element={<AssessmentTemplates />} />
             <Route path="settings/assessment-templates/:templateId" element={<AssessmentTemplates />} />
             <Route path="settings/question-bank" element={<AssessmentTemplates />} />
