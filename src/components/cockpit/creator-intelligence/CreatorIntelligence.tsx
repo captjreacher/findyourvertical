@@ -121,7 +121,7 @@ return buildReportFromCreatorDna({
   dnaProfile: intelligence.creator_dna,
   evidence: intelligence.evidence,
   traits: intelligence.traits,
-  archetypeFits: intelligence.archetype_fits,
+  confidence: intelligence.confidence,
   reportTier: previewTier,
 });
     } catch {
