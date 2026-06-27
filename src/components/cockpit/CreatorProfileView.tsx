@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   getCreatorProfile,
   getAssessmentsForProfile,
@@ -316,6 +316,12 @@ export function CreatorProfileView() {
           <p className="cockpit-subtitle">{[profile.email, profile.onlyfans_handle ? `@${profile.onlyfans_handle}` : null, profile.country].filter(Boolean).join(' / ')}</p>
         </div>
         <div className="flex items-center gap-2">
+          <Link
+            to={`/cockpit/creators/${profile.id}/intelligence`}
+            className="btn-primary text-xs"
+          >
+            View Intelligence
+          </Link>
           <span className="rounded-full bg-surface-3 px-3 py-1 text-xs font-semibold capitalize text-gray-700">
             {profile.status}
           </span>
@@ -606,11 +612,12 @@ export function CreatorProfileView() {
                 <table className="data-table">
                   <thead className="">
                     <tr>
-                      <th >Date</th>
-                      <th >Score</th>
-                      <th >Template</th>
-                      <th >Invite Code</th>
-                      <th >Creator Name</th>
+                      <th>Date</th>
+                      <th>Score</th>
+                      <th>Template</th>
+                      <th>Invite Code</th>
+                      <th>Creator Name</th>
+                      <th>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -621,6 +628,14 @@ export function CreatorProfileView() {
                         <td className="text-gray-700">{templateNameFor(a)}</td>
                         <td className="text-gray-700">{a.invite_code ?? '-'}</td>
                         <td className="text-gray-700">{a.creator_name ?? '-'}</td>
+                        <td>
+                          <Link
+                            to={`/cockpit/creators/${profile.id}/intelligence?assessmentId=${a.id}`}
+                            className="text-xs font-medium text-accent hover:underline"
+                          >
+                            View Intelligence
+                          </Link>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -700,6 +715,3 @@ export function CreatorProfileView() {
     </div>
   );
 }
-
-
-
