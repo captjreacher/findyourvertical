@@ -303,16 +303,31 @@ export function calculateArchetypeFits(
 function confidenceScore(evidence: AssessmentEvidence[], archetypeFits: CreatorIntelligenceResult['archetype_fits']): ConfidenceScore {
   const top = archetypeFits[0]?.fit_score ?? 0;
   const second = archetypeFits[1]?.fit_score ?? 0;
+  const spread = Math.max(0, top - second);
   const evidenceDiversity = new Set(evidence.map(item => item.dimension)).size;
-  const score = clamp(42 + evidence.length * 2 + evidenceDiversity * 4 + Math.max(0, top - second));
+
+  // CAL-001: Weight evidence by quality, not just count
+  const avgStrength = evidence.length > 0
+    ? evidence.reduce((sum, e) => sum + e.strength, 0) / evidence.length
+    : 0;
+  const strongEvidence = evidence.filter(e => e.strength >= 60).length;
+
+  const score = clamp(
+    25                                         // lower base (was 42)
+    + Math.round(avgStrength * 0.3)            // 0-30 from evidence quality
+    + Math.min(strongEvidence * 3, 15)         // 0-15 from strong evidence count
+    + Math.min(evidenceDiversity * 2, 12)      // 0-12 from dimension diversity (was *4)
+    + Math.min(spread, 20)                     // 0-20 from archetype clarity
+  );
 
   return {
     score,
     label: score >= 75 ? 'High' : score >= 50 ? 'Moderate' : 'Low',
     drivers: [
-      `${evidence.length} evidence signals captured`,
+      `${evidence.length} evidence signals (avg strength ${Math.round(avgStrength)})`,
+      `${strongEvidence} strong signals (strength >= 60)`,
       `${evidenceDiversity} evidence dimensions represented`,
-      `Top archetype spread is ${Math.max(0, top - second)} points`,
+      `Top archetype spread is ${spread} points`,
     ],
   };
 }
@@ -325,9 +340,19 @@ function projectScoresFromDna(
   const traitScore = (trait: CreatorTrait) => traits.find(item => item.trait === trait)?.weight ?? 50;
   const average = (...values: number[]) => values.reduce((sum, value) => sum + value, 0) / values.length;
 
+  // CAL-002: Cap archetype_confidence contribution and add quality penalties
+  const brandBase = average(
+    Math.min(dna.archetype_confidence, 75),   // cap at 75 (was raw ~95)
+    traitScore('positioning_clarity'),
+    legacyScores.brand_clarity
+  );
+  const brandPenalty =
+    (dna.authenticity_band === 'Potential Conflict' ? 12 : dna.authenticity_band === 'Moderate Authenticity' ? 5 : 0)
+    + (dna.archetype_confidence <= 70 ? 8 : 0);
+
   return {
     creator_dna: clamp(average(dna.confidence, traitScore('visibility_comfort'), traitScore('authenticity'))),
-    brand_clarity: clamp(average(dna.archetype_confidence, traitScore('positioning_clarity'), legacyScores.brand_clarity)),
+    brand_clarity: clamp(brandBase - brandPenalty),
     monetisation: clamp(average(
       dna.monetisation_readiness === 'Advanced' ? 88 : dna.monetisation_readiness === 'Ready' ? 74 : dna.monetisation_readiness === 'Developing' ? 55 : 32,
       traitScore('monetisation_fit'),

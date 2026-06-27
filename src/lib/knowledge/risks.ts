@@ -16,7 +16,7 @@ export const RISKS: Risk[] = [
     id: 'risk-001',
     title: 'Creator burnout',
     description: 'Unsustainable production pace, emotional labour, or boundary erosion leads to exhaustion and content collapse.',
-    severity: 'critical',
+    severity: 'high',
     detectionGuidance: ['Consistency score declining over time', 'routine_discipline trait weight below 45', 'Creator self-reports fatigue or overwhelm'],
     mitigation: ['Set a sustainable posting cadence', 'Batch content production', 'Schedule regular breaks into the calendar', 'Delegate or template repetitive tasks'],
     coachingGuidance: 'Burnout is the number one career-ender. Treat sustainability as a non-negotiable constraint, not a nice-to-have.',

@@ -254,6 +254,7 @@ function determineVerticals(r: AssessmentResponses, archetype: CreatorArchetype)
   const results: { name: ContentVertical; rationale: string }[] = [];
   const strengths = strengthSignals(r.strengths);
 
+  // Signal-driven verticals (original 6)
   if (hasAny(strengths, ['My fitness', 'Specific Sport']) || r.niche_interests.includes('Fitness/Muscle') || archetype === 'Fitness Goddess') {
     results.push({ name: 'Fitness Journey', rationale: 'Fitness and body confidence create repeatable visual content with built-in progression hooks.' });
   }
@@ -273,11 +274,63 @@ function determineVerticals(r: AssessmentResponses, archetype: CreatorArchetype)
     results.push({ name: 'Comedy Skits', rationale: 'High energy and entertainment value create short-form formats with strong discovery potential.' });
   }
 
-  const fallbacks: { name: ContentVertical; rationale: string }[] = [
-    { name: 'Tease & Deny', rationale: 'Build anticipation through previews, countdowns, and limited-time unlocks that gamify the fan experience.' },
-    { name: 'Lifestyle Vlogging / GRWM', rationale: 'Document your routine to build familiarity, trust, and repeat viewing habits.' },
-    { name: 'Confessional Storytime', rationale: 'Use personal stories to create emotional connection and parasocial investment.' },
-  ];
+  // CAL-007: Additional archetype-driven verticals to reduce fallback dominance
+  if (['MILF', 'Single Mom', 'Country Girl', 'College Girl'].includes(archetype) && !results.some(v => v.name === 'Lifestyle Vlogging / GRWM')) {
+    results.push({ name: 'Lifestyle Vlogging / GRWM', rationale: 'Relatable lifestyle content builds parasocial familiarity and daily viewing habits.' });
+  }
+  if (['Party Girl', 'Brat', 'Gamer Girl'].includes(archetype) && !results.some(v => v.name === 'Skill-Based Challenges')) {
+    results.push({ name: 'Skill-Based Challenges', rationale: 'High-energy archetypes thrive in interactive, competitive formats that drive engagement.' });
+  }
+  if (['Bimbo', 'Seductress', 'Party Girl'].includes(archetype) && !results.some(v => v.name === 'Tease & Deny')) {
+    results.push({ name: 'Tease & Deny', rationale: 'Anticipation-driven content is a natural fit for allure and reveal-led positioning.' });
+  }
+  if (['Boss Babe', 'Corporate Rebel', 'Doctor'].includes(archetype) && !results.some(v => v.name === 'Polarizing Storytimes')) {
+    results.push({ name: 'Polarizing Storytimes', rationale: 'Authority and duality archetypes generate compelling narrative tension that drives shares.' });
+  }
+  if (['Spiritual Goddess', 'Artist / Creative Muse'].includes(archetype) && !results.some(v => v.name === 'Cosy Authenticity')) {
+    results.push({ name: 'Cosy Authenticity', rationale: 'Calm, intentional content builds a distinctive aesthetic community around values.' });
+  }
+  if (['MILF', 'Single Mom'].includes(archetype) && !results.some(v => v.name === 'Confessional Storytime')) {
+    results.push({ name: 'Confessional Storytime', rationale: 'Life experience creates compelling, empathy-driven narrative content.' });
+  }
+  if (['Rich Girl', 'Trophy Wife', 'High-Class Escort Fantasy', 'Boss Babe'].includes(archetype) && !results.some(v => v.name === 'Editorial / High-Fashion Shoots')) {
+    results.push({ name: 'Editorial / High-Fashion Shoots', rationale: 'Premium positioning benefits from curated, aspirational visual content.' });
+  }
+  if (['Alternative / Tattooed', 'Gamer Girl'].includes(archetype) && !results.some(v => v.name === 'Comedy Skits')) {
+    results.push({ name: 'Comedy Skits', rationale: 'Subculture and community-native archetypes benefit from personality-forward formats.' });
+  }
+
+  // CAL-007: Archetype-aware fallback pools instead of one hardcoded list
+  const intimacyArchetypes: CreatorArchetype[] = ['Soft Girlfriend Experience', 'Submissive', 'Nurse', 'Girl Next Door', 'Country Girl'];
+  const performanceArchetypes: CreatorArchetype[] = ['Party Girl', 'Brat', 'College Girl', 'Bimbo', 'Seductress', 'Gamer Girl'];
+  const premiumArchetypes: CreatorArchetype[] = ['Luxury Muse', 'Rich Girl', 'Trophy Wife', 'High-Class Escort Fantasy', 'Boss Babe', 'Doctor'];
+
+  let fallbacks: { name: ContentVertical; rationale: string }[];
+  if (intimacyArchetypes.includes(archetype)) {
+    fallbacks = [
+      { name: 'Cosy Authenticity', rationale: 'Warm, authentic content builds the parasocial trust this archetype thrives on.' },
+      { name: 'Confessional Storytime', rationale: 'Personal stories deepen emotional investment and subscriber loyalty.' },
+      { name: 'Lifestyle Vlogging / GRWM', rationale: 'Routine content creates familiarity and repeat viewing habits.' },
+    ];
+  } else if (performanceArchetypes.includes(archetype)) {
+    fallbacks = [
+      { name: 'Tease & Deny', rationale: 'Anticipation-driven content converts high energy into subscriber curiosity.' },
+      { name: 'Skill-Based Challenges', rationale: 'Interactive formats channel personality into fan engagement and tips.' },
+      { name: 'Comedy Skits', rationale: 'Personality-forward content drives social discovery and shareable moments.' },
+    ];
+  } else if (premiumArchetypes.includes(archetype)) {
+    fallbacks = [
+      { name: 'Editorial / High-Fashion Shoots', rationale: 'Curated visuals reinforce premium positioning and justify higher pricing.' },
+      { name: 'Polarizing Storytimes', rationale: 'Authority and aspiration create compelling narrative content.' },
+      { name: 'Lifestyle Vlogging / GRWM', rationale: 'Aspirational routine content builds familiarity without diluting premium brand.' },
+    ];
+  } else {
+    fallbacks = [
+      { name: 'Lifestyle Vlogging / GRWM', rationale: 'Document your routine to build familiarity, trust, and repeat viewing habits.' },
+      { name: 'Confessional Storytime', rationale: 'Use personal stories to create emotional connection and parasocial investment.' },
+      { name: 'Polarizing Storytimes', rationale: 'Opinion-driven content drives engagement and social discovery.' },
+    ];
+  }
 
   for (const fallback of fallbacks) {
     if (results.length >= 3) break;
