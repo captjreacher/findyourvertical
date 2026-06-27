@@ -1,5 +1,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Creator Intelligence — Knowledge Registry: Registry (Sprint FYV-3.4A)
+// Creator Intelligence — Knowledge Registry: Registry
+//   FYV-3.4A: Foundation registry + safe-fallback getters
+//   FYV-3.4B: Registers recommendations, opportunities, risks catalogues
 //
 // Assembles the typed KnowledgeRegistry from the individual knowledge maps
 // and exposes safe-fallback getters. Consumers never see undefined — every
@@ -10,10 +12,22 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import type { ContentVertical, CreatorArchetype } from '@/types/creator';
-import type { ArchetypeKnowledge, AudienceKnowledge, AudienceProfileKey, KnowledgeRegistry, VerticalKnowledge } from './types';
+import type {
+  ArchetypeKnowledge,
+  AudienceKnowledge,
+  AudienceProfileKey,
+  KnowledgeRegistry,
+  Opportunity,
+  Recommendation,
+  Risk,
+  VerticalKnowledge,
+} from './types';
 import { ARCHETYPE_KNOWLEDGE, FALLBACK_ARCHETYPE_KNOWLEDGE } from './archetypes';
 import { VERTICAL_KNOWLEDGE, FALLBACK_VERTICAL_KNOWLEDGE } from './verticals';
 import { AUDIENCE_KNOWLEDGE } from './audiences';
+import { RECOMMENDATION_MAP } from './recommendations';
+import { OPPORTUNITY_MAP } from './opportunities';
+import { RISK_MAP } from './risks';
 
 // ── Assembled registry ──────────────────────────────────────────────────────
 
@@ -21,6 +35,9 @@ export const knowledgeRegistry: KnowledgeRegistry = {
   archetypes: ARCHETYPE_KNOWLEDGE,
   verticals: VERTICAL_KNOWLEDGE,
   audiences: AUDIENCE_KNOWLEDGE,
+  recommendations: RECOMMENDATION_MAP,
+  opportunities: OPPORTUNITY_MAP,
+  risks: RISK_MAP,
 };
 
 // ── Safe-fallback getters ───────────────────────────────────────────────────
@@ -50,4 +67,25 @@ export function getVerticalKnowledge(vertical: string): VerticalKnowledge {
  */
 export function getAudienceKnowledge(key: string): AudienceKnowledge {
   return AUDIENCE_KNOWLEDGE[key as AudienceProfileKey] ?? AUDIENCE_KNOWLEDGE['default'];
+}
+
+/**
+ * Returns a Recommendation by id, or undefined if not found.
+ */
+export function getRecommendation(id: string): Recommendation | undefined {
+  return RECOMMENDATION_MAP[id];
+}
+
+/**
+ * Returns an Opportunity by id, or undefined if not found.
+ */
+export function getOpportunity(id: string): Opportunity | undefined {
+  return OPPORTUNITY_MAP[id];
+}
+
+/**
+ * Returns a Risk by id, or undefined if not found.
+ */
+export function getRisk(id: string): Risk | undefined {
+  return RISK_MAP[id];
 }
