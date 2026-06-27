@@ -2,11 +2,10 @@
 // Creator Intelligence — Knowledge Registry: Types
 //   FYV-3.4A: Foundation interfaces
 //   FYV-3.4B: Recommendation, Opportunity, Risk, SelectorProfile
+//   FYV-3.4C: KnowledgeEnrichment, EnrichmentInput
 //
 // SCOPE
 //   Typed shapes for the reusable Creator Intelligence Knowledge Registry.
-//   Foundation-only: defines structure, not behaviour. No scoring, report,
-//   assessment, Cockpit, or database code depends on it yet.
 //
 // DESIGN RULES
 //   - Knowledge keyed off canonical unions in @/types/creator so the compiler
@@ -162,6 +161,49 @@ export interface SelectorProfile {
   vertical?: string;
   traits?: string[];
   audienceStrategy?: string;
+}
+
+// ── FYV-3.4C: Enrichment types ──────────────────────────────────────────────
+
+/**
+ * Loose input shape for the enrichment function.
+ * Uses minimal structural types (not full ArchetypeFit / TraitWeight) so
+ * the enrichment module stays decoupled from @/types/creator at the value
+ * level — only type-level imports are used.
+ */
+export interface EnrichmentInput {
+  /** Archetype fits, sorted best-first. Only archetype + fit_score needed. */
+  archetypeFits: Array<{ archetype: string; fit_score: number }>;
+  /** Trait weights. Only trait name + weight needed. */
+  traits: Array<{ trait: string; weight: number }>;
+  /** Top verticals from the report. Only name needed. */
+  topVerticals: Array<{ name: string }>;
+  /** Audience strategy from the assessment responses (whales / masses / null). */
+  audienceStrategy?: string | null;
+}
+
+/**
+ * The knowledge enrichment result. Packages selector output for a specific
+ * creator profile, ready for consumption by reports or UI.
+ *
+ * This is the output of enrichWithKnowledge() and lives on
+ * CreatorIntelligenceResult.knowledge.
+ */
+export interface KnowledgeEnrichment {
+  /** The selector profile derived from the intelligence result. */
+  profile: SelectorProfile;
+  /** Ranked coaching/strategy recommendations for this creator. */
+  recommendations: Recommendation[];
+  /** Ranked commercial opportunities for this creator. */
+  opportunities: Opportunity[];
+  /** Ranked risks for this creator. */
+  risks: Risk[];
+  /** How many catalogue entries were evaluated (for transparency). */
+  catalogueCoverage: {
+    recommendationsEvaluated: number;
+    opportunitiesEvaluated: number;
+    risksEvaluated: number;
+  };
 }
 
 // ── Registry shape ──────────────────────────────────────────────────────────

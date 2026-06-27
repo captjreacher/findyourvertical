@@ -2,20 +2,19 @@
 // Creator Intelligence — Knowledge Registry: Barrel Export
 //   FYV-3.4A: Foundation types, data, registry, getters
 //   FYV-3.4B: Recommendations, opportunities, risks, selectors
+//   FYV-3.4C: Enrichment function and types
 //
 // Clean public surface for the knowledge registry.
 //
-// Usage (when wired in by a future sprint):
+// Usage:
 //   import {
+//     enrichWithKnowledge,
 //     getArchetypeKnowledge,
 //     recommendationsForProfile,
-//     opportunitiesForProfile,
-//     risksForProfile,
 //   } from '@/lib/knowledge';
 //
 //   import type {
-//     ArchetypeKnowledge,
-//     Recommendation,
+//     KnowledgeEnrichment,
 //     SelectorProfile,
 //   } from '@/lib/knowledge';
 // ─────────────────────────────────────────────────────────────────────────────
@@ -27,6 +26,8 @@ export type {
   AudienceKnowledge,
   AudienceProfileKey,
   Difficulty,
+  EnrichmentInput,
+  KnowledgeEnrichment,
   KnowledgeRegistry,
   Opportunity,
   Priority,
@@ -73,3 +74,10 @@ export {
   risksForProfile,
   selectors,
 } from './selector';
+
+// ── Enrichment (FYV-3.4C) ───────────────────────────────────────────────────
+
+export {
+  buildSelectorProfile,
+  enrichWithKnowledge,
+} from './enrichment';

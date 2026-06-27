@@ -1,3 +1,5 @@
+import type { KnowledgeEnrichment } from '@/lib/knowledge/types';
+
 // ── Creator Profile (primary entity) ──
 export type CreatorStatus =
   | 'New'
@@ -466,6 +468,8 @@ export interface CreatorIntelligenceResult {
   confidence: ConfidenceScore;
   creator_dna: Omit<CreatorDnaProfile, 'id' | 'created_at'>;
   report: ReportData;
+  /** Knowledge-enriched recommendations, opportunities, and risks. (FYV-3.4C) */
+  knowledge?: KnowledgeEnrichment;
 }
 
 export interface CreatorReport {
