@@ -566,6 +566,30 @@ export function AssessmentTemplates() {
     setQuestionEditorOpen(true);
   };
 
+  const reconcileQuestionUpdate = (updatedQuestion: CreatorQuestion) => {
+    setQuestions(current => current.map(question => (
+      question.id === updatedQuestion.id ? updatedQuestion : question
+    )));
+
+    setTemplates(current => current.map(template => ({
+      ...template,
+      questions: template.questions.map(question => (
+        question.id === updatedQuestion.id ? { ...question, ...updatedQuestion } : question
+      )),
+      items: template.items?.map(item => (
+        item.question_id === updatedQuestion.id
+          ? { ...item, question: updatedQuestion }
+          : item
+      )),
+    })));
+
+    setDraftItems(current => current.map(item => (
+      item.question_id === updatedQuestion.id
+        ? { ...item, question: updatedQuestion }
+        : item
+    )));
+  };
+
   const closeQuestionEditor = () => {
     setQuestionEditorOpen(false);
     setQuestionForm(EMPTY_QUESTION_FORM);
@@ -742,17 +766,28 @@ export function AssessmentTemplates() {
     setSaving(true);
     try {
       if (questionForm.id) {
-        await updateQuestion(questionForm.id, payload);
+        const updatedQuestion = await updateQuestion(questionForm.id, payload);
         if (questionForm.is_active) await restoreQuestion(questionForm.id);
         else await archiveQuestion(questionForm.id);
+        reconcileQuestionUpdate({
+          ...updatedQuestion,
+          is_active: questionForm.is_active,
+        });
         showSuccess('Question updated.');
       } else {
         const createdQuestion = await createQuestion(payload);
+        const normalizedQuestion = questionForm.is_active
+          ? createdQuestion
+          : { ...createdQuestion, is_active: false };
         if (!questionForm.is_active) await archiveQuestion(createdQuestion.id);
+        setQuestions(current => [...current, normalizedQuestion]);
+        setQuestionDeleteEligibility(current => ({
+          ...current,
+          [createdQuestion.id]: { canDelete: true },
+        }));
         showSuccess('Question created.');
       }
       closeQuestionEditor();
-      await load();
     } catch (e) {
       showError(e instanceof Error ? e.message : 'Failed to save question');
     } finally {
@@ -1024,7 +1059,7 @@ export function AssessmentTemplates() {
                           <p className="font-semibold text-charcoal">{item.question?.question_text ?? 'Missing question'}</p>
                           <p className="mt-1 text-xs text-charcoal-2">{item.question?.question_key} / {item.question?.section} / {item.question?.question_type}</p>
                         </div>
-                        <ItemActions index={index} item={item} />
+                        <ItemActions index={index} item={item} question={item.question ?? undefined} />
                       </div>
                       {item.question && ['single_choice', 'multi_choice'].includes(item.question.question_type) && renderBranchingControls(item)}
                     </div>
@@ -1069,9 +1104,10 @@ export function AssessmentTemplates() {
     );
   }
 
-  function ItemActions({ item, index }: { item: DraftItem; index: number }) {
+  function ItemActions({ item, index, question }: { item: DraftItem; index: number; question?: CreatorQuestion }) {
     return (
       <div className="flex flex-wrap gap-2">
+        {question && <button type="button" onClick={() => openEditQuestionEditor(question)} className="btn-primary">Edit question</button>}
         <button type="button" onClick={() => moveItem(item.id, -1)} disabled={index === 0} title={index === 0 ? 'Already first item.' : undefined} className="btn-subtle">Up</button>
         <button type="button" onClick={() => moveItem(item.id, 1)} disabled={index === includedItems.length - 1} title={index === includedItems.length - 1 ? 'Already last item.' : undefined} className="btn-subtle">Down</button>
         <button type="button" onClick={() => removeItem(item.id)} className="btn-subtle">Remove</button>
