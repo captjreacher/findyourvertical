@@ -20,17 +20,16 @@ export function CockpitLayout() {
   return (
     <div className="flex min-h-screen flex-col bg-surface-2 lg:flex-row">
       <aside className="flex w-full shrink-0 flex-col border-b border-white/10 bg-surface/95 text-charcoal backdrop-blur lg:w-64 lg:border-b-0 lg:border-r lg:border-white/10">
-        <div className="flex items-start justify-between gap-3 border-b border-white/10 p-4 lg:block lg:p-5">
-          <div className="flex items-center gap-3">
+        <div className="flex items-start justify-between gap-3 border-b border-white/10 p-4 lg:flex-col lg:items-start lg:p-5">
+          <div className="flex min-w-0 flex-col items-start gap-2">
             <img
               src={brandLogo}
               alt="Find Your Vertical"
-              className="fyv-logo-mark h-28 w-56 shrink-0 object-contain"
+              className="fyv-logo-mark block h-auto w-full max-w-[208px] shrink-0 object-contain"
             />
-            <div className="sr-only">
-              <h1 className="text-base font-bold tracking-normal text-charcoal">Find Your Vertical</h1>
-              <p className="mt-0.5 text-xs text-charcoal-2">Modelling Creator Talent</p>
-            </div>
+            <p className="max-w-[208px] text-[12px] font-medium leading-snug tracking-[0.02em] text-charcoal-2">
+              Finding the Creator in you
+            </p>
           </div>
           <button
             onClick={handleSignOut}
