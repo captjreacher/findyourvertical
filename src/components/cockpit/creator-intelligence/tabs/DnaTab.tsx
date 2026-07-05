@@ -10,23 +10,23 @@ import { useCreatorIntelligence } from '../context';
 
 function valueRender(value: string | number | string[] | null | undefined): React.ReactNode {
   if (value === null || value === undefined) {
-    return <span className="text-sm text-gray-400 italic">Not set</span>;
+    return <span className="text-sm text-charcoal-2 italic">Not set</span>;
   }
 
   if (Array.isArray(value)) {
     if (value.length === 0) {
-      return <span className="text-sm text-gray-400 italic">None</span>;
+      return <span className="text-sm text-charcoal-2 italic">None</span>;
     }
     return (
       <div className="flex flex-wrap gap-1.5">
         {value.map((v, i) => (
-          <span key={i} className="px-2 py-1 rounded-full bg-surface-3 text-xs text-gray-700">{v}</span>
+          <span key={i} className="px-2 py-1 rounded-full bg-surface-3 text-xs text-charcoal">{v}</span>
         ))}
       </div>
     );
   }
 
-  return <span className="text-sm font-semibold text-gray-900">{String(value)}</span>;
+  return <span className="text-sm font-semibold text-charcoal">{String(value)}</span>;
 }
 
 function authenticityBandColor(band: string): string {
@@ -34,7 +34,7 @@ function authenticityBandColor(band: string): string {
     case 'High Authenticity': return 'text-success';
     case 'Moderate Authenticity': return 'text-warn';
     case 'Potential Conflict': return 'text-pink';
-    default: return 'text-gray-900';
+    default: return 'text-charcoal';
   }
 }
 
@@ -44,7 +44,7 @@ function opportunityBandColor(band: string): string {
     case 'Qualified': return 'text-success';
     case 'Needs Development': return 'text-warn';
     case 'Not Suitable Yet': return 'text-pink';
-    default: return 'text-gray-900';
+    default: return 'text-charcoal';
   }
 }
 
@@ -61,7 +61,7 @@ function DataRow({
 }) {
   return (
     <div className="bg-surface-1 rounded p-3">
-      <div className="text-xs text-gray-500 mb-1">{label}</div>
+      <div className="text-xs text-charcoal-2 mb-1">{label}</div>
       <div className={specialClass}>{valueRender(value)}</div>
     </div>
   );
@@ -92,12 +92,12 @@ function DnaGroup({
         className="w-full text-left p-4 flex items-center justify-between hover:bg-surface-3 transition-colors"
         onClick={onToggle}
       >
-        <span className="text-sm font-semibold text-gray-900">{title}</span>
-        <span className="text-xs text-gray-400">{expanded ? '▲' : '▼'}</span>
+        <span className="text-sm font-semibold text-charcoal">{title}</span>
+        <span className="text-xs text-charcoal-2">{expanded ? '▲' : '▼'}</span>
       </button>
 
       {expanded && (
-        <div className="px-4 pb-4 border-t border-gray-100 pt-3 space-y-3">
+        <div className="px-4 pb-4 border-t border-white/10 pt-3 space-y-3">
           {items.map(({ label, value, specialClass }) => (
             <DataRow key={label} label={label} value={value} specialClass={specialClass} />
           ))}
@@ -173,8 +173,8 @@ export function DnaTab() {
 
   if (!selectedAssessment) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-white p-8 text-center">
-        <p className="text-sm text-gray-600">No assessment selected.</p>
+      <div className="rounded-lg border border-white/10 bg-surface p-8 text-center">
+        <p className="text-sm text-charcoal-2">No assessment selected.</p>
       </div>
     );
   }
@@ -196,10 +196,10 @@ export function DnaTab() {
       {/* Summary */}
       {dna.summary && (
         <div className="bg-surface-2 rounded-lg p-4">
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-charcoal-2 mb-2">
             Summary
           </h3>
-          <p className="text-sm text-gray-700 leading-relaxed">{dna.summary}</p>
+          <p className="text-sm text-charcoal-2 leading-relaxed">{dna.summary}</p>
         </div>
       )}
 
@@ -222,7 +222,7 @@ export function DnaTab() {
           <div className="text-xs font-semibold text-warn mb-2">Inconsistency Flags</div>
           <ul className="space-y-1">
             {dna.authenticity_flags.map(flag => (
-              <li key={flag} className="text-xs text-gray-700">&bull; {flag}</li>
+              <li key={flag} className="text-xs text-charcoal-2">&bull; {flag}</li>
             ))}
           </ul>
         </div>

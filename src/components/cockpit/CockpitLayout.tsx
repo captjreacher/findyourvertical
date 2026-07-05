@@ -19,22 +19,22 @@ export function CockpitLayout() {
 
   return (
     <div className="flex min-h-screen flex-col bg-surface-2 lg:flex-row">
-      <aside className="flex w-full shrink-0 flex-col border-b border-white/10 bg-[#0a1020]/95 text-white backdrop-blur lg:w-64 lg:border-b-0 lg:border-r lg:border-white/10">
+      <aside className="flex w-full shrink-0 flex-col border-b border-white/10 bg-surface/95 text-charcoal backdrop-blur lg:w-64 lg:border-b-0 lg:border-r lg:border-white/10">
         <div className="flex items-start justify-between gap-3 border-b border-white/10 p-4 lg:block lg:p-5">
           <div className="flex items-center gap-3">
             <img
               src={brandLogo}
               alt="Find Your Vertical"
-              className="h-28 w-56 shrink-0 rounded-lg object-contain shadow-lg shadow-orange-950/40"
+              className="fyv-logo-mark h-28 w-56 shrink-0 object-contain"
             />
             <div className="sr-only">
-              <h1 className="text-base font-bold tracking-normal text-white">Find Your Vertical</h1>
-              <p className="mt-0.5 text-xs text-slate-400">Modelling Creator Talent</p>
+              <h1 className="text-base font-bold tracking-normal text-charcoal">Find Your Vertical</h1>
+              <p className="mt-0.5 text-xs text-charcoal-2">Modelling Creator Talent</p>
             </div>
           </div>
           <button
             onClick={handleSignOut}
-            className="rounded-lg border border-white/15 px-3 py-1.5 text-sm font-medium text-gray-200 transition-colors hover:bg-white/10 hover:text-white lg:hidden"
+            className="rounded-lg border border-white/15 px-3 py-1.5 text-sm font-medium text-charcoal transition-colors hover:bg-surface-3 hover:text-charcoal lg:hidden"
           >
             Sign Out
           </button>
@@ -48,12 +48,12 @@ export function CockpitLayout() {
               className={({ isActive }) =>
                 `relative flex shrink-0 items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
                   isActive
-                    ? 'bg-white/10 text-white shadow-inner shadow-white/5 before:absolute before:inset-y-2 before:left-0 before:w-1 before:rounded-r-full before:bg-accent'
-                    : 'text-slate-300 hover:bg-white/5 hover:text-white'
-                }`
-              }
-            >
-              <span className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-[11px] font-bold tracking-wide text-slate-100">
+                    ? 'bg-surface-3 text-charcoal shadow-inner shadow-black/15 before:absolute before:inset-y-2 before:left-0 before:w-1 before:rounded-r-full before:bg-accent'
+                    : 'text-charcoal-2 hover:bg-surface-3/70 hover:text-charcoal'
+              }`
+            }
+          >
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/10 bg-surface-3 text-[11px] font-bold tracking-wide text-charcoal">
                 {item.icon}
               </span>
               {item.label}
@@ -63,7 +63,7 @@ export function CockpitLayout() {
         <div className="hidden border-t border-white/10 p-4 lg:block">
           <button
             onClick={handleSignOut}
-            className="w-full rounded-lg border border-white/10 px-3 py-2.5 text-left text-sm font-medium text-gray-300 transition-colors hover:bg-white/5 hover:text-white"
+            className="w-full rounded-lg border border-white/10 px-3 py-2.5 text-left text-sm font-medium text-charcoal transition-colors hover:bg-surface-3/70 hover:text-charcoal"
           >
             Sign out
           </button>

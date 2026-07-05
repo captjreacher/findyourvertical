@@ -101,13 +101,13 @@ export function AuthGate({ children }: { children: ReactNode }) {
     return (
       <div className="min-h-screen bg-surface-2 px-4 py-4 text-charcoal sm:px-6 lg:px-8">
         <main className="mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-5xl items-center">
-          <section className="grid w-full gap-5 rounded-3xl border border-white/10 bg-surface/85 p-4 shadow-2xl shadow-black/25 backdrop-blur sm:p-5 lg:grid-cols-[0.9fr_1.1fr] lg:p-6">
+          <section className="grid w-full gap-5 rounded-3xl border border-white/10 bg-surface/92 p-4 shadow-2xl shadow-black/25 backdrop-blur sm:p-5 lg:grid-cols-[0.92fr_1.08fr] lg:p-6">
             <div className="flex flex-col justify-center">
               <div className="flex items-center gap-3">
                 <img
                   src={brandLogo}
                   alt="Find Your Vertical"
-                  className="h-32 w-72 rounded-lg object-contain shadow-lg shadow-orange-950/40"
+                  className="fyv-logo-mark h-32 w-72 object-contain"
                 />
                 <div className="sr-only">
                   <p className="text-lg font-bold leading-tight text-charcoal">Find Your Vertical</p>
@@ -118,7 +118,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
               <h1 className="mt-5 max-w-xl text-2xl font-bold leading-tight tracking-normal text-charcoal sm:text-3xl">
                 Find the creator niche you're most likely to succeed in.
               </h1>
-              <div className="mt-4 max-w-xl space-y-3 text-sm leading-6 text-slate-300">
+              <div className="mt-4 max-w-xl space-y-3 text-sm leading-6 text-charcoal-2">
                 <p>
                   Find Your Vertical helps creators identify their strongest content opportunities, business readiness, growth potential, and monetisation pathways.
                 </p>
@@ -129,7 +129,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
 
               <div className="mt-5 flex flex-wrap gap-2">
                 {CAPABILITY_CHIPS.map(item => (
-                  <span key={item} className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-slate-100">
+                  <span key={item} className="rounded-full border border-white/10 bg-surface-3 px-3 py-1.5 text-xs font-semibold text-charcoal">
                     {item}
                   </span>
                 ))}
@@ -137,16 +137,16 @@ export function AuthGate({ children }: { children: ReactNode }) {
             </div>
 
             <div className="grid gap-3">
-              <form onSubmit={handleInviteRequest} className="grid gap-3 rounded-2xl border border-accent/35 bg-white/[0.055] p-4 shadow-xl shadow-orange-950/20 sm:p-5">
+              <form onSubmit={handleInviteRequest} className="grid gap-3 rounded-2xl border border-accent/35 bg-black/[0.15] p-4 shadow-xl shadow-black/20 sm:p-5">
                 <div>
                   <h2 className="text-xl font-bold leading-tight text-charcoal">Get Your Assessment Invite</h2>
                   <p className="mt-1 text-sm font-semibold text-accent">Thinking about becoming a creator?</p>
-                  <p className="mt-2 text-sm leading-5 text-slate-300">
+                  <p className="mt-2 text-sm leading-5 text-charcoal-2">
                     Request an invitation to complete the Find Your Vertical assessment.
                   </p>
                 </div>
 
-                <ul className="grid gap-1.5 text-sm leading-5 text-slate-200">
+                <ul className="grid gap-1.5 text-sm leading-5 text-charcoal">
                   {INVITE_BENEFITS.map(benefit => (
                     <li key={benefit} className="flex gap-2.5">
                       <span aria-hidden="true" className="text-success">✓</span>
@@ -178,7 +178,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
                   placeholder="OnlyFans Handle (optional)"
                   className="field-control w-full"
                 />
-                <button type="submit" disabled={requestingInvite} className="btn-primary min-h-12 w-full text-base shadow-orange-950/40">
+                <button type="submit" disabled={requestingInvite} className="btn-primary min-h-12 w-full text-base shadow-black/25">
                   {requestingInvite ? 'Requesting...' : 'Get My Assessment Invite →'}
                 </button>
                 {inviteMessage && (
@@ -191,7 +191,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
                 )}
               </form>
 
-              <div ref={loginSectionRef} className="rounded-2xl border border-white/10 bg-white/[0.03] p-3.5">
+              <div ref={loginSectionRef} className="rounded-2xl border border-white/10 bg-surface-3/70 p-3.5">
                 <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
                   <div>
                     <h2 className="text-base font-bold text-charcoal">Already Invited?</h2>

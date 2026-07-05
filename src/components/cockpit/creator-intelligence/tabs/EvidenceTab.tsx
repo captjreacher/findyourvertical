@@ -46,14 +46,14 @@ function EvidenceCard({ e }: { e: AssessmentEvidence }) {
       ? 'border-l-green-500'
       : e.polarity === 'negative'
         ? 'border-l-pink'
-        : 'border-l-gray-400';
+        : 'border-l-charcoal-2';
 
   return (
     <div className={`bg-surface-2 rounded-lg p-3 border-l-4 ${polarityColor}`}>
       {/* Header */}
       <div className="flex items-start justify-between gap-2 mb-2">
         <div className="min-w-0">
-          <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+          <span className="text-xs font-semibold uppercase tracking-wide text-charcoal-2">
             {dimLabel(e.dimension)}
           </span>
           {e.validates_archetype && (
@@ -63,14 +63,14 @@ function EvidenceCard({ e }: { e: AssessmentEvidence }) {
           )}
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <span className="text-xs text-gray-400">{e.strength} pts</span>
+          <span className="text-xs text-charcoal-2">{e.strength} pts</span>
           <span
             className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
               e.polarity === 'positive'
                 ? 'bg-success/10 text-success'
                 : e.polarity === 'negative'
                   ? 'bg-pink/10 text-pink'
-                  : 'bg-gray-100 text-gray-600'
+                  : 'bg-surface-3 text-charcoal-2'
             }`}
           >
             {e.polarity}
@@ -79,7 +79,7 @@ function EvidenceCard({ e }: { e: AssessmentEvidence }) {
       </div>
 
       {/* Value */}
-      <p className="text-sm text-gray-700 leading-relaxed">
+      <p className="text-sm text-charcoal-2 leading-relaxed">
         {typeof e.value === 'boolean'
           ? e.value ? 'Yes' : 'No'
           : Array.isArray(e.value)
@@ -91,7 +91,7 @@ function EvidenceCard({ e }: { e: AssessmentEvidence }) {
       {e.tags.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-1">
           {e.tags.map(tag => (
-            <span key={tag} className="px-1.5 py-0.5 rounded text-[10px] bg-surface-3 text-gray-600">
+            <span key={tag} className="px-1.5 py-0.5 rounded text-[10px] bg-surface-3 text-charcoal-2">
               {tag}
             </span>
           ))}
@@ -99,7 +99,7 @@ function EvidenceCard({ e }: { e: AssessmentEvidence }) {
       )}
 
       {/* Detail row */}
-      <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-gray-400 font-mono">
+      <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-charcoal-2 font-mono">
         <span>src: {e.source_question_key}</span>
         <span>key: {e.response_key}</span>
         <span>section: {e.section}</span>
@@ -168,8 +168,8 @@ export function EvidenceTab() {
 
   if (!selectedAssessment) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-white p-8 text-center">
-        <p className="text-sm text-gray-600">No assessment selected.</p>
+      <div className="rounded-lg border border-white/10 bg-surface p-8 text-center">
+        <p className="text-sm text-charcoal-2">No assessment selected.</p>
       </div>
     );
   }
@@ -190,7 +190,7 @@ export function EvidenceTab() {
       {/* ── toolbar ── */}
       <div className="flex flex-wrap items-end gap-3">
         <label className="flex-1 min-w-[180px]">
-          <span className="block text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1">Search</span>
+          <span className="block text-xs font-semibold uppercase tracking-wide text-charcoal-2 mb-1">Search</span>
           <input
             type="text"
             value={search}
@@ -201,7 +201,7 @@ export function EvidenceTab() {
         </label>
 
         <label>
-          <span className="block text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1">Group by</span>
+          <span className="block text-xs font-semibold uppercase tracking-wide text-charcoal-2 mb-1">Group by</span>
           <select
             value={grouping}
             onChange={e => setGrouping(e.target.value as GroupingMode)}
@@ -220,7 +220,7 @@ export function EvidenceTab() {
           {expandAll ? 'Collapse all' : 'Expand all'}
         </button>
 
-        <span className="text-xs text-gray-400 pb-2">
+        <span className="text-xs text-charcoal-2 pb-2">
           {groupedCount === evidence.length
             ? `${evidence.length} signals`
             : `${groupedCount} of ${evidence.length} signals`}
@@ -228,7 +228,7 @@ export function EvidenceTab() {
       </div>
 
       {/* ── polarity summary ── */}
-      <div className="flex gap-3 text-[10px] text-gray-500">
+      <div className="flex gap-3 text-[10px] text-charcoal-2">
         <span>{evidence.filter(e => e.polarity === 'positive').length} positive</span>
         <span>{evidence.filter(e => e.polarity === 'negative').length} negative</span>
         <span>{evidence.filter(e => e.polarity === 'neutral').length} neutral</span>
@@ -236,7 +236,7 @@ export function EvidenceTab() {
 
       {/* ── groups ── */}
       {groups.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-gray-300 bg-surface-2 p-8 text-center text-sm text-gray-500">
+        <div className="rounded-lg border border-dashed border-white/10 bg-surface-2 p-8 text-center text-sm text-charcoal-2">
           No evidence matches the current search.
         </div>
       ) : (
@@ -249,14 +249,14 @@ export function EvidenceTab() {
                 onClick={() => toggleGroup(groupName)}
               >
                 <div className="flex items-center gap-3">
-                  <span className="text-sm font-semibold text-gray-900 capitalize">{groupName}</span>
-                  <span className="text-xs text-gray-500">{items.length} signal{items.length !== 1 ? 's' : ''}</span>
+                  <span className="text-sm font-semibold text-charcoal capitalize">{groupName}</span>
+                  <span className="text-xs text-charcoal-2">{items.length} signal{items.length !== 1 ? 's' : ''}</span>
                 </div>
-                <span className="text-xs text-gray-400">{isOpen ? '▲' : '▼'}</span>
+                <span className="text-xs text-charcoal-2">{isOpen ? '▲' : '▼'}</span>
               </button>
 
               {isOpen && (
-                <div className="px-4 pb-4 border-t border-gray-100 pt-3">
+                <div className="px-4 pb-4 border-t border-white/10 pt-3">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {items.map(e => <EvidenceCard key={e.id} e={e} />)}
                   </div>

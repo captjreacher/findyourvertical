@@ -10,12 +10,12 @@ export function ReportTab() {
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-gray-600">
+      <p className="text-sm text-charcoal-2">
         {hasReport
           ? 'Report data is available. An interactive report preview with tier selector will be displayed here.'
           : 'No report data available yet.'}
       </p>
-      <div className="rounded-lg border border-dashed border-gray-300 bg-surface-2 p-6 text-center text-sm text-gray-500">
+      <div className="rounded-lg border border-dashed border-white/10 bg-surface-2 p-6 text-center text-sm text-charcoal-2">
         Implemented in FYV-3.2D
       </div>
     </div>

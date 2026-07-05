@@ -20,7 +20,7 @@ function ConfidenceBar({ value }: { value: number }) {
           style={{ width: `${pct}%` }}
         />
       </div>
-      <span className="text-xs font-semibold text-gray-600 w-10 text-right tabular-nums">{pct}%</span>
+      <span className="text-xs font-semibold text-charcoal-2 w-10 text-right tabular-nums">{pct}%</span>
     </div>
   );
 }
@@ -30,7 +30,7 @@ function polarityStyle(polarity: 'positive' | 'negative' | 'neutral') {
     ? 'border-l-green-500'
     : polarity === 'negative'
       ? 'border-l-pink'
-      : 'border-l-gray-400';
+      : 'border-l-charcoal-2';
 }
 
 type SortMode = 'score' | 'confidence' | 'name';
@@ -41,7 +41,7 @@ function validationBadgeClass(status: ArchetypeFit['validation_status']): string
     case 'contradicted': return 'bg-pink/10 text-pink';
     case 'selected_only': return 'bg-warn/10 text-warn';
     case 'inferred': return 'bg-accent/10 text-accent';
-    default: return 'bg-gray-100 text-gray-600';
+    default: return 'bg-surface-3 text-charcoal-2';
   }
 }
 
@@ -51,16 +51,16 @@ function EvidenceRow({ e }: { e: AssessmentEvidence }) {
   return (
     <div className={`bg-surface-1 rounded p-2 border-l-4 ${polarityStyle(e.polarity)}`}>
       <div className="flex justify-between gap-2 mb-0.5">
-        <span className="text-xs text-gray-700 truncate">
+        <span className="text-xs text-charcoal-2 truncate">
           {String(e.value).slice(0, 120)}
         </span>
         <span className={`text-[10px] font-medium shrink-0 ${
-          e.polarity === 'positive' ? 'text-green-600' : e.polarity === 'negative' ? 'text-pink' : 'text-gray-400'
+          e.polarity === 'positive' ? 'text-success' : e.polarity === 'negative' ? 'text-pink' : 'text-charcoal-2'
         }`}>
           {e.polarity === 'positive' ? '+' : e.polarity === 'negative' ? '−' : ''}{e.strength} pts
         </span>
       </div>
-      <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-[10px] text-gray-400">
+      <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-[10px] text-charcoal-2">
         <span>{e.dimension.replace(/_/g, ' ')}</span>
         <span>{e.source_question_key}</span>
         <span>{e.confidence}% conf</span>
@@ -85,8 +85,8 @@ function ArchetypeDetail({
     <div className="space-y-5">
       {/* Header */}
       <div>
-        <h3 className="text-lg font-bold text-gray-900">{fit.archetype}</h3>
-        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
+        <h3 className="text-lg font-bold text-charcoal">{fit.archetype}</h3>
+        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-charcoal-2">
           <span>
             Fit:{' '}
             <span className={`font-semibold ${
@@ -95,7 +95,7 @@ function ArchetypeDetail({
               {fit.fit_score}%
             </span>
           </span>
-          <span>Confidence: <span className="font-semibold text-gray-700">{fit.confidence}%</span></span>
+          <span>Confidence: <span className="font-semibold text-charcoal">{fit.confidence}%</span></span>
           <span className="capitalize">
             Status:{' '}
             <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${validationBadgeClass(fit.validation_status)}`}>
@@ -117,7 +117,7 @@ function ArchetypeDetail({
           </div>
         </div>
       ) : (
-        <div className="rounded-lg border border-dashed border-gray-200 bg-surface-2 p-3 text-xs text-gray-500">
+        <div className="rounded-lg border border-dashed border-white/10 bg-surface-2 p-3 text-xs text-charcoal-2">
           No supporting evidence linked.
         </div>
       )}
@@ -179,8 +179,8 @@ export function ArchetypesTab() {
 
   if (!selectedAssessment) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-white p-8 text-center">
-        <p className="text-sm text-gray-600">No assessment selected.</p>
+      <div className="rounded-lg border border-white/10 bg-surface p-8 text-center">
+        <p className="text-sm text-charcoal-2">No assessment selected.</p>
       </div>
     );
   }
@@ -201,7 +201,7 @@ export function ArchetypesTab() {
       {/* ── toolbar ── */}
       <div className="flex flex-wrap items-end gap-3">
         <label>
-          <span className="block text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1">Sort by</span>
+          <span className="block text-xs font-semibold uppercase tracking-wide text-charcoal-2 mb-1">Sort by</span>
           <select
             value={sortBy}
             onChange={e => setSortBy(e.target.value as SortMode)}
@@ -214,7 +214,7 @@ export function ArchetypesTab() {
         </label>
 
         <label>
-          <span className="block text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1">Status</span>
+          <span className="block text-xs font-semibold uppercase tracking-wide text-charcoal-2 mb-1">Status</span>
           <select
             value={filterStatus}
             onChange={e => setFilterStatus(e.target.value)}
@@ -233,12 +233,12 @@ export function ArchetypesTab() {
             type="checkbox"
             checked={showSelectedOnly}
             onChange={e => setShowSelectedOnly(e.target.checked)}
-            className="rounded border-gray-300 text-accent focus:ring-accent"
+            className="rounded border-white/10 text-accent focus:ring-accent"
           />
-          <span className="text-xs font-medium text-gray-600">Creator-selected only</span>
+          <span className="text-xs font-medium text-charcoal-2">Creator-selected only</span>
         </label>
 
-        <span className="text-xs text-gray-400 pb-2">
+        <span className="text-xs text-charcoal-2 pb-2">
           {visible.length === fits.length
             ? `${fits.length} archetypes`
             : `${visible.length} of ${fits.length} archetypes`}
@@ -247,14 +247,14 @@ export function ArchetypesTab() {
 
       {/* ── layout ── */}
       {visible.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-gray-300 bg-surface-2 p-8 text-center text-sm text-gray-500">
+        <div className="rounded-lg border border-dashed border-white/10 bg-surface-2 p-8 text-center text-sm text-charcoal-2">
           No archetypes match the current filters.
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Sidebar */}
           <div className="lg:col-span-1 space-y-2">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-charcoal-2 mb-3">
               Archetypes
             </h3>
             {visible.map(f => {
@@ -271,7 +271,7 @@ export function ArchetypesTab() {
                 >
                   <div className="flex items-center justify-between gap-2 mb-1">
                     <div className="min-w-0">
-                      <span className="text-sm font-semibold text-gray-900">{f.archetype}</span>
+                      <span className="text-sm font-semibold text-charcoal">{f.archetype}</span>
                       {f.selected_by_creator && (
                         <span className="ml-1.5 rounded-full bg-warn/10 px-1.5 py-0.5 text-[10px] font-medium text-warn">creator</span>
                       )}
@@ -287,7 +287,7 @@ export function ArchetypesTab() {
                     <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${validationBadgeClass(f.validation_status)}`}>
                       {f.validation_status.replace(/_/g, ' ')}
                     </span>
-                    <span className="text-[10px] text-gray-400">{f.confidence}% conf</span>
+                    <span className="text-[10px] text-charcoal-2">{f.confidence}% conf</span>
                   </div>
                 </button>
               );
@@ -299,8 +299,8 @@ export function ArchetypesTab() {
             {selectedFit ? (
               <ArchetypeDetail fit={selectedFit} evidence={evidence} />
             ) : (
-              <div className="flex items-center justify-center h-full min-h-[300px] rounded-lg border border-dashed border-gray-300 bg-surface-2">
-                <p className="text-sm text-gray-400">
+              <div className="flex items-center justify-center h-full min-h-[300px] rounded-lg border border-dashed border-white/10 bg-surface-2">
+                <p className="text-sm text-charcoal-2">
                   Select an archetype to view supporting and contradicting evidence.
                 </p>
               </div>

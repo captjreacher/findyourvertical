@@ -10,11 +10,11 @@ export function TimelineTab() {
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-gray-600">
+      <p className="text-sm text-charcoal-2">
         {count} lifecycle events recorded. A chronological timeline with
         event cards will be displayed here.
       </p>
-      <div className="rounded-lg border border-dashed border-gray-300 bg-surface-2 p-6 text-center text-sm text-gray-500">
+      <div className="rounded-lg border border-dashed border-white/10 bg-surface-2 p-6 text-center text-sm text-charcoal-2">
         Implemented in FYV-3.2E
       </div>
     </div>

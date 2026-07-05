@@ -131,9 +131,9 @@ return buildReportFromCreatorDna({
 
   // ── render states ──
 
-  if (loading) return <div className="animate-pulse p-8 text-gray-500">Loading Creator Intelligence...</div>;
-  if (error) return <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</div>;
-  if (!profile) return <div className="p-4 text-sm text-gray-600">Creator not found.</div>;
+  if (loading) return <div className="animate-pulse p-8 text-charcoal-2">Loading Creator Intelligence...</div>;
+  if (error) return <div className="rounded-lg border border-pink/30 bg-pink/10 p-4 text-sm text-pink">{error}</div>;
+  if (!profile) return <div className="p-4 text-sm text-charcoal-2">Creator not found.</div>;
 
   const templateName = selectedAssessment?.assessment_snapshot?.template_name
     ?? selectedAssessment?.template_slug
@@ -168,7 +168,7 @@ return buildReportFromCreatorDna({
           <div>
             <button
               onClick={() => navigate(`/cockpit/creators/${profileId}`)}
-              className="mb-2 inline-block text-xs font-medium text-gray-500 transition-colors hover:text-accent"
+              className="mb-2 inline-block text-xs font-medium text-charcoal-2 transition-colors hover:text-accent"
             >
               &larr; Back to Creator
             </button>
@@ -198,7 +198,7 @@ return buildReportFromCreatorDna({
         </header>
 
         {/* Tab bar */}
-        <div className="border-b border-gray-200 mb-6 overflow-x-auto">
+        <div className="border-b border-white/10 mb-6 overflow-x-auto">
           <div className="flex gap-0 min-w-max">
             {COCKPIT_TABS.map(t => (
               <button
@@ -207,7 +207,7 @@ return buildReportFromCreatorDna({
                 className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
                   tab === t.id
                     ? 'border-accent text-accent'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    : 'border-transparent text-charcoal-2 hover:text-charcoal hover:border-white/20'
                 }`}
               >
                 {t.label}
