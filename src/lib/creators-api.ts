@@ -78,6 +78,17 @@ type CreatorProfileUpsertPayload = Pick<
   consent_at: string | null;
 };
 
+const INVITE_LINK_SELECT_FIELDS = 'id,template_id,creator_profile_id,invite_code,creator_name,creator_email,notes,report_tier,status,status_updated_at,is_active,created_at,expires_at';
+const INVITE_LINK_BASE_SELECT_FIELDS = 'id,template_id,invite_code,creator_name,creator_email,notes,is_active,created_at,expires_at';
+
+function isInviteLinkSchemaMismatch(message: string): boolean {
+  return message.includes('creator_assessment_links') && (
+    message.includes('column')
+    || message.includes('schema cache')
+    || message.includes('does not exist')
+  );
+}
+
 function normalizeNullableText(value: unknown): string | null {
   const text = String(value ?? '').trim();
   return text || null;
@@ -459,9 +470,23 @@ export async function getAssessmentInviteLink(inviteCode: string): Promise<Creat
 
   const { data, error } = await (supabase as any)
     .from('creator_assessment_links')
-    .select('*')
+    .select(INVITE_LINK_SELECT_FIELDS)
     .eq('invite_code', code)
     .maybeSingle();
+
+  if (error) {
+    const message = String(error.message ?? '');
+    if (isInviteLinkSchemaMismatch(message)) {
+      const { data: fallbackData, error: fallbackError } = await (supabase as any)
+        .from('creator_assessment_links')
+        .select(INVITE_LINK_BASE_SELECT_FIELDS)
+        .eq('invite_code', code)
+        .maybeSingle();
+
+      if (fallbackError) throw new Error(`Failed to load invite link: ${fallbackError.message}`);
+      return (fallbackData ?? null) as CreatorAssessmentInviteLink | null;
+    }
+  }
 
   if (error) throw new Error(`Failed to load invite link: ${error.message}`);
   return (data ?? null) as CreatorAssessmentInviteLink | null;
@@ -1077,12 +1102,28 @@ export async function addCreatorNote(profileId: string, note: string): Promise<C
 export async function getAssessmentInviteLinks(templateId?: string): Promise<CreatorAssessmentInviteLink[]> {
   let query = (supabase as any)
     .from('creator_assessment_links')
-    .select('*')
+    .select(INVITE_LINK_SELECT_FIELDS)
     .order('created_at', { ascending: false });
 
   if (templateId) query = query.eq('template_id', templateId);
 
   const { data, error } = await query;
+  if (error) {
+    const message = String(error.message ?? '');
+    if (isInviteLinkSchemaMismatch(message)) {
+      let fallbackQuery = (supabase as any)
+        .from('creator_assessment_links')
+        .select(INVITE_LINK_BASE_SELECT_FIELDS)
+        .order('created_at', { ascending: false });
+
+      if (templateId) fallbackQuery = fallbackQuery.eq('template_id', templateId);
+
+      const { data: fallbackData, error: fallbackError } = await fallbackQuery;
+      if (fallbackError) throw new Error(`Failed to load invite links: ${fallbackError.message}`);
+      return (fallbackData ?? []) as CreatorAssessmentInviteLink[];
+    }
+  }
+
   if (error) throw new Error(`Failed to load invite links: ${error.message}`);
   return (data ?? []) as CreatorAssessmentInviteLink[];
 }
@@ -1567,23 +1608,41 @@ export async function createAssessmentInviteLink(input: {
   const creatorName = input.creatorName.trim() || profile.full_name;
   const creatorEmail = normalizeEmail(input.creatorEmail) ?? profile.email;
 
-  const { data, error } = await (supabase as any)
+  const inviteCode = randomInviteCode();
+  const insertPayload = {
+    template_id: input.templateId,
+    creator_profile_id: profile.id,
+    invite_code: inviteCode,
+    creator_name: creatorName,
+    creator_email: creatorEmail,
+    notes: normalizeNullableText(input.notes),
+    status: 'Created',
+    status_updated_at: new Date().toISOString(),
+    is_active: true,
+    expires_at: input.expiresAt || null,
+  };
+
+  let { data, error } = await (supabase as any)
     .from('creator_assessment_links')
-    .insert({
-      template_id: input.templateId,
-      creator_profile_id: profile.id,
-      invite_code: randomInviteCode(),
-      creator_name: creatorName,
-      creator_email: creatorEmail,
-      notes: normalizeNullableText(input.notes),
-      report_tier: input.reportTier ?? 'free',
-      status: 'Created',
-      status_updated_at: new Date().toISOString(),
-      is_active: true,
-      expires_at: input.expiresAt || null,
-    })
-    .select()
+    .insert(insertPayload)
+    .select(INVITE_LINK_SELECT_FIELDS)
     .single();
+
+  if (error && isInviteLinkSchemaMismatch(String(error.message ?? ''))) {
+    ({ data, error } = await (supabase as any)
+      .from('creator_assessment_links')
+      .insert({
+        template_id: input.templateId,
+        invite_code: inviteCode,
+        creator_name: creatorName,
+        creator_email: creatorEmail,
+        notes: normalizeNullableText(input.notes),
+        is_active: true,
+        expires_at: input.expiresAt || null,
+      })
+      .select(INVITE_LINK_BASE_SELECT_FIELDS)
+      .single());
+  }
 
   if (error) throw new Error(`Failed to create invite link: ${error.message}`);
   await trackCreatorEvent({
@@ -1746,7 +1805,7 @@ export async function getTemplateDeleteEligibility(templateId: string): Promise<
 
   const { count: inviteCount, error: inviteError } = await (supabase as any)
     .from('creator_assessment_links')
-    .select('*', { count: 'exact', head: true })
+    .select('id', { count: 'exact', head: true })
     .eq('template_id', templateId);
 
   if (inviteError) throw new Error(`Failed to check template invites: ${inviteError.message}`);
@@ -1804,7 +1863,7 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
 
   const { count: inviteCount } = await (supabase as any)
     .from('creator_assessment_links')
-    .select('*', { count: 'exact', head: true });
+    .select('id', { count: 'exact', head: true });
 
   const { count: assessmentStartedCount } = await supabase
     .from('creator_status_events')

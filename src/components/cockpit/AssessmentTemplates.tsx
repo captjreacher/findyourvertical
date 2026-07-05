@@ -206,6 +206,7 @@ export function AssessmentTemplates() {
   const [inviteForm, setInviteForm] = useState(EMPTY_INVITE_FORM);
   const [generatedInviteUrl, setGeneratedInviteUrl] = useState('');
   const [generatedInviteStatus, setGeneratedInviteStatus] = useState('');
+  const [inviteModalError, setInviteModalError] = useState('');
   const inviteModalBodyRef = useRef<HTMLDivElement | null>(null);
   const inviteResultRef = useRef<HTMLDivElement | null>(null);
   const inviteAutoOpenRef = useRef(false);
@@ -492,6 +493,7 @@ export function AssessmentTemplates() {
   const openInviteModal = (template?: CreatorAssessmentRuntimeTemplate) => {
     setGeneratedInviteUrl('');
     setGeneratedInviteStatus('');
+    setInviteModalError('');
     setInviteForm({
       ...EMPTY_INVITE_FORM,
       templateId: template?.id ?? selectedTemplate?.id ?? templates[0]?.id ?? '',
@@ -515,7 +517,9 @@ export function AssessmentTemplates() {
     event.preventDefault();
     const template = templates.find(row => row.id === inviteForm.templateId);
     if (!template) {
-      showError('Choose a template before creating an invite.');
+      const message = 'Choose a template before creating an invite.';
+      setInviteModalError(message);
+      showError(message);
       return;
     }
     const selectedProfile = inviteForm.source === 'existing'
@@ -525,11 +529,15 @@ export function AssessmentTemplates() {
     const creatorEmail = selectedProfile?.email ?? inviteForm.creatorEmail;
 
     if (inviteForm.source === 'existing' && !selectedProfile) {
-      showError('Choose an existing creator before creating an invite.');
+      const message = 'Choose an existing creator before creating an invite.';
+      setInviteModalError(message);
+      showError(message);
       return;
     }
     if (!creatorName.trim() || !creatorEmail?.trim()) {
-      showError('Creator name and email address are required.');
+      const message = 'Creator name and email address are required.';
+      setInviteModalError(message);
+      showError(message);
       return;
     }
     setSaving(true);
@@ -548,11 +556,14 @@ export function AssessmentTemplates() {
       const url = buildInviteUrl(template.slug, invite);
       setGeneratedInviteUrl(url);
       setGeneratedInviteStatus(inviteStatus(invite));
+      setInviteModalError('');
       await navigator.clipboard?.writeText(url).catch(() => undefined);
       await load();
       showSuccess('Invite link created.');
     } catch (e) {
-      showError(e instanceof Error ? e.message : 'Failed to create invite link');
+      const message = e instanceof Error ? e.message : 'Failed to create invite link';
+      setInviteModalError(message);
+      showError(message);
     } finally {
       setSaving(false);
     }
@@ -1396,6 +1407,12 @@ export function AssessmentTemplates() {
           </div>
           <form onSubmit={createInvite} className="flex min-h-0 flex-1 flex-col">
             <div ref={inviteModalBodyRef} className="grid min-h-0 min-w-0 gap-3 overflow-y-auto overflow-x-hidden p-5">
+              {inviteModalError && (
+                <div className="rounded-2xl border border-pink/30 bg-pink/10 p-4 text-sm text-pink" role="alert">
+                  <p className="font-semibold">Invite creation failed</p>
+                  <p className="mt-1">{inviteModalError}</p>
+                </div>
+              )}
               {generatedInviteUrl && (
                 <div ref={inviteResultRef} tabIndex={-1} className="w-full min-w-0 scroll-mt-4 rounded-2xl border border-success/30 bg-success/10 p-4">
                   <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
