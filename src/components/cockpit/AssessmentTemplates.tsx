@@ -206,6 +206,8 @@ export function AssessmentTemplates() {
   const [inviteForm, setInviteForm] = useState(EMPTY_INVITE_FORM);
   const [generatedInviteUrl, setGeneratedInviteUrl] = useState('');
   const [generatedInviteStatus, setGeneratedInviteStatus] = useState('');
+  const inviteModalBodyRef = useRef<HTMLDivElement | null>(null);
+  const inviteResultRef = useRef<HTMLDivElement | null>(null);
   const inviteAutoOpenRef = useRef(false);
 
   const selectedTemplate = templates.find(template => template.id === templateId) ?? null;
@@ -365,6 +367,24 @@ export function AssessmentTemplates() {
     setSelectedSectionId('');
     setBankDrawerOpen(false);
   }, [selectedTemplate?.id]);
+
+  useEffect(() => {
+    if (!inviteModalOpen) return;
+    const modalBody = inviteModalBodyRef.current;
+    modalBody?.scrollTo({ top: 0, behavior: 'auto' });
+  }, [inviteModalOpen]);
+
+  useEffect(() => {
+    if (!inviteModalOpen || !generatedInviteUrl) return;
+    const frame = window.requestAnimationFrame(() => {
+      const modalBody = inviteModalBodyRef.current;
+      const result = inviteResultRef.current;
+      if (!modalBody || !result) return;
+      const targetTop = Math.max(0, result.offsetTop - 16);
+      modalBody.scrollTo({ top: targetTop, behavior: 'smooth' });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [generatedInviteUrl, inviteModalOpen]);
 
   useEffect(() => {
     const onBeforeUnload = (event: BeforeUnloadEvent) => {
@@ -1366,7 +1386,7 @@ export function AssessmentTemplates() {
     );
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-        <div className="flex max-h-[calc(100dvh-2rem)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-surface shadow-2xl">
+        <div className="flex max-h-[calc(100dvh-2rem)] w-full max-w-2xl min-w-0 flex-col overflow-hidden rounded-2xl border border-white/10 bg-surface shadow-2xl">
           <div className="flex shrink-0 items-start justify-between gap-3 border-b border-white/10 p-5">
             <div>
               <h2 className="cockpit-section-title">New Assessment Invite</h2>
@@ -1375,7 +1395,29 @@ export function AssessmentTemplates() {
             <button type="button" onClick={() => setInviteModalOpen(false)} className="btn-subtle">Close</button>
           </div>
           <form onSubmit={createInvite} className="flex min-h-0 flex-1 flex-col">
-            <div className="grid min-h-0 gap-3 overflow-y-auto p-5">
+            <div ref={inviteModalBodyRef} className="grid min-h-0 min-w-0 gap-3 overflow-y-auto overflow-x-hidden p-5">
+              {generatedInviteUrl && (
+                <div ref={inviteResultRef} tabIndex={-1} className="w-full min-w-0 scroll-mt-4 rounded-2xl border border-success/30 bg-success/10 p-4">
+                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <p className="text-sm font-semibold text-success">Invite created</p>
+                      <p className="mt-1 text-xs text-charcoal-2">The generated assessment link is ready to copy or open.</p>
+                    </div>
+                    <span className="rounded-full bg-success/10 px-3 py-1 text-xs font-semibold text-success">{generatedInviteStatus}</span>
+                  </div>
+                  <div className="grid min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+                    <a
+                      href={generatedInviteUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="block min-w-0 break-all rounded-xl border border-white/10 bg-surface-3/70 px-3 py-2 text-sm text-charcoal-2 underline-offset-2 hover:text-charcoal hover:underline"
+                    >
+                      {generatedInviteUrl}
+                    </a>
+                    <button type="button" onClick={() => copyInviteUrl(generatedInviteUrl)} className="btn-secondary w-full sm:w-auto">Copy Link</button>
+                  </div>
+                </div>
+              )}
               <label className="grid gap-1 text-sm font-medium text-charcoal">
                 <span>Template</span>
                 <select value={inviteForm.templateId} onChange={e => setInviteForm(current => ({ ...current, templateId: e.target.value }))} required className="field-control">
@@ -1477,17 +1519,6 @@ export function AssessmentTemplates() {
                 <span>Internal Notes</span>
                 <textarea value={inviteForm.notes} onChange={e => setInviteForm(current => ({ ...current, notes: e.target.value }))} rows={3} className="field-control resize-none" />
               </label>
-
-              {generatedInviteUrl && (
-                <div className="rounded-2xl border border-accent/30 bg-accent/10 p-4">
-                  <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                    <p className="text-sm font-semibold text-charcoal">Invite URL</p>
-                    <span className="rounded-full bg-success/10 px-3 py-1 text-xs font-semibold text-success">{generatedInviteStatus}</span>
-                  </div>
-                  <p className="break-all text-sm text-charcoal-2">{generatedInviteUrl}</p>
-                  <button type="button" onClick={() => copyInviteUrl(generatedInviteUrl)} className="btn-secondary mt-3">Copy</button>
-                </div>
-              )}
             </div>
             <div className="flex shrink-0 justify-end gap-2 border-t border-white/10 bg-surface-3/60 p-4">
               <button type="button" onClick={() => setInviteModalOpen(false)} className="btn-subtle">Cancel</button>
