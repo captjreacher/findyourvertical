@@ -9,10 +9,10 @@ const AGENCY_PROMPT_COPY = 'Would you like to discuss what this result could mea
 type ReportAction = 'print_save' | 'email' | 'share' | 'discuss';
 type AgencyAnswer = 'yes' | 'no';
 
-const REPORT_CARD_CLASS = 'rounded-xl border border-white/10 bg-[#101827] p-5 shadow-xl shadow-black/20';
-const REPORT_TEXT_CLASS = 'text-sm leading-6 text-slate-300';
-const REPORT_HEADING_CLASS = 'font-display font-semibold text-white';
-const REPORT_OUTLINE_BUTTON_CLASS = 'rounded-lg border border-white/20 bg-white/5 px-4 py-2 text-sm font-medium text-slate-100 transition-colors hover:border-accent/70 hover:bg-accent/10 hover:text-white';
+const REPORT_CARD_CLASS = 'fyv-report-card rounded-xl p-5';
+const REPORT_TEXT_CLASS = 'text-sm leading-6 text-charcoal-2';
+const REPORT_HEADING_CLASS = 'font-display font-semibold text-charcoal';
+const REPORT_OUTLINE_BUTTON_CLASS = 'rounded-lg border border-white/10 bg-surface-3/70 px-4 py-2 text-sm font-medium text-charcoal transition-colors hover:border-accent hover:bg-accent/10 hover:text-charcoal';
 
 type PublicScoreKey = 'creator_dna' | 'brand_clarity' | 'monetisation' | 'consistency';
 
@@ -120,10 +120,10 @@ function ScoreBar({ label, score }: { label: string; score: number }) {
   return (
     <div className="space-y-1">
       <div className="flex justify-between text-xs">
-        <span className="text-slate-300">{label}</span>
-        <span className="font-semibold text-white">{score}/100</span>
+        <span className="text-charcoal-2">{label}</span>
+        <span className="font-semibold text-charcoal">{score}/100</span>
       </div>
-      <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+      <div className="h-2 bg-surface-3 rounded-full overflow-hidden">
         <div className="h-full rounded-full bg-accent transition-colors" style={{ width: `${width}%` }} />
       </div>
     </div>
@@ -136,7 +136,7 @@ function ScoreCard({ title, scores, interpretations }: { title: string; scores: 
       <h3 className={`${REPORT_HEADING_CLASS} mb-4 text-lg`}>{title}</h3>
       <div className="space-y-5">
         {Object.entries(scores).map(([k, v]) => (
-          <div key={k} className="space-y-3 rounded-lg border border-white/10 bg-white/[0.03] p-4">
+          <div key={k} className="fyv-report-card-inset space-y-3 rounded-lg p-4">
             <ScoreBar label={scoreLabelFor(k)} score={v} />
             <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
               <ScoreExplanation title="What it means" text={interpretations[k]?.meaning} />
@@ -154,7 +154,7 @@ function ScoreExplanation({ title, text }: { title: string; text?: string }) {
   return (
     <div>
       <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-accent">{title}</div>
-      <p className="text-xs leading-5 text-slate-300">{text}</p>
+      <p className="text-xs leading-5 text-charcoal-2">{text}</p>
     </div>
   );
 }
@@ -163,7 +163,7 @@ function SummaryBlock({ title, text }: { title: string; text: string }) {
   return (
     <div>
       <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-accent">{title}</h3>
-      <p className="text-sm leading-6 text-slate-300">{text}</p>
+      <p className="text-sm leading-6 text-charcoal-2">{text}</p>
     </div>
   );
 }
@@ -174,7 +174,7 @@ function SummaryList({ title, items }: { title: string; items: string[] }) {
       <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-accent">{title}</h3>
       <ul className="space-y-2">
         {items.map(item => (
-          <li key={item} className="flex gap-2 text-sm leading-6 text-slate-300">
+          <li key={item} className="flex gap-2 text-sm leading-6 text-charcoal-2">
             <span className="text-accent">+</span>
             <span>{item}</span>
           </li>
@@ -224,17 +224,17 @@ export function ReportPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#07101f]">
-        <div className="animate-pulse text-slate-300">Loading Report...</div>
+      <div className="fyv-report-shell min-h-screen flex items-center justify-center">
+        <div className="animate-pulse text-charcoal-2">Loading Report...</div>
       </div>
     );
   }
 
   if (loadError || !report) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-[#07101f] p-4 text-slate-200">
-        <h1 className="font-display text-2xl font-bold mb-4 text-white">Report Not Found</h1>
-        <p className="max-w-md text-center text-sm leading-6 text-slate-300">
+      <div className="fyv-report-shell min-h-screen flex flex-col items-center justify-center p-4 text-charcoal">
+        <h1 className="font-display text-2xl font-bold mb-4 text-charcoal">Report Not Found</h1>
+        <p className="max-w-md text-center text-sm leading-6 text-charcoal-2">
           {loadError || 'This report link may have expired or been moved. Check the link or contact the person who sent it to you.'}
         </p>
       </div>
@@ -367,9 +367,9 @@ export function ReportPage() {
 
   if (isAgencyReport) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-[#07101f] p-4 text-slate-200">
-        <h1 className="font-display text-2xl font-bold mb-4 text-white">Internal Report</h1>
-        <p className="max-w-md text-center text-sm leading-6 text-slate-300">
+      <div className="fyv-report-shell min-h-screen flex flex-col items-center justify-center p-4 text-charcoal">
+        <h1 className="font-display text-2xl font-bold mb-4 text-charcoal">Internal Report</h1>
+        <p className="max-w-md text-center text-sm leading-6 text-charcoal-2">
           This agency report is available only inside the Find Your Vertical cockpit.
         </p>
       </div>
@@ -382,12 +382,12 @@ export function ReportPage() {
     const recommendation = guidance.executiveSummary.recommended_next_step;
 
     return (
-      <div className="min-h-screen bg-[#07101f] text-slate-200">
-        <div className="border-b border-white/10 bg-[#0b1424]">
+      <div className="fyv-report-shell min-h-screen text-charcoal">
+        <div className="border-b border-white/10 bg-surface/80">
           <div className="max-w-3xl mx-auto px-6 py-12">
             <p className="mb-4 text-xs font-semibold uppercase tracking-[0.18em] text-accent">Find Your Vertical Free Report</p>
-            <h1 className="font-display text-4xl font-bold mb-3 text-white">{d.archetype}</h1>
-            <p className="max-w-xl text-base leading-7 text-slate-300">{d.free_report_summary || d.archetype_description}</p>
+            <h1 className="font-display text-4xl font-bold mb-3 text-charcoal">{d.archetype}</h1>
+            <p className="max-w-xl text-base leading-7 text-charcoal-2">{d.free_report_summary || d.archetype_description}</p>
             <div className="mt-4"><ConfidenceBadge confidence={d.result_confidence ?? 'Moderate'} /></div>
           </div>
         </div>
@@ -408,7 +408,7 @@ export function ReportPage() {
             <SummaryBlock title="First Recommendation" text={recommendation} />
           </section>
 
-          <section className={`${REPORT_CARD_CLASS} space-y-4 border-accent/40 bg-accent/10`}>
+          <section className={`${REPORT_CARD_CLASS} space-y-4 border-accent/25 bg-accent/10`}>
             <h2 className={`${REPORT_HEADING_CLASS} text-xl`}>Unlock the Full Creator DNA Report</h2>
             <p className={REPORT_TEXT_CLASS}>
               Your full report expands this snapshot into score reasoning, confidence explanation, content opportunities, monetisation pathway, and a 90-day action plan.
@@ -437,9 +437,9 @@ export function ReportPage() {
 
         {pendingAction && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
-            <div className="w-full max-w-md rounded-xl border border-white/15 bg-[#101827] p-5 shadow-2xl">
+            <div className="w-full max-w-md rounded-xl border border-white/10 bg-surface p-5 shadow-2xl">
               <h2 className={`${REPORT_HEADING_CLASS} text-xl`}>{AGENCY_PROMPT_COPY}</h2>
-              <p className="mt-3 text-sm leading-6 text-slate-300">
+              <p className="mt-3 text-sm leading-6 text-charcoal-2">
                 A short Find Your Vertical strategy discussion can help translate your report into the most relevant next steps for your goals.
               </p>
               {actionError && <p className="mt-4 rounded-lg border border-pink/30 bg-pink/10 px-3 py-2 text-sm text-pink">{actionError}</p>}
@@ -467,15 +467,15 @@ export function ReportPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#07101f] text-slate-200">
+    <div className="fyv-report-shell min-h-screen text-charcoal">
       {/* Hero */}
-      <div className="border-b border-white/10 bg-[#0b1424]">
+      <div className="border-b border-white/10 bg-surface/80">
         <div className="max-w-4xl mx-auto px-6 py-12">
           <p className="mb-4 text-xs font-semibold uppercase tracking-[0.18em] text-accent">Find Your Vertical Report</p>
           <div className="flex items-start justify-between flex-wrap gap-4">
             <div>
-              <h1 className="font-display text-4xl font-bold mb-3 text-white">{d.archetype}</h1>
-              <p className="max-w-lg text-lg leading-8 text-slate-300">{d.archetype_description}</p>
+              <h1 className="font-display text-4xl font-bold mb-3 text-charcoal">{d.archetype}</h1>
+              <p className="max-w-lg text-lg leading-8 text-charcoal-2">{d.archetype_description}</p>
             </div>
             <ConfidenceBadge confidence={d.result_confidence ?? 'Moderate'} />
           </div>
@@ -484,7 +484,7 @@ export function ReportPage() {
 
       <div className="max-w-4xl mx-auto px-6 py-10 space-y-10">
         <section>
-          <h2 className="font-display mb-4 text-2xl font-bold text-white">About Your Results</h2>
+          <h2 className="font-display mb-4 text-2xl font-bold text-charcoal">About Your Results</h2>
           <div className={`${REPORT_CARD_CLASS} space-y-6`}>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <SummaryList title="Strengths" items={guidance.executiveSummary.strengths} />
@@ -552,7 +552,7 @@ export function ReportPage() {
             <ul className="space-y-2">{d.archetype_strengths.map(s => <li key={s} className={`${REPORT_TEXT_CLASS} flex gap-2`}><span className="text-accent">+</span>{s}</li>)}</ul>
           </div>
           <div className={REPORT_CARD_CLASS}>
-            <h3 className="font-semibold text-white mb-3 text-sm uppercase tracking-wide">Risks</h3>
+            <h3 className="font-semibold text-charcoal mb-3 text-sm uppercase tracking-wide">Risks</h3>
             <ul className="space-y-2">{d.archetype_risks.map(s => <li key={s} className={`${REPORT_TEXT_CLASS} flex gap-2`}><span className="text-accent">!</span>{s}</li>)}</ul>
           </div>
           <div className={REPORT_CARD_CLASS}>
@@ -567,7 +567,7 @@ export function ReportPage() {
             {guidance.recommendedActions.map(action => (
               <div key={action.title} className={REPORT_CARD_CLASS}>
                 <h3 className="font-semibold text-accent">{action.title}</h3>
-                <p className="mt-2 text-sm leading-6 text-slate-300">{action.rationale}</p>
+                <p className="mt-2 text-sm leading-6 text-charcoal-2">{action.rationale}</p>
               </div>
             ))}
           </div>
@@ -576,14 +576,14 @@ export function ReportPage() {
         {/* Top 3 Verticals */}
         <section>
           <h2 className={`${REPORT_HEADING_CLASS} mb-4 text-xl`}>Top 3 Content Verticals</h2>
-          <p className="text-sm text-slate-400 mb-4">These are recommended directions to explore, not a fixed content plan.</p>
+          <p className="text-sm text-charcoal-2 mb-4">These are recommended directions to explore, not a fixed content plan.</p>
           <div className="space-y-3">
             {d.top_verticals.map((v, i) => (
               <div key={v.name} className={`${REPORT_CARD_CLASS} flex gap-4`}>
                 <span className="font-display text-3xl text-accent shrink-0">0{i + 1}</span>
                 <div>
-                  <h3 className="font-semibold text-white">{v.name}</h3>
-                  <p className="text-sm text-slate-300 mt-1">{v.rationale}</p>
+                  <h3 className="font-semibold text-charcoal">{v.name}</h3>
+                  <p className="text-sm text-charcoal-2 mt-1">{v.rationale}</p>
                 </div>
               </div>
             ))}
@@ -630,7 +630,7 @@ export function ReportPage() {
             {d.tech_stack.map(t => (
               <div key={t.tool} className={REPORT_CARD_CLASS}>
                 <h3 className="font-semibold text-accent">{t.tool}</h3>
-                <p className="mt-1 text-sm leading-6 text-slate-300">{t.purpose}</p>
+                <p className="mt-1 text-sm leading-6 text-charcoal-2">{t.purpose}</p>
               </div>
             ))}
           </div>
@@ -643,7 +643,7 @@ export function ReportPage() {
             {d.day_90_plan.map((phase, i) => (
               <div key={phase.phase} className={REPORT_CARD_CLASS}>
                 <h3 className="font-semibold text-accent mb-1">{phase.phase}</h3>
-                <p className="mb-3 text-sm text-slate-400">{phase.focus}</p>
+                <p className="mb-3 text-sm text-charcoal-2">{phase.focus}</p>
                 <ul className="space-y-1.5">
                   {phase.actions.map(a => (
                     <li key={a} className={`${REPORT_TEXT_CLASS} flex gap-2`}>
@@ -688,9 +688,9 @@ export function ReportPage() {
             <button onClick={() => startReportAction('share')} className={REPORT_OUTLINE_BUTTON_CLASS}>
               Share report
             </button>
-            <button onClick={() => startReportAction('discuss')} className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-2">
-              Book Strategy Call
-            </button>
+              <button onClick={() => startReportAction('discuss')} className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-2">
+                Book Strategy Call
+              </button>
           </div>
           {actionMessage && <p className="mt-3 text-center text-xs text-success">{actionMessage}</p>}
           {actionError && <p className="mt-3 text-center text-xs text-pink">{actionError}</p>}
@@ -699,9 +699,9 @@ export function ReportPage() {
 
       {pendingAction && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
-          <div className="w-full max-w-md rounded-xl border border-white/15 bg-[#101827] p-5 shadow-2xl">
+            <div className="w-full max-w-md rounded-xl border border-white/10 bg-surface p-5 shadow-2xl">
             <h2 className={`${REPORT_HEADING_CLASS} text-xl`}>{AGENCY_PROMPT_COPY}</h2>
-            <p className="mt-3 text-sm leading-6 text-slate-300">
+            <p className="mt-3 text-sm leading-6 text-charcoal-2">
               A short Find Your Vertical strategy discussion can help translate your report into the most relevant next steps for your goals.
             </p>
             {actionError && <p className="mt-4 rounded-lg border border-pink/30 bg-pink/10 px-3 py-2 text-sm text-pink">{actionError}</p>}
@@ -709,7 +709,7 @@ export function ReportPage() {
               <button
                 onClick={requestDiscussionAndRedirect}
                 disabled={promptWorking}
-                className="rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold text-white hover:bg-accent-2 disabled:opacity-50"
+                  className="rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold text-white hover:bg-accent-2 disabled:opacity-50"
               >
                 {promptWorking ? 'Opening Calendar...' : "Yes, I'd Like to Discuss My Results"}
               </button>
@@ -730,7 +730,7 @@ export function ReportPage() {
 
 function ConfidenceBadge({ confidence }: { confidence: ReportData['result_confidence'] }) {
   return (
-    <span className="rounded-full border border-accent/50 bg-accent/15 px-3 py-1 text-xs font-semibold text-white">
+    <span className="rounded-full border border-accent/50 bg-accent/15 px-3 py-1 text-xs font-semibold text-charcoal">
       Result Confidence: {confidence}
     </span>
   );

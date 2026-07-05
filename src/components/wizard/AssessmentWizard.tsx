@@ -61,12 +61,12 @@ const INVALID_INVITE_MESSAGE = 'Invite not found';
 const EMAIL_MISMATCH_MESSAGE = 'Email does not match invite';
 const EXPIRED_INVITE_MESSAGE = 'Invite expired';
 const INACTIVE_INVITE_MESSAGE = 'Invite inactive';
-const DETAIL_FIELD_CLASS = 'w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-900 placeholder-gray-500 caret-accent shadow-sm focus:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30';
-const QUESTION_TEXT_FIELD_CLASS = 'w-full max-w-lg rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-900 placeholder-gray-500 caret-accent shadow-sm focus:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30';
+const DETAIL_FIELD_CLASS = 'w-full rounded-lg border border-white/10 bg-surface px-4 py-3 text-charcoal placeholder:text-charcoal-2 caret-accent shadow-sm focus:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30';
+const QUESTION_TEXT_FIELD_CLASS = 'w-full max-w-lg rounded-lg border border-white/10 bg-surface px-4 py-3 text-charcoal placeholder:text-charcoal-2 caret-accent shadow-sm focus:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30';
 const OPTION_BASE_CLASS = 'border transition-colors text-left shadow-lg shadow-black/10';
-const OPTION_IDLE_CLASS = 'border-white/20 bg-surface/75 text-slate-100 hover:border-accent/70 hover:bg-surface';
+const OPTION_IDLE_CLASS = 'border-white/10 bg-black/35 text-charcoal hover:border-accent/70 hover:bg-black/45';
 const OPTION_SELECTED_CLASS = 'border-accent bg-accent/20 text-white';
-const OPTION_DISABLED_CLASS = 'border-white/10 bg-white/5 text-slate-500 cursor-not-allowed';
+const OPTION_DISABLED_CLASS = 'border-white/10 bg-white/5 text-charcoal-2 cursor-not-allowed';
 
 const FALLBACK_TEMPLATE: CreatorAssessmentRuntimeTemplate = {
   id: 'legacy-fallback',
@@ -519,10 +519,10 @@ function inviteUnavailableMessage(invite: CreatorAssessmentInviteLink | null): s
 
 function AssessmentNotFound() {
   return (
-    <div className="min-h-[100dvh] w-full px-4 py-10">
+    <div className="fyv-public-shell min-h-[100dvh] w-full px-4 py-10">
       <div className="mx-auto flex min-h-[70dvh] max-w-lg flex-col items-center justify-center text-center">
-        <h1 className="font-display text-3xl font-bold text-gray-900">Assessment not found</h1>
-        <p className="mt-3 text-sm leading-6 text-gray-600">
+        <h1 className="font-display text-3xl font-bold text-charcoal">Assessment not found</h1>
+        <p className="mt-3 text-sm leading-6 text-charcoal-2">
           This assessment link may have changed or is no longer active. Please check the URL or request a fresh link.
         </p>
       </div>
@@ -532,11 +532,11 @@ function AssessmentNotFound() {
 
 function AssessmentAccessMessage({ message }: { message: string }) {
   return (
-    <div className="min-h-[100dvh] w-full px-4 py-10">
+    <div className="fyv-public-shell min-h-[100dvh] w-full px-4 py-10">
       <div className="mx-auto flex min-h-[70dvh] max-w-lg flex-col items-center justify-center text-center">
-        <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-          <h1 className="font-display text-2xl font-bold text-gray-900">Assessment unavailable</h1>
-          <p className="mt-3 text-sm leading-6 text-gray-600">{message}</p>
+        <div className="rounded-lg border border-white/10 bg-surface p-6 shadow-sm">
+          <h1 className="font-display text-2xl font-bold text-charcoal">Assessment unavailable</h1>
+          <p className="mt-3 text-sm leading-6 text-charcoal-2">{message}</p>
         </div>
       </div>
     </div>
@@ -549,11 +549,11 @@ function PublicBrandHeader({ eyebrow }: { eyebrow?: string }) {
       <img
         src={brandLogo}
         alt="Find Your Vertical"
-        className="mx-auto h-36 w-80 max-w-full rounded-lg object-contain shadow-lg shadow-orange-200/50"
+        className="fyv-logo-mark mx-auto h-36 w-80 max-w-full object-contain"
       />
       {eyebrow && <p className="mt-5 text-xs font-semibold uppercase tracking-[0.18em] text-accent">{eyebrow}</p>}
-      <h1 className="mt-3 font-display text-3xl font-bold text-gray-900">Find Your Vertical</h1>
-      <p className="mt-1 text-sm font-semibold text-gray-500">Modelling Creator Talent</p>
+      <h1 className="mt-3 font-display text-3xl font-bold text-charcoal">Find Your Vertical</h1>
+      <p className="mt-1 text-sm font-semibold text-charcoal-2">Modelling Creator Talent</p>
     </div>
   );
 }
@@ -976,13 +976,13 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
     <div className="mx-auto max-w-2xl space-y-6 animate-in">
       <div className="space-y-3">
         <h2 className="font-display text-xl font-semibold">Find Your Vertical - Modelling Creator Talent</h2>
-        <p className="text-sm leading-6 text-gray-600">
+        <p className="text-sm leading-6 text-charcoal-2">
           Find Your Vertical is designed to identify your strongest creator positioning, content opportunities, monetisation potential, and long-term growth paths.
         </p>
-        <p className="text-sm leading-6 text-gray-600">
+        <p className="text-sm leading-6 text-charcoal-2">
           Your responses help generate a personalised creator report and may be reviewed for creator management opportunities.
         </p>
-        <p className="text-sm leading-6 text-gray-600">
+        <p className="text-sm leading-6 text-charcoal-2">
           Your information is treated confidentially and used only for assessment and creator contact purposes.
         </p>
       </div>
@@ -1062,7 +1062,7 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
           onChange={e => update('mailing_list_opt_out', e.target.checked)}
           className="mt-1 accent-accent"
         />
-        <span className="text-sm text-gray-600">Opt out of mailing list updates</span>
+        <span className="text-sm text-charcoal-2">Opt out of mailing list updates</span>
       </label>
     </div>
   );
@@ -1070,9 +1070,9 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
   const renderEmailVerification = () => (
     <div data-build={BUILD_MARKER} className="min-h-[100dvh] w-full px-4 py-10 sm:px-6">
       <div className="mx-auto flex min-h-[calc(100dvh-5rem)] max-w-lg items-center">
-        <div className="w-full rounded-lg border border-gray-200 bg-white p-6 shadow-sm sm:p-8">
+        <div className="w-full rounded-lg border border-white/10 bg-surface p-6 shadow-sm sm:p-8">
           <PublicBrandHeader eyebrow="Invite verification" />
-          <p className="mt-3 text-sm leading-6 text-gray-600">
+          <p className="mt-3 text-sm leading-6 text-charcoal-2">
             Enter the email address this invite was sent to before starting your assessment.
           </p>
           <form onSubmit={verifyInviteEmail} className="mt-6 space-y-4">
@@ -1090,15 +1090,15 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
               }}
               placeholder="you@example.com"
               required
-              className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-900 placeholder-gray-500 caret-accent shadow-sm focus:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
+              className="w-full rounded-lg border border-white/10 bg-surface px-4 py-3 text-charcoal placeholder:text-charcoal-2 caret-accent shadow-sm focus:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
             />
             {verificationStatus && (
-              <div className="rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-800" role="status">
+          <div className="rounded-lg border border-warn/30 bg-warn/10 px-4 py-3 text-sm text-warn" role="status">
                 {verificationStatus}
               </div>
             )}
             {verificationError && (
-              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              <div className="rounded-lg border border-pink/30 bg-pink/10 px-4 py-3 text-sm text-pink">
                 {verificationError}
               </div>
             )}
@@ -1109,7 +1109,7 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
               Continue to assessment
             </button>
           </form>
-          <p className="mt-4 text-center text-[10px] text-gray-400">Build {BUILD_MARKER}</p>
+          <p className="mt-4 text-center text-[10px] text-charcoal-2">Build {BUILD_MARKER}</p>
         </div>
       </div>
     </div>
@@ -1121,10 +1121,10 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
     const value = data[question.response_key];
     return (
       <div key={question.id}>
-        <label className="mb-3 block max-w-3xl text-lg font-semibold leading-snug text-white sm:text-xl">
+        <label className="mb-3 block max-w-3xl text-lg font-semibold leading-snug text-charcoal sm:text-xl">
           {question.question_text}
         </label>
-        {question.help_text && <p className="mb-4 max-w-2xl text-sm leading-6 text-slate-300">{question.help_text}</p>}
+        {question.help_text && <p className="mb-4 max-w-2xl text-sm leading-6 text-charcoal-2">{question.help_text}</p>}
 
         {(question.question_type === 'multi_choice' || question.question_type === 'scenario_ranking') && (
           <div className={question.section === 'Current Approach' || question.section === 'Options for the Future' ? 'grid max-w-xl grid-cols-1 gap-2 sm:grid-cols-2' : 'flex max-w-lg flex-wrap gap-2'}>
@@ -1170,9 +1170,9 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
                       : OPTION_IDLE_CLASS
                   }`}
                 >
-                  <div className="text-lg font-semibold text-white">{optionLabel(option)}</div>
+                  <div className="text-lg font-semibold text-charcoal">{optionLabel(option)}</div>
                   {optionDescription(option) && (
-                    <p className="mt-2 text-sm leading-6 text-slate-300">{optionDescription(option)}</p>
+                    <p className="mt-2 text-sm leading-6 text-charcoal-2">{optionDescription(option)}</p>
                   )}
                 </button>
               );
@@ -1226,7 +1226,7 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
 
         {question.question_type === 'scale' && (
           <div className="flex w-full max-w-2xl min-w-0 items-center gap-3 rounded-xl border border-white/10 bg-surface/80 px-4 py-4 shadow-lg shadow-black/10">
-            <span className="text-sm font-semibold text-slate-300">{String(question.config.min ?? 1)}</span>
+            <span className="text-sm font-semibold text-charcoal-2">{String(question.config.min ?? 1)}</span>
             <input
               type="range"
               min={Number(question.config.min ?? 1)}
@@ -1235,7 +1235,7 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
               onChange={e => update(question.response_key, parseInt(e.target.value))}
               className="min-w-0 flex-1 accent-accent"
             />
-            <span className="text-sm font-semibold text-slate-300">{String(question.config.max ?? 10)}</span>
+            <span className="text-sm font-semibold text-charcoal-2">{String(question.config.max ?? 10)}</span>
             <span className="font-display text-xl text-accent ml-2 w-6 text-center">{String(value)}</span>
           </div>
         )}
@@ -1262,7 +1262,7 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
 
         {Boolean(question.config.notesKey) && (
           <div className="mt-3">
-            <label className="mb-2 block text-sm font-semibold text-white">
+            <label className="mb-2 block text-sm font-semibold text-charcoal">
               {String(question.config.notesLabel ?? 'Notes')}
             </label>
             <textarea
@@ -1280,20 +1280,20 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
   const renderSubmissionSuccess = () => (
     <div className="min-h-[100dvh] w-full px-4 py-10 sm:px-6">
       <div className="mx-auto flex min-h-[calc(100dvh-5rem)] max-w-3xl items-center">
-        <div className="w-full rounded-2xl border border-white/15 bg-surface/90 p-6 shadow-2xl shadow-orange-200/30 sm:p-10">
+        <div className="w-full rounded-2xl border border-white/10 bg-surface p-6 shadow-2xl shadow-black/25 sm:p-10">
           <div className="space-y-6">
             <div className="space-y-3">
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-accent">Assessment saved</p>
-              <h1 className="font-display text-3xl font-bold text-white sm:text-4xl">Assessment Complete</h1>
-              <div className="space-y-3 text-sm leading-6 text-slate-200 sm:text-base">
+              <h1 className="font-display text-3xl font-bold text-charcoal sm:text-4xl">Assessment Complete</h1>
+              <div className="space-y-3 text-sm leading-6 text-charcoal sm:text-base">
                 <p>Thanks for completing your Find Your Vertical assessment.</p>
                 <p>We've analysed your responses and generated your personalised creator profile.</p>
               </div>
             </div>
 
             <div className="rounded-xl border border-accent/40 bg-accent/10 p-5">
-              <h2 className="font-display text-lg font-semibold text-white">What happens next?</h2>
-              <ul className="mt-4 space-y-3 text-sm leading-6 text-slate-100">
+              <h2 className="font-display text-lg font-semibold text-charcoal">What happens next?</h2>
+              <ul className="mt-4 space-y-3 text-sm leading-6 text-charcoal">
                 <li className="flex gap-3"><span className="font-bold text-accent">OK</span><span>Your assessment has been saved.</span></li>
                 <li className="flex gap-3"><span className="font-bold text-accent">OK</span><span>Your Creator DNA, Brand Clarity, Monetisation, Consistency, and Agency Opportunity scores have been calculated.</span></li>
                 <li className="flex gap-3"><span className="font-bold text-accent">OK</span><span>Your personalised report is ready to view.</span></li>
@@ -1301,8 +1301,8 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
             </div>
 
             <div className="space-y-3">
-              <h2 className="font-display text-lg font-semibold text-white">In your report you'll discover:</h2>
-              <ul className="grid gap-2 text-sm leading-6 text-slate-200 sm:grid-cols-2">
+              <h2 className="font-display text-lg font-semibold text-charcoal">In your report you'll discover:</h2>
+              <ul className="grid gap-2 text-sm leading-6 text-charcoal sm:grid-cols-2">
                 <li>Your strongest creator opportunities</li>
                 <li>The audience you're best suited to attract</li>
                 <li>Recommended content angles and positioning</li>
@@ -1312,7 +1312,7 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
             </div>
 
             <div className="flex flex-col gap-3 border-t border-white/15 pt-6 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-sm text-slate-300">
+              <p className="text-sm text-charcoal-2">
                 Preparing your report... Redirecting in {redirectCountdown} {redirectCountdown === 1 ? 'second' : 'seconds'}.
               </p>
               <button
@@ -1331,8 +1331,8 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4">
-        <p className="text-gray-500 text-sm">Loading Assessment...</p>
+      <div className="fyv-public-shell min-h-screen flex items-center justify-center p-4">
+        <p className="text-charcoal-2 text-sm">Loading Assessment...</p>
       </div>
     );
   }
@@ -1346,7 +1346,7 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
   if (submittedReportSlug) return renderSubmissionSuccess();
 
   return (
-    <div data-build={BUILD_MARKER} className="min-h-[100dvh] w-full overflow-x-hidden px-4 py-8 sm:px-6 sm:py-10">
+    <div data-build={BUILD_MARKER} className="fyv-public-shell min-h-[100dvh] w-full overflow-x-hidden px-4 py-8 sm:px-6 sm:py-10">
       <div className="mx-auto w-full max-w-2xl">
         <div className="text-center mb-6 sm:mb-10">
           <PublicBrandHeader />
@@ -1359,7 +1359,7 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
           {steps.map((label, i) => (
             <div key={`${label}-${i}`} className="min-w-20 flex-1">
               <div className={`h-1 rounded-full transition-colors ${i <= step ? 'bg-accent' : 'bg-surface-3'}`} />
-              <span className={`text-xs mt-1 block ${i <= step ? 'text-accent' : 'text-slate-400'}`}>
+              <span className={`text-xs mt-1 block ${i <= step ? 'text-accent' : 'text-charcoal-2'}`}>
                 {i === 0 || i === steps.length - 1 ? label : `Q${i}`}
               </span>
             </div>
@@ -1367,7 +1367,7 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
         </div>
 
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-3 mb-6 text-sm">
+          <div className="bg-pink/10 border border-pink/30 text-pink rounded-lg px-4 py-3 mb-6 text-sm">
             {error}
           </div>
         )}
@@ -1379,7 +1379,7 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
             <div>
               <h2 className="font-display text-xl font-semibold">{activeSection.section}</h2>
               {activeSection.description && (
-                <p className="mt-2 text-base leading-7 text-slate-300">{activeSection.description}</p>
+                <p className="mt-2 text-base leading-7 text-charcoal-2">{activeSection.description}</p>
               )}
             </div>
             {renderQuestion(activeQuestion)}
@@ -1389,7 +1389,7 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
         {isSubmitStep && (
           <div className="mx-auto max-w-lg space-y-6 animate-in">
             <h2 className="font-display text-xl font-semibold">Ready to generate your report?</h2>
-            <p className="text-sm leading-6 text-gray-600">
+            <p className="text-sm leading-6 text-charcoal-2">
               We will create your creator profile and assessment report from the details and answers you provided.
             </p>
           </div>
@@ -1399,7 +1399,7 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
           {step > 0 && (
             <button
               onClick={() => setStep(s => s - 1)}
-              className="px-6 py-2.5 rounded-lg border border-gray-300 text-gray-600 hover:text-gray-800 hover:border-gray-400 transition-colors text-sm font-medium"
+              className="px-6 py-2.5 rounded-lg border border-white/10 text-charcoal-2 hover:text-charcoal hover:border-white/20 transition-colors text-sm font-medium"
             >
               Back
             </button>
@@ -1422,7 +1422,7 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
             </button>
           )}
         </div>
-        <p className="text-xs text-gray-600 text-center mt-4">
+        <p className="text-xs text-charcoal-2 text-center mt-4">
           Step {step + 1} of {steps.length}
         </p>
       </div>

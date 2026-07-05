@@ -33,7 +33,7 @@ export function OverviewTab() {
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
       {/* Creator info */}
       <div className="space-y-4">
-        <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">Creator</h3>
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-charcoal-2">Creator</h3>
         <div className="grid grid-cols-2 gap-3">
           {[
             ['Name', profile.full_name],
@@ -42,8 +42,8 @@ export function OverviewTab() {
             ['Archetype', primaryArchetype],
           ].map(([label, value]) => (
             <div key={label} className="bg-surface-2 rounded-lg p-3">
-              <div className="text-xs text-gray-500">{label}</div>
-              <div className="text-sm font-semibold text-gray-900 mt-0.5">{value}</div>
+              <div className="text-xs text-charcoal-2">{label}</div>
+              <div className="text-sm font-semibold text-charcoal mt-0.5">{value}</div>
             </div>
           ))}
         </div>
@@ -51,7 +51,7 @@ export function OverviewTab() {
 
       {/* Assessment info */}
       <div className="space-y-4">
-        <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">Assessment</h3>
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-charcoal-2">Assessment</h3>
         <div className="grid grid-cols-2 gap-3">
           {[
             ['Date', selectedAssessment ? new Date(selectedAssessment.created_at).toLocaleString() : '-'],
@@ -62,8 +62,8 @@ export function OverviewTab() {
             ['Invite Code', selectedAssessment?.invite_code ?? '-'],
           ].map(([label, value]) => (
             <div key={label} className="bg-surface-2 rounded-lg p-3">
-              <div className="text-xs text-gray-500">{label}</div>
-              <div className="text-sm font-semibold text-gray-900 mt-0.5">{value}</div>
+              <div className="text-xs text-charcoal-2">{label}</div>
+              <div className="text-sm font-semibold text-charcoal mt-0.5">{value}</div>
             </div>
           ))}
         </div>
@@ -71,7 +71,7 @@ export function OverviewTab() {
 
 {/* Overall Scores */}
 <div className="md:col-span-2">
-  <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500 mb-3">
+  <h3 className="text-sm font-semibold uppercase tracking-wide text-charcoal-2 mb-3">
     Overall Scores
   </h3>
 
@@ -98,7 +98,7 @@ export function OverviewTab() {
           >
             {score ?? '-'}
           </div>
-          <div className="text-[10px] text-gray-500 mt-1 leading-tight">
+          <div className="text-[10px] text-charcoal-2 mt-1 leading-tight">
             {label}
           </div>
         </div>
@@ -107,17 +107,17 @@ export function OverviewTab() {
   </div>
 </div>
 
-      <div className="text-[10px] text-gray-500 mt-1 leading-tight">
+      <div className="text-[10px] text-charcoal-2 mt-1 leading-tight">
       </div>
       );
   
       {/* Primary Archetype + Top Vertical */}
       <div>
-        <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500 mb-3">Primary Archetype</h3>
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-charcoal-2 mb-3">Primary Archetype</h3>
         <div className="bg-surface-2 rounded-lg p-4">
-          <div className="text-lg font-bold text-gray-900">{primaryArchetype}</div>
+          <div className="text-lg font-bold text-charcoal">{primaryArchetype}</div>
           {intelligence?.archetype_fits?.[0] && (
-            <div className="mt-2 flex items-center gap-3 text-xs text-gray-500">
+            <div className="mt-2 flex items-center gap-3 text-xs text-charcoal-2">
               <span>Fit: {intelligence.archetype_fits[0].fit_score}%</span>
               <span>Confidence: {intelligence.archetype_fits[0].confidence}%</span>
               <span className="capitalize">
@@ -129,11 +129,11 @@ export function OverviewTab() {
       </div>
 
       <div>
-        <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500 mb-3">Top Vertical</h3>
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-charcoal-2 mb-3">Top Vertical</h3>
         <div className="bg-surface-2 rounded-lg p-4">
-          <div className="text-lg font-bold text-gray-900">{topVertical}</div>
+          <div className="text-lg font-bold text-charcoal">{topVertical}</div>
           {intelligence?.report?.top_verticals?.[0]?.rationale && (
-            <p className="mt-1 text-xs text-gray-500">
+            <p className="mt-1 text-xs text-charcoal-2">
               {intelligence.report.top_verticals[0].rationale}
             </p>
           )}
@@ -142,9 +142,9 @@ export function OverviewTab() {
 
       {/* Status summary */}
       <div className="md:col-span-2">
-        <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500 mb-2">Status Summary</h3>
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-charcoal-2 mb-2">Status Summary</h3>
         <div className="flex flex-wrap gap-2">
-          <span className="rounded-full bg-surface-3 px-3 py-1 text-xs font-semibold text-gray-700">
+          <span className="rounded-full bg-surface-3 px-3 py-1 text-xs font-semibold text-charcoal">
             Stored: {storedReport ? storedReport.report_tier ?? 'free' : 'none'}
           </span>
           {storedReport?.premium_report_available && (
@@ -162,10 +162,10 @@ export function OverviewTab() {
               DNA: {dna.confidence}%
             </span>
           )}
-          <span className="rounded-full bg-surface-3 px-3 py-1 text-xs font-semibold text-gray-700">
+          <span className="rounded-full bg-surface-3 px-3 py-1 text-xs font-semibold text-charcoal">
             Evidence: {intelligence?.evidence?.length ?? 0} signals
           </span>
-          <span className="rounded-full bg-surface-3 px-3 py-1 text-xs font-semibold text-gray-700">
+          <span className="rounded-full bg-surface-3 px-3 py-1 text-xs font-semibold text-charcoal">
             Traits: {intelligence?.traits?.length ?? 0} inferred
           </span>
         </div>

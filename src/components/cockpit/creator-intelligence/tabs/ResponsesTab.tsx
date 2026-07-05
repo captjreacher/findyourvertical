@@ -73,7 +73,7 @@ function FormatAnswer({
     (Array.isArray(value) && value.length === 0);
 
   if (isBlank) {
-    return <span className="text-gray-400 italic">No answer</span>;
+    return <span className="text-charcoal-2 italic">No answer</span>;
   }
 
   // ── text types ──
@@ -83,7 +83,7 @@ function FormatAnswer({
     qt === 'textarea'
   ) {
     return (
-      <p className="whitespace-pre-wrap text-sm text-gray-800 leading-relaxed">
+      <p className="whitespace-pre-wrap text-sm text-charcoal leading-relaxed">
         {String(value)}
       </p>
     );
@@ -94,7 +94,7 @@ function FormatAnswer({
     const match = lookupOption(question.options ?? [], String(value));
     const label = match ? optionLabel(match) : String(value);
     return (
-      <span className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-800">
+      <span className="inline-flex items-center gap-1.5 text-sm font-medium text-charcoal">
         <span className="w-2 h-2 rounded-full bg-accent" />
         {label}
       </span>
@@ -113,7 +113,7 @@ function FormatAnswer({
           return (
             <li
               key={i}
-              className="flex items-start gap-1.5 text-sm text-gray-800"
+              className="flex items-start gap-1.5 text-sm text-charcoal"
             >
               <span className="mt-1.5 w-1.5 h-1.5 shrink-0 rounded-full bg-accent/60" />
               <span>{match ? optionLabel(match) : v}</span>
@@ -130,12 +130,12 @@ function FormatAnswer({
     return (
       <span
         className={`inline-flex items-center gap-1.5 text-sm font-medium ${
-          v ? 'text-success' : 'text-gray-500'
+          v ? 'text-success' : 'text-charcoal-2'
         }`}
       >
         <span
           className={`w-2 h-2 rounded-full ${
-            v ? 'bg-success' : 'bg-gray-400'
+            v ? 'bg-success' : 'bg-charcoal-2'
           }`}
         />
         {v ? 'Yes' : 'No'}
@@ -155,7 +155,7 @@ function FormatAnswer({
             style={{ width: `${pct}%` }}
           />
         </div>
-        <span className="text-sm font-semibold text-gray-800 tabular-nums">
+        <span className="text-sm font-semibold text-charcoal tabular-nums">
           {isNaN(n) ? '—' : `${n}/10`}
         </span>
       </div>
@@ -169,7 +169,7 @@ function FormatAnswer({
       : [String(value)];
 
     if (items.length === 0) {
-      return <span className="text-gray-400 italic">No ranking recorded</span>;
+      return <span className="text-charcoal-2 italic">No ranking recorded</span>;
     }
 
     return (
@@ -185,11 +185,11 @@ function FormatAnswer({
                 {i + 1}
               </span>
               <div className="min-w-0">
-                <span className="text-sm font-medium text-gray-800">
+                <span className="text-sm font-medium text-charcoal">
                   {label}
                 </span>
                 {desc && (
-                  <p className="mt-0.5 text-xs text-gray-500 leading-relaxed">
+                  <p className="mt-0.5 text-xs text-charcoal-2 leading-relaxed">
                     {desc}
                   </p>
                 )}
@@ -203,7 +203,7 @@ function FormatAnswer({
 
   // ── unknown / legacy ──
   return (
-    <span className="text-sm text-gray-800">
+    <span className="text-sm text-charcoal">
       {typeof value === 'object'
         ? JSON.stringify(value)
         : String(value)}
@@ -226,7 +226,7 @@ function QuestionMeta({ question }: { question: CreatorAssessmentQuestion }) {
       {parts.map((p) => (
         <span
           key={p}
-          className="px-1.5 py-0.5 rounded text-[10px] bg-surface-3 text-gray-500 font-mono"
+          className="px-1.5 py-0.5 rounded text-[10px] bg-surface-3 text-charcoal-2 font-mono"
         >
           {p}
         </span>
@@ -240,10 +240,10 @@ function QuestionMeta({ question }: { question: CreatorAssessmentQuestion }) {
 function DebugPayload({ value }: { value: unknown }) {
   return (
     <details className="mt-2">
-      <summary className="text-[10px] text-gray-400 cursor-pointer select-none hover:text-gray-600">
+      <summary className="text-[10px] text-charcoal-2 cursor-pointer select-none hover:text-charcoal">
         Debug payload
       </summary>
-      <pre className="mt-1 max-h-48 overflow-auto rounded bg-gray-900 p-2 text-[10px] text-green-300 leading-relaxed">
+      <pre className="mt-1 max-h-48 overflow-auto rounded bg-surface-2 p-2 text-[10px] text-success leading-relaxed">
         {(() => {
           try {
             return JSON.stringify(value, null, 2);
@@ -338,8 +338,8 @@ export function ResponsesTab() {
 
   if (!selectedAssessment) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-white p-8 text-center">
-        <p className="text-sm text-gray-600">
+      <div className="rounded-lg border border-white/10 bg-surface p-8 text-center">
+        <p className="text-sm text-charcoal-2">
           No assessment selected. Use the dropdown above to choose an
           assessment.
         </p>
@@ -362,12 +362,12 @@ export function ResponsesTab() {
               onToggle={(e) =>
                 setDebugOpen((e.target as HTMLDetailsElement).open)
               }
-              className="rounded-lg border border-gray-200 bg-white"
+              className="rounded-lg border border-white/10 bg-surface"
             >
-              <summary className="cursor-pointer select-none px-4 py-3 text-xs font-medium text-gray-500 hover:text-gray-700">
+              <summary className="cursor-pointer select-none px-4 py-3 text-xs font-medium text-charcoal-2 hover:text-charcoal">
                 View raw responses (no question metadata available)
               </summary>
-              <pre className="max-h-96 overflow-auto border-t border-gray-100 bg-gray-900 p-4 text-[11px] text-green-300 leading-relaxed">
+              <pre className="max-h-96 overflow-auto border-t border-white/10 bg-surface-2 p-4 text-[11px] text-success leading-relaxed">
                 {JSON.stringify(selectedAssessment.responses, null, 2)}
               </pre>
             </details>
@@ -387,7 +387,7 @@ export function ResponsesTab() {
       {/* ── controls ── */}
       <div className="flex flex-wrap items-end gap-3">
         <label className="flex-1 min-w-[200px]">
-          <span className="block text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1">
+          <span className="block text-xs font-semibold uppercase tracking-wide text-charcoal-2 mb-1">
             Search
           </span>
           <input
@@ -400,7 +400,7 @@ export function ResponsesTab() {
         </label>
 
         <label>
-          <span className="block text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1">
+          <span className="block text-xs font-semibold uppercase tracking-wide text-charcoal-2 mb-1">
             Section
           </span>
           <select
@@ -422,14 +422,14 @@ export function ResponsesTab() {
             type="checkbox"
             checked={showUnansweredOnly}
             onChange={(e) => setShowUnansweredOnly(e.target.checked)}
-            className="rounded border-gray-300 text-accent focus:ring-accent"
+            className="rounded border-white/10 text-accent focus:ring-accent"
           />
-          <span className="text-xs font-medium text-gray-600">
+          <span className="text-xs font-medium text-charcoal-2">
             Unanswered only
           </span>
         </label>
 
-        <span className="text-xs text-gray-400 pb-2">
+        <span className="text-xs text-charcoal-2 pb-2">
           {filteredCount === totalQuestions
             ? `${totalQuestions} questions`
             : `${filteredCount} of ${totalQuestions} questions`}
@@ -438,15 +438,15 @@ export function ResponsesTab() {
 
       {/* ── results ── */}
       {filteredSections.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-gray-300 bg-surface-2 p-8 text-center text-sm text-gray-500">
+        <div className="rounded-lg border border-dashed border-white/10 bg-surface-2 p-8 text-center text-sm text-charcoal-2">
           No questions match the current filters.
         </div>
       ) : (
         filteredSections.map(([sectionName, qs]) => (
           <div key={sectionName}>
-            <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500 mb-4 pb-2 border-b border-gray-200 flex items-center gap-2">
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-charcoal-2 mb-4 pb-2 border-b border-white/10 flex items-center gap-2">
               {sectionName}
-              <span className="text-xs text-gray-400 font-normal normal-case">
+              <span className="text-xs text-charcoal-2 font-normal normal-case">
                 {qs.length} question{qs.length !== 1 ? 's' : ''}
               </span>
             </h3>
@@ -465,16 +465,16 @@ export function ResponsesTab() {
                     {/* Header */}
                     <div className="flex items-start justify-between gap-3 mb-3">
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-semibold text-gray-900">
+                        <p className="text-sm font-semibold text-charcoal">
                           {question.question_text}
                         </p>
                         {question.help_text && (
-                          <p className="text-xs text-gray-500 mt-1">
+                          <p className="text-xs text-charcoal-2 mt-1">
                             {question.help_text}
                           </p>
                         )}
                       </div>
-                      <span className="shrink-0 rounded-full bg-surface-3 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-gray-600">
+                      <span className="shrink-0 rounded-full bg-surface-3 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-charcoal-2">
                         {questionTypeLabel(question.question_type)}
                       </span>
                     </div>

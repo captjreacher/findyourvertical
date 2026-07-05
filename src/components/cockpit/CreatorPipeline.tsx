@@ -4,10 +4,10 @@ import { getCreatorPipelineSummaries } from '@/lib/creators-api';
 import type { CreatorPipelineSummary } from '@/types/creator';
 
 const STATUS_COLORS: Record<string, string> = {
-  New: 'bg-gray-100 text-gray-700',
+  New: 'bg-surface-3 text-charcoal',
   Invited: 'bg-accent/10 text-accent',
   Started: 'bg-warn/15 text-warn',
-  Completed: 'bg-gray-100 text-gray-700',
+  Completed: 'bg-surface-3 text-charcoal',
   Interested: 'bg-accent/15 text-accent',
   Qualified: 'bg-accent/15 text-accent',
   'Meeting Booked': 'bg-success/10 text-success',
@@ -27,8 +27,8 @@ export function CreatorPipeline() {
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <div className="animate-pulse p-4 text-gray-500">Loading Pipeline...</div>;
-  if (error) return <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</div>;
+  if (loading) return <div className="animate-pulse p-4 text-charcoal-2">Loading Pipeline...</div>;
+  if (error) return <div className="rounded-lg border border-pink/30 bg-pink/10 p-4 text-sm text-pink">{error}</div>;
 
   return (
     <div className="cockpit-page">
@@ -62,31 +62,31 @@ export function CreatorPipeline() {
                     <Link to={`/cockpit/creators/${p.id}`} className="font-medium text-charcoal transition-colors hover:text-accent">
                       {p.full_name}
                     </Link>
-                    <div className="mt-1 text-xs text-gray-500">{p.email ?? p.onlyfans_handle ?? '-'}</div>
+                    <div className="mt-1 text-xs text-charcoal-2">{p.email ?? p.onlyfans_handle ?? '-'}</div>
                   </td>
                   <td>
-                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLORS[p.status] ?? 'bg-gray-100 text-gray-700'}`}>
+                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLORS[p.status] ?? 'bg-surface-3 text-charcoal'}`}>
                       {p.status}
                     </span>
                   </td>
-                  <td className="text-gray-600">{p.latest_invite_status ?? '-'}</td>
-                  <td className="text-gray-600">{p.latest_assessment_status}</td>
+                  <td className="text-charcoal-2">{p.latest_invite_status ?? '-'}</td>
+                  <td className="text-charcoal-2">{p.latest_assessment_status}</td>
                   <td>
                     <span className={`font-semibold ${(p.agency_opportunity_score ?? 0) >= 60 ? 'text-success' : (p.agency_opportunity_score ?? 0) >= 40 ? 'text-warn' : 'text-pink'}`}>
                       {p.agency_opportunity_score ?? '-'}
                     </span>
                   </td>
-                  <td className="text-xs text-gray-500">
+                  <td className="text-xs text-charcoal-2">
                     {p.last_activity_at ? new Date(p.last_activity_at).toLocaleDateString() : '-'}
                   </td>
-                  <td className="text-gray-700">{p.next_action}</td>
+                  <td className="text-charcoal">{p.next_action}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
         {profiles.length === 0 && (
-          <div className="p-12 text-center text-sm text-gray-600">
+          <div className="p-12 text-center text-sm text-charcoal-2">
             No creators yet. Completed invite assessments will appear here.
           </div>
         )}

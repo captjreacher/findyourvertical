@@ -997,11 +997,11 @@ export function AssessmentTemplates() {
                   <span>Template Description</span>
                   <textarea value={templateDescription} onChange={e => setTemplateDescription(e.target.value)} rows={3} className="field-control w-full resize-none" />
                 </label>
-                <label className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm">
+                <label className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-surface-3 px-3 py-2 text-sm">
                   <span>Active template</span>
                   <input type="checkbox" checked={templateActive} onChange={e => setTemplateActiveDraft(e.target.checked)} className="accent-accent" />
                 </label>
-                <label className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm">
+                <label className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-surface-3 px-3 py-2 text-sm">
                   <span>Default template</span>
                   <input type="checkbox" checked={templateDefault} disabled={!canSetDefault && !templateDefault} title={!canSetDefault && !templateDefault ? 'Template must be active and include at least one active question.' : undefined} onChange={e => setTemplateDefault(e.target.checked)} className="accent-accent disabled:opacity-40" />
                 </label>
@@ -1020,7 +1020,7 @@ export function AssessmentTemplates() {
                     key={item.id}
                     type="button"
                     onClick={() => setSelectedSectionId(item.id)}
-                    className={`w-full rounded-xl border px-3 py-2 text-left text-sm transition-colors ${selectedSectionId === item.id ? 'border-accent/50 bg-accent/10 text-charcoal' : 'border-white/10 bg-white/5 text-charcoal-2 hover:bg-white/10'}`}
+                    className={`w-full rounded-xl border px-3 py-2 text-left text-sm transition-colors ${selectedSectionId === item.id ? 'border-accent/50 bg-accent/10 text-charcoal' : 'border-white/10 bg-surface-3 text-charcoal-2 hover:bg-surface-2'}`}
                   >
                     {item.title || 'Untitled Section'}
                   </button>
@@ -1040,12 +1040,12 @@ export function AssessmentTemplates() {
             </div>
             <div className="space-y-3 p-4">
               {includedItems.length === 0 && (
-                <div className="rounded-2xl border border-dashed border-white/15 bg-white/[0.03] p-8 text-center text-sm text-charcoal-2">
+                <div className="rounded-2xl border border-dashed border-white/15 bg-surface-3 p-8 text-center text-sm text-charcoal-2">
                   This template has no questions yet. Add questions from the question bank.
                 </div>
               )}
               {includedItems.map((item, index) => (
-                <div key={item.id} className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+                <div key={item.id} className="rounded-2xl border border-white/10 bg-surface-3 p-4">
                   {item.item_type === 'section_heading' ? (
                     <div className="grid gap-3 lg:grid-cols-[1fr_1fr_auto]">
                       <input value={item.title ?? ''} onChange={e => updateItem(item.id, { title: e.target.value })} placeholder="Section heading" className="field-control" />
@@ -1080,7 +1080,7 @@ export function AssessmentTemplates() {
                 </div>
                 <button type="button" onClick={() => setBankDrawerOpen(false)} className="btn-subtle">Close</button>
               </div>
-              <p className="mb-3 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs text-charcoal-2">
+              <p className="mb-3 rounded-xl border border-white/10 bg-surface-3 px-3 py-2 text-xs text-charcoal-2">
                 Duplicate placements are supported: each add creates a separate template item, so the same bank question can appear in more than one section when needed.
               </p>
               <input value={bankSearch} onChange={e => setBankSearch(e.target.value)} placeholder="Search bank questions" className="field-control mb-4 w-full" />
@@ -1088,7 +1088,7 @@ export function AssessmentTemplates() {
                 {filteredBankQuestions.map(question => {
                   const placementCount = includedItems.filter(item => item.question_id === question.id).length;
                   return (
-                    <div key={question.id} className="rounded-2xl border border-white/10 bg-white/5 p-3">
+                    <div key={question.id} className="rounded-2xl border border-white/10 bg-surface-3 p-3">
                       <p className="text-sm font-semibold text-charcoal">{question.question_text}</p>
                       <p className="mt-1 text-xs text-charcoal-2">{question.question_key} / {question.section}{placementCount > 0 ? ` / already placed ${placementCount} time${placementCount === 1 ? '' : 's'}` : ''}</p>
                       <button type="button" onClick={() => addQuestionToTemplate(question)} className="btn-primary mt-3">{placementCount > 0 ? 'Add Again' : 'Add to Template'}</button>
@@ -1138,8 +1138,8 @@ export function AssessmentTemplates() {
           {options.map(option => {
             const rule = getBranchRule(question.id, option.value);
             return (
-              <div key={option.value} className="grid gap-2 rounded-lg border border-white/10 bg-white/[0.03] p-2 lg:grid-cols-[minmax(0,1fr)_220px_minmax(0,1fr)]">
-                <div className="min-h-10 rounded-lg bg-white/5 px-3 py-2 text-sm text-charcoal">
+              <div key={option.value} className="grid gap-2 rounded-lg border border-white/10 bg-surface-3 p-2 lg:grid-cols-[minmax(0,1fr)_220px_minmax(0,1fr)]">
+                <div className="min-h-10 rounded-lg bg-surface-3 px-3 py-2 text-sm text-charcoal">
                   {option.label}
                 </div>
                 <select
@@ -1179,7 +1179,7 @@ export function AssessmentTemplates() {
                   </select>
                 )}
                 {(rule.action === 'continue' || rule.action === 'end') && (
-                  <div className="min-h-10 rounded-lg bg-white/5 px-3 py-2 text-sm text-charcoal-2">N/A</div>
+                  <div className="min-h-10 rounded-lg bg-surface-3 px-3 py-2 text-sm text-charcoal-2">N/A</div>
                 )}
               </div>
             );
@@ -1309,7 +1309,7 @@ export function AssessmentTemplates() {
             <input value={questionForm.scoring_dimension} onChange={e => setQuestionForm(current => ({ ...current, scoring_dimension: e.target.value }))} placeholder="Scoring dimension" className="field-control w-full" />
 
             {needsOptions && (
-              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-3">
+              <div className="rounded-2xl border border-white/10 bg-surface-3 p-3">
                 <div className="mb-3 flex items-center justify-between gap-3">
                   <div>
                     <p className="text-sm font-semibold text-charcoal">Answer Options</p>
@@ -1334,7 +1334,7 @@ export function AssessmentTemplates() {
             )}
 
             {questionForm.question_type === 'scale' && (
-              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-3">
+              <div className="rounded-2xl border border-white/10 bg-surface-3 p-3">
                 <p className="mb-3 text-sm font-semibold text-charcoal">Scale / Rating</p>
                 <div className="grid grid-cols-2 gap-3">
                   <input type="number" value={questionForm.scaleMin} onChange={e => setQuestionForm(current => ({ ...current, scaleMin: Number(e.target.value) }))} min={0} className="field-control" aria-label="Scale minimum" />
@@ -1343,7 +1343,7 @@ export function AssessmentTemplates() {
               </div>
             )}
 
-            <label className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm">
+            <label className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-surface-3 px-3 py-2 text-sm">
               <span>Active question</span>
               <input type="checkbox" checked={questionForm.is_active} onChange={e => setQuestionForm(current => ({ ...current, is_active: e.target.checked }))} className="accent-accent" />
             </label>
@@ -1386,7 +1386,7 @@ export function AssessmentTemplates() {
               <div className="grid gap-2 text-sm font-medium text-charcoal">
                 <span>Creator Source</span>
                 <div className="grid gap-2 sm:grid-cols-2">
-                  <label className={`flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 ${inviteForm.source === 'existing' ? 'border-accent bg-accent/10 text-accent' : 'border-white/10 bg-white/5'}`}>
+                  <label className={`flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 ${inviteForm.source === 'existing' ? 'border-accent bg-accent/10 text-accent' : 'border-white/10 bg-surface-3'}`}>
                     <input
                       type="radio"
                       checked={inviteForm.source === 'existing'}
@@ -1395,7 +1395,7 @@ export function AssessmentTemplates() {
                     />
                     Existing Creator
                   </label>
-                  <label className={`flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 ${inviteForm.source === 'manual' ? 'border-accent bg-accent/10 text-accent' : 'border-white/10 bg-white/5'}`}>
+                  <label className={`flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 ${inviteForm.source === 'manual' ? 'border-accent bg-accent/10 text-accent' : 'border-white/10 bg-surface-3'}`}>
                     <input
                       type="radio"
                       checked={inviteForm.source === 'manual'}
@@ -1430,7 +1430,7 @@ export function AssessmentTemplates() {
                     </select>
                   </label>
                   {inviteForm.creatorProfileId && (
-                    <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-charcoal-2">
+                    <div className="rounded-xl border border-white/10 bg-surface-3 px-3 py-2 text-xs text-charcoal-2">
                       {inviteForm.creatorName || 'Selected creator'} / {inviteForm.creatorEmail || 'No email on profile'}
                     </div>
                   )}

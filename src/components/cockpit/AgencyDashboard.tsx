@@ -8,7 +8,7 @@ function MetricCard({ label, value, subtitle }: { label: string; value: string |
     <div className="cockpit-card-pad">
       <div className="metric-value">{value}</div>
       <div className="mt-2 text-sm font-semibold text-charcoal">{label}</div>
-      {subtitle && <div className="mt-1 text-xs leading-5 text-gray-500">{subtitle}</div>}
+      {subtitle && <div className="mt-1 text-xs leading-5 text-charcoal-2">{subtitle}</div>}
     </div>
   );
 }
@@ -25,7 +25,7 @@ export function AgencyDashboard() {
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <div className="animate-pulse p-4 text-gray-500">Loading Dashboard...</div>;
+  if (loading) return <div className="animate-pulse p-4 text-charcoal-2">Loading Dashboard...</div>;
   if (error || !metrics) return <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error || 'Unable to load dashboard metrics.'}</div>;
 
   return (
@@ -56,24 +56,24 @@ export function AgencyDashboard() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Link
           to="/cockpit/creators"
-          className="cockpit-card-pad group transition-colors hover:border-accent/40 hover:shadow-md hover:shadow-orange-950/5"
+          className="cockpit-card-pad group transition-colors hover:border-accent/40 hover:shadow-md hover:shadow-black/10"
         >
           <div className="flex items-center justify-between gap-4">
             <div>
               <h3 className="cockpit-section-title transition-colors group-hover:text-accent">Creator Pipeline</h3>
-              <p className="mt-1 text-sm text-gray-500">View and manage all creator profiles</p>
+              <p className="mt-1 text-sm text-charcoal-2">View and manage all creator profiles</p>
             </div>
             <span className="text-xl font-semibold text-accent">-&gt;</span>
           </div>
         </Link>
         <Link
           to="/cockpit/settings/assessment-templates"
-          className="cockpit-card-pad group transition-colors hover:border-accent/40 hover:shadow-md hover:shadow-orange-950/5"
+          className="cockpit-card-pad group transition-colors hover:border-accent/40 hover:shadow-md hover:shadow-black/10"
         >
           <div className="flex items-center justify-between gap-4">
             <div>
               <h3 className="cockpit-section-title transition-colors group-hover:text-accent">Assessment Templates</h3>
-              <p className="mt-1 text-sm text-gray-500">Manage templates and invite-only assessment links</p>
+              <p className="mt-1 text-sm text-charcoal-2">Manage templates and invite-only assessment links</p>
             </div>
             <span className="text-xl font-semibold text-accent">-&gt;</span>
           </div>

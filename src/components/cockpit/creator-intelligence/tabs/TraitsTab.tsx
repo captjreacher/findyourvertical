@@ -40,7 +40,7 @@ function ConfidenceBar({ value }: { value: number }) {
           style={{ width: `${pct}%` }}
         />
       </div>
-      <span className="text-xs font-semibold text-gray-600 w-10 text-right tabular-nums">{pct}%</span>
+      <span className="text-xs font-semibold text-charcoal-2 w-10 text-right tabular-nums">{pct}%</span>
     </div>
   );
 }
@@ -75,34 +75,34 @@ function TraitCard({
       >
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-sm font-semibold text-gray-900 capitalize">
+            <span className="text-sm font-semibold text-charcoal capitalize">
               {trait.trait.replace(/_/g, ' ')}
             </span>
-            <span className="rounded-full bg-surface-3 px-1.5 py-0.5 text-[10px] text-gray-500">
+            <span className="rounded-full bg-surface-3 px-1.5 py-0.5 text-[10px] text-charcoal-2">
               {traitDomain(trait.trait)}
             </span>
-            <span className="text-xs text-gray-500">{trait.weight}/100</span>
+            <span className="text-xs text-charcoal-2">{trait.weight}/100</span>
           </div>
           <ConfidenceBar value={trait.weight} />
         </div>
-        <div className="flex items-center gap-4 text-xs text-gray-500 shrink-0">
+        <div className="flex items-center gap-4 text-xs text-charcoal-2 shrink-0">
           <span>{relatedEvidence.length} evidence</span>
-          <span className="text-gray-400">{expanded ? '▲' : '▼'}</span>
+          <span className="text-charcoal-2">{expanded ? '▲' : '▼'}</span>
         </div>
       </button>
 
       {expanded && (
-        <div className="px-4 pb-4 space-y-4 border-t border-gray-100 pt-3">
+        <div className="px-4 pb-4 space-y-4 border-t border-white/10 pt-3">
           {/* Rationale */}
           <div>
-            <div className="text-xs font-semibold text-gray-500 mb-1">Rationale</div>
-            <p className="text-sm text-gray-700 leading-relaxed">{trait.rationale}</p>
+            <div className="text-xs font-semibold text-charcoal-2 mb-1">Rationale</div>
+            <p className="text-sm text-charcoal-2 leading-relaxed">{trait.rationale}</p>
           </div>
 
           {/* Evidence summary */}
           {relatedEvidence.length > 0 && (
             <div>
-              <div className="text-xs font-semibold text-gray-500 mb-2">
+              <div className="text-xs font-semibold text-charcoal-2 mb-2">
                 Contributing Evidence ({relatedEvidence.length})
               </div>
 
@@ -115,10 +115,10 @@ function TraitCard({
                     {positiveEvidence.slice(0, 5).map(e => (
                       <div key={e.id} className="bg-surface-1 rounded p-2 text-xs">
                         <div className="flex justify-between gap-2">
-                          <span className="text-gray-700 truncate">{String(e.value).slice(0, 120)}</span>
+                          <span className="text-charcoal truncate">{String(e.value).slice(0, 120)}</span>
                           <span className="text-green-600 font-medium shrink-0">+{e.strength}</span>
                         </div>
-                        <div className="text-[10px] text-gray-400 mt-0.5">
+                        <div className="text-[10px] text-charcoal-2 mt-0.5">
                           {e.source_question_key} &middot; {e.dimension}
                         </div>
                       </div>
@@ -136,10 +136,10 @@ function TraitCard({
                     {negativeEvidence.slice(0, 5).map(e => (
                       <div key={e.id} className="bg-surface-1 rounded p-2 text-xs">
                         <div className="flex justify-between gap-2">
-                          <span className="text-gray-700 truncate">{String(e.value).slice(0, 120)}</span>
+                          <span className="text-charcoal truncate">{String(e.value).slice(0, 120)}</span>
                           <span className="text-pink font-medium shrink-0">−{e.strength}</span>
                         </div>
-                        <div className="text-[10px] text-gray-400 mt-0.5">
+                        <div className="text-[10px] text-charcoal-2 mt-0.5">
                           {e.source_question_key} &middot; {e.dimension}
                         </div>
                       </div>
@@ -150,13 +150,13 @@ function TraitCard({
 
               {neutralEvidence.length > 0 && (
                 <div>
-                  <div className="text-[10px] font-semibold text-gray-400 mb-1">
+                  <div className="text-[10px] font-semibold text-charcoal-2 mb-1">
                     Neutral ({neutralEvidence.length})
                   </div>
                   <div className="space-y-1.5">
                     {neutralEvidence.slice(0, 3).map(e => (
                       <div key={e.id} className="bg-surface-1 rounded p-2 text-xs">
-                        <span className="text-gray-500">{String(e.value).slice(0, 120)}</span>
+                        <span className="text-charcoal-2">{String(e.value).slice(0, 120)}</span>
                       </div>
                     ))}
                   </div>
@@ -168,12 +168,12 @@ function TraitCard({
           {/* Evidence ID list (compact) */}
           {trait.evidence_ids.length > 0 && (
             <div>
-              <div className="text-xs font-semibold text-gray-500 mb-1">
+              <div className="text-xs font-semibold text-charcoal-2 mb-1">
                 All Evidence IDs ({trait.evidence_ids.length})
               </div>
               <div className="flex flex-wrap gap-1">
                 {trait.evidence_ids.map(id => (
-                  <code key={id} className="text-[10px] bg-surface-3 px-1.5 py-0.5 rounded text-gray-600 font-mono">
+                  <code key={id} className="text-[10px] bg-surface-3 px-1.5 py-0.5 rounded text-charcoal-2 font-mono">
                     {id}
                   </code>
                 ))}
@@ -231,8 +231,8 @@ export function TraitsTab() {
 
   if (!selectedAssessment) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-white p-8 text-center">
-        <p className="text-sm text-gray-600">No assessment selected.</p>
+      <div className="rounded-lg border border-white/10 bg-surface p-8 text-center">
+        <p className="text-sm text-charcoal-2">No assessment selected.</p>
       </div>
     );
   }
@@ -253,7 +253,7 @@ export function TraitsTab() {
       {/* ── toolbar ── */}
       <div className="flex flex-wrap items-end gap-3">
         <label className="flex-1 min-w-[180px]">
-          <span className="block text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1">Search</span>
+          <span className="block text-xs font-semibold uppercase tracking-wide text-charcoal-2 mb-1">Search</span>
           <input
             type="text"
             value={search}
@@ -264,7 +264,7 @@ export function TraitsTab() {
         </label>
 
         <label>
-          <span className="block text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1">Domain</span>
+          <span className="block text-xs font-semibold uppercase tracking-wide text-charcoal-2 mb-1">Domain</span>
           <select
             value={domainFilter}
             onChange={e => setDomainFilter(e.target.value)}
@@ -276,7 +276,7 @@ export function TraitsTab() {
         </label>
 
         <label>
-          <span className="block text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1">Sort by</span>
+          <span className="block text-xs font-semibold uppercase tracking-wide text-charcoal-2 mb-1">Sort by</span>
           <select
             value={sortBy}
             onChange={e => setSortBy(e.target.value as SortMode)}
@@ -288,7 +288,7 @@ export function TraitsTab() {
           </select>
         </label>
 
-        <span className="text-xs text-gray-400 pb-2">
+        <span className="text-xs text-charcoal-2 pb-2">
           {filtered.length === traits.length
             ? `${traits.length} traits`
             : `${filtered.length} of ${traits.length} traits`}
@@ -297,7 +297,7 @@ export function TraitsTab() {
 
       {/* ── results ── */}
       {filtered.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-gray-300 bg-surface-2 p-8 text-center text-sm text-gray-500">
+        <div className="rounded-lg border border-dashed border-white/10 bg-surface-2 p-8 text-center text-sm text-charcoal-2">
           No traits match the current filters.
         </div>
       ) : (

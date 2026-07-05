@@ -87,7 +87,7 @@ function InternalScoreCard({ label, score, inverse = false }: { label: string; s
   return (
     <div className="bg-surface-2 rounded-lg p-3">
       <div className={`text-xl font-bold ${color}`}>{value}</div>
-      <div className="text-xs text-gray-500 mt-1">{label}</div>
+      <div className="text-xs text-charcoal-2 mt-1">{label}</div>
     </div>
   );
 }
@@ -101,7 +101,7 @@ function AgencyQualificationPanel({ report }: { report: CreatorReport | undefine
     return (
       <div className="cockpit-card-pad">
         <h2 className="cockpit-section-title mb-2">Agency Qualification</h2>
-        <p className="text-sm text-gray-600">No internal agency qualification data stored for this report yet.</p>
+        <p className="text-sm text-charcoal-2">No internal agency qualification data stored for this report yet.</p>
       </div>
     );
   }
@@ -112,14 +112,14 @@ function AgencyQualificationPanel({ report }: { report: CreatorReport | undefine
         <div>
           <h2 className="cockpit-section-title">Agency Qualification</h2>
           {recommendation?.agency_priority && (
-            <p className="mt-1 text-xs uppercase tracking-wide text-gray-500">
+            <p className="mt-1 text-xs uppercase tracking-wide text-charcoal-2">
               {recommendation.agency_priority} priority
             </p>
           )}
         </div>
         <div className="text-right">
           <div className="text-3xl font-bold text-accent">{scores?.agency_opportunity ?? 0}</div>
-          <div className="text-xs text-gray-500">Agency Opportunity</div>
+          <div className="text-xs text-charcoal-2">Agency Opportunity</div>
         </div>
       </div>
 
@@ -139,15 +139,15 @@ function AgencyQualificationPanel({ report }: { report: CreatorReport | undefine
         <div className="mt-5 space-y-4">
           <div className="rounded-lg bg-surface-2 p-3">
             <div className="text-xs font-semibold uppercase tracking-wide text-accent">Recommended Next Action</div>
-            <p className="mt-1 text-sm text-gray-700">{recommendation.recommended_next_action}</p>
+            <p className="mt-1 text-sm text-charcoal-2">{recommendation.recommended_next_action}</p>
           </div>
-          <p className="text-sm text-gray-600">{recommendation.management_fit_summary}</p>
+          <p className="text-sm text-charcoal-2">{recommendation.management_fit_summary}</p>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <div className="rounded-lg border border-pink/20 bg-pink/5 p-3">
               <div className="text-xs font-semibold uppercase tracking-wide text-pink">Risk Notes</div>
               <ul className="mt-2 space-y-1.5">
                 {recommendation.risk_notes.map(note => (
-                  <li key={note} className="text-xs text-gray-700">{note}</li>
+                  <li key={note} className="text-xs text-charcoal-2">{note}</li>
                 ))}
               </ul>
             </div>
@@ -155,7 +155,7 @@ function AgencyQualificationPanel({ report }: { report: CreatorReport | undefine
               <div className="text-xs font-semibold uppercase tracking-wide text-success">Opportunity Notes</div>
               <ul className="mt-2 space-y-1.5">
                 {recommendation.opportunity_notes.map(note => (
-                  <li key={note} className="text-xs text-gray-700">{note}</li>
+                  <li key={note} className="text-xs text-charcoal-2">{note}</li>
                 ))}
               </ul>
             </div>
@@ -265,9 +265,9 @@ export function CreatorProfileView() {
     }
   };
 
-  if (loading) return <div className="animate-pulse p-4 text-gray-500">Loading Profile...</div>;
-  if (loadError) return <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">{loadError}</div>;
-  if (!profile) return <div className="rounded-lg border border-gray-200 bg-white p-4 text-sm text-gray-600">Creator not found.</div>;
+  if (loading) return <div className="animate-pulse p-4 text-charcoal-2">Loading Profile...</div>;
+  if (loadError) return <div className="rounded-lg border border-pink/30 bg-pink/10 p-4 text-sm text-pink">{loadError}</div>;
+  if (!profile) return <div className="rounded-lg border border-white/10 bg-surface p-4 text-sm text-charcoal-2">Creator not found.</div>;
 
   const scoreCards: Array<[string, number]> = [
     ['Creator DNA', profile.creator_dna_score ?? 0],
@@ -310,7 +310,7 @@ export function CreatorProfileView() {
     <div className="cockpit-page">
       <header className="cockpit-page-header">
         <div>
-          <button onClick={() => navigate('/cockpit/creators')} className="mb-2 inline-block text-xs font-medium text-gray-500 transition-colors hover:text-accent">&lt;- Back to pipeline</button>
+          <button onClick={() => navigate('/cockpit/creators')} className="mb-2 inline-block text-xs font-medium text-charcoal-2 transition-colors hover:text-accent">&lt;- Back to pipeline</button>
           <p className="cockpit-eyebrow">Creator Profile</p>
           <h1 className="cockpit-title">{profile.full_name}</h1>
           <p className="cockpit-subtitle">{[profile.email, profile.onlyfans_handle ? `@${profile.onlyfans_handle}` : null, profile.country].filter(Boolean).join(' / ')}</p>
@@ -322,7 +322,7 @@ export function CreatorProfileView() {
           >
             View Intelligence
           </Link>
-          <span className="rounded-full bg-surface-3 px-3 py-1 text-xs font-semibold capitalize text-gray-700">
+          <span className="rounded-full bg-surface-3 px-3 py-1 text-xs font-semibold capitalize text-charcoal">
             {profile.status}
           </span>
           <span className="rounded-full bg-accent/15 px-3 py-1 text-xs font-semibold text-accent">
@@ -339,28 +339,28 @@ export function CreatorProfileView() {
             <h2 className="cockpit-section-title mb-4">Profile Details</h2>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
               <div className="bg-surface-2 rounded-lg p-3">
-                <div className="text-xs text-gray-500">Model Name</div>
-                <div className="mt-1 text-sm font-semibold text-gray-900">{profile.model_name ?? '-'}</div>
+                <div className="text-xs text-charcoal-2">Model Name</div>
+                <div className="mt-1 text-sm font-semibold text-charcoal">{profile.model_name ?? '-'}</div>
               </div>
               <div className="bg-surface-2 rounded-lg p-3">
-                <div className="text-xs text-gray-500">OnlyFans Handle</div>
-                <div className="mt-1 text-sm font-semibold text-gray-900">{profile.onlyfans_handle ? `@${profile.onlyfans_handle}` : '-'}</div>
+                <div className="text-xs text-charcoal-2">OnlyFans Handle</div>
+                <div className="mt-1 text-sm font-semibold text-charcoal">{profile.onlyfans_handle ? `@${profile.onlyfans_handle}` : '-'}</div>
               </div>
               <div className="bg-surface-2 rounded-lg p-3">
-                <div className="text-xs text-gray-500">Location</div>
-                <div className="mt-1 text-sm font-semibold text-gray-900">{[profile.city, profile.country].filter(Boolean).join(', ') || '-'}</div>
+                <div className="text-xs text-charcoal-2">Location</div>
+                <div className="mt-1 text-sm font-semibold text-charcoal">{[profile.city, profile.country].filter(Boolean).join(', ') || '-'}</div>
               </div>
               <div className="bg-surface-2 rounded-lg p-3">
-                <div className="text-xs text-gray-500">Agency Interest</div>
-                <div className="mt-1 text-sm font-semibold text-gray-900">{profile.follow_up_reason === 'strategy_discussion_requested' || profile.status === 'Interested' ? 'Yes' : '-'}</div>
+                <div className="text-xs text-charcoal-2">Agency Interest</div>
+                <div className="mt-1 text-sm font-semibold text-charcoal">{profile.follow_up_reason === 'strategy_discussion_requested' || profile.status === 'Interested' ? 'Yes' : '-'}</div>
               </div>
               <div className="bg-surface-2 rounded-lg p-3">
-                <div className="text-xs text-gray-500">Lifecycle Status</div>
-                <div className="mt-1 text-sm font-semibold text-gray-900">{profile.status}</div>
+                <div className="text-xs text-charcoal-2">Lifecycle Status</div>
+                <div className="mt-1 text-sm font-semibold text-charcoal">{profile.status}</div>
               </div>
               <div className="bg-surface-2 rounded-lg p-3">
-                <div className="text-xs text-gray-500">Last Updated</div>
-                <div className="mt-1 text-sm font-semibold text-gray-900">{new Date(profile.updated_at).toLocaleString()}</div>
+                <div className="text-xs text-charcoal-2">Last Updated</div>
+                <div className="mt-1 text-sm font-semibold text-charcoal">{new Date(profile.updated_at).toLocaleString()}</div>
               </div>
             </div>
           </div>
@@ -368,7 +368,7 @@ export function CreatorProfileView() {
           <div className="cockpit-card-pad">
             <h2 className="cockpit-section-title mb-3">Invite History ({invites.length})</h2>
             {invites.length === 0 ? (
-              <p className="text-sm text-gray-600">No invites created for this creator yet.</p>
+              <p className="text-sm text-charcoal-2">No invites created for this creator yet.</p>
             ) : (
               <div className="table-shell overflow-x-auto">
                 <table className="data-table">
@@ -384,11 +384,11 @@ export function CreatorProfileView() {
                   <tbody>
                     {invites.map(invite => (
                       <tr key={invite.id}>
-                        <td className="text-xs text-gray-500">{new Date(invite.created_at).toLocaleDateString()}</td>
-                        <td className="text-gray-700">{invite.status ?? '-'}</td>
-                        <td className="text-gray-700">{invite.invite_code}</td>
-                        <td className="text-gray-700">{invite.creator_email ?? '-'}</td>
-                        <td className="text-gray-600">{invite.notes ?? '-'}</td>
+                        <td className="text-xs text-charcoal-2">{new Date(invite.created_at).toLocaleDateString()}</td>
+                        <td className="text-charcoal-2">{invite.status ?? '-'}</td>
+                        <td className="text-charcoal-2">{invite.invite_code}</td>
+                        <td className="text-charcoal-2">{invite.creator_email ?? '-'}</td>
+                        <td className="text-charcoal-2">{invite.notes ?? '-'}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -404,7 +404,7 @@ export function CreatorProfileView() {
               {scoreCards.map(([label, score]) => (
                 <div key={label} className="bg-surface-2 rounded-lg p-3 text-center">
                   <div className={`text-2xl font-bold ${scoreColorFor(label, score)}`}>{score}</div>
-                  <div className="text-xs text-gray-500 mt-1">{label}</div>
+                  <div className="text-xs text-charcoal-2 mt-1">{label}</div>
                 </div>
               ))}
             </div>
@@ -414,7 +414,7 @@ export function CreatorProfileView() {
             <h2 className="cockpit-section-title mb-4">Qualification</h2>
             <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
               <label className="block">
-                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Business Acumen</span>
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-charcoal-2">Business Acumen</span>
                 <input
                   type="number"
                   min={1}
@@ -426,7 +426,7 @@ export function CreatorProfileView() {
                 />
               </label>
               <label className="block">
-                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Coachability</span>
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-charcoal-2">Coachability</span>
                 <input
                   type="number"
                   min={1}
@@ -438,7 +438,7 @@ export function CreatorProfileView() {
                 />
               </label>
               <label className="block">
-                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Management Wraparound Potential</span>
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-charcoal-2">Management Wraparound Potential</span>
                 <select
                   value={profile.management_wraparound_potential ?? ''}
                   onChange={e => updateQualificationField('management_wraparound_potential', e.target.value ? e.target.value as ManagementWraparoundPotential : null)}
@@ -465,25 +465,25 @@ export function CreatorProfileView() {
               )}
             </div>
             {!latestDna ? (
-              <p className="text-sm text-gray-600">No DNA profile generated yet.</p>
+              <p className="text-sm text-charcoal-2">No DNA profile generated yet.</p>
             ) : (
               <div className="space-y-5">
-                <p className="text-sm text-gray-700">{latestDna.summary}</p>
+                <p className="text-sm text-charcoal-2">{latestDna.summary}</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="bg-surface-2 rounded-lg p-3">
-                    <div className="text-xs text-gray-500 mb-1">DNA</div>
-                    <div className="text-sm font-semibold text-gray-900">{latestDna.creator_dna_primary}</div>
-                    <div className="text-xs text-gray-500 mt-1">
+                    <div className="text-xs text-charcoal-2 mb-1">DNA</div>
+                    <div className="text-sm font-semibold text-charcoal">{latestDna.creator_dna_primary}</div>
+                    <div className="text-xs text-charcoal-2 mt-1">
                       Secondary: {latestDna.creator_dna_secondary} / {latestDna.confidence}% confidence
                     </div>
                   </div>
                   <div className="bg-surface-2 rounded-lg p-3">
-                    <div className="text-xs text-gray-500 mb-1">Archetype</div>
-                    <div className="text-sm font-semibold text-gray-900">{latestDna.fantasy_archetype}</div>
-                    <div className="text-xs text-gray-500 mt-1">{latestDna.archetype_confidence}% confidence</div>
+                    <div className="text-xs text-charcoal-2 mb-1">Archetype</div>
+                    <div className="text-sm font-semibold text-charcoal">{latestDna.fantasy_archetype}</div>
+                    <div className="text-xs text-charcoal-2 mt-1">{latestDna.archetype_confidence}% confidence</div>
                   </div>
                   <div className="bg-surface-2 rounded-lg p-3">
-                    <div className="text-xs text-gray-500 mb-1">Authenticity</div>
+                    <div className="text-xs text-charcoal-2 mb-1">Authenticity</div>
                     <div className={`text-sm font-semibold ${
                       latestDna.authenticity_band === 'High Authenticity'
                         ? 'text-success'
@@ -495,18 +495,18 @@ export function CreatorProfileView() {
                     </div>
                   </div>
                   <div className="bg-surface-2 rounded-lg p-3">
-                    <div className="text-xs text-gray-500 mb-1">Monetisation Readiness</div>
-                    <div className="text-sm font-semibold text-gray-900">{latestDna.monetisation_readiness}</div>
+                    <div className="text-xs text-charcoal-2 mb-1">Monetisation Readiness</div>
+                    <div className="text-sm font-semibold text-charcoal">{latestDna.monetisation_readiness}</div>
                   </div>
                   <div className="bg-surface-2 rounded-lg p-3">
-                    <div className="text-xs text-gray-500 mb-1">Agency Opportunity</div>
-                    <div className="text-sm font-semibold text-gray-900">{latestDna.agency_opportunity_score}/100</div>
+                    <div className="text-xs text-charcoal-2 mb-1">Agency Opportunity</div>
+                    <div className="text-sm font-semibold text-charcoal">{latestDna.agency_opportunity_score}/100</div>
                   </div>
                   <div className="bg-surface-2 rounded-lg p-3">
-                    <div className="text-xs text-gray-500 mb-2">Growth Constraints</div>
+                    <div className="text-xs text-charcoal-2 mb-2">Growth Constraints</div>
                     <div className="flex flex-wrap gap-1.5">
                       {latestDna.growth_constraints.map(constraint => (
-                        <span key={constraint} className="px-2 py-1 rounded-full bg-surface-3 text-xs text-gray-700">
+                        <span key={constraint} className="px-2 py-1 rounded-full bg-surface-3 text-xs text-charcoal">
                           {constraint}
                         </span>
                       ))}
@@ -518,7 +518,7 @@ export function CreatorProfileView() {
                     <div className="text-xs font-semibold text-warn mb-2">Inconsistency Flags</div>
                     <ul className="space-y-1">
                       {latestDna.authenticity_flags.map(flag => (
-                        <li key={flag} className="text-xs text-gray-700">{flag}</li>
+                        <li key={flag} className="text-xs text-charcoal-2">{flag}</li>
                       ))}
                     </ul>
                   </div>
@@ -531,7 +531,7 @@ export function CreatorProfileView() {
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 className="cockpit-section-title">Service Qualification</h2>
-                <p className="mt-1 text-xs text-gray-500">Service readiness is logged as signal events when changed.</p>
+                <p className="mt-1 text-xs text-charcoal-2">Service readiness is logged as signal events when changed.</p>
               </div>
             </div>
             <div className="table-shell overflow-x-auto">
@@ -567,7 +567,7 @@ export function CreatorProfileView() {
           <div className="cockpit-card-pad">
             <h2 className="cockpit-section-title mb-3">Reports ({reports.length})</h2>
             {reports.length === 0 ? (
-              <p className="text-sm text-gray-600">No reports yet.</p>
+              <p className="text-sm text-charcoal-2">No reports yet.</p>
             ) : (
               <div className="space-y-2">
                 {reports.map(r => (
@@ -579,8 +579,8 @@ export function CreatorProfileView() {
                     className="block bg-surface-2 rounded-lg px-4 py-3 hover:bg-surface-3 transition-colors"
                   >
                     <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-800">Report v{r.version}</span>
-                      <span className="text-xs text-gray-500">{new Date(r.created_at!).toLocaleDateString()}</span>
+                      <span className="text-sm text-charcoal">Report v{r.version}</span>
+                      <span className="text-xs text-charcoal-2">{new Date(r.created_at!).toLocaleDateString()}</span>
                     </div>
                   </a>
                 ))}
@@ -604,9 +604,9 @@ export function CreatorProfileView() {
               </div>
             </div>
             {assessments.length === 0 ? (
-              <p className="text-sm text-gray-600">No assessments yet.</p>
+              <p className="text-sm text-charcoal-2">No assessments yet.</p>
             ) : visibleAssessments.length === 0 ? (
-              <p className="text-sm text-gray-600">No assessments match the current filters.</p>
+              <p className="text-sm text-charcoal-2">No assessments match the current filters.</p>
             ) : (
               <div className="table-shell overflow-x-auto">
                 <table className="data-table">
@@ -623,11 +623,11 @@ export function CreatorProfileView() {
                   <tbody>
                     {visibleAssessments.map(a => (
                       <tr key={a.id}>
-                        <td className="text-xs text-gray-500">{new Date(a.created_at!).toLocaleDateString()}</td>
-                        <td className="text-gray-700">{a.agency_opportunity_score ?? '-'}</td>
-                        <td className="text-gray-700">{templateNameFor(a)}</td>
-                        <td className="text-gray-700">{a.invite_code ?? '-'}</td>
-                        <td className="text-gray-700">{a.creator_name ?? '-'}</td>
+                        <td className="text-xs text-charcoal-2">{new Date(a.created_at!).toLocaleDateString()}</td>
+                        <td className="text-charcoal-2">{a.agency_opportunity_score ?? '-'}</td>
+                        <td className="text-charcoal-2">{templateNameFor(a)}</td>
+                        <td className="text-charcoal-2">{a.invite_code ?? '-'}</td>
+                        <td className="text-charcoal-2">{a.creator_name ?? '-'}</td>
                         <td>
                           <Link
                             to={`/cockpit/creators/${profile.id}/intelligence?assessmentId=${a.id}`}
@@ -650,7 +650,7 @@ export function CreatorProfileView() {
           <div className="cockpit-card-pad">
             <h2 className="cockpit-section-title mb-3">Status Workflow</h2>
             <label className="block">
-              <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Creator Status</span>
+              <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-charcoal-2">Creator Status</span>
               <select
                 value={profile.status}
                 onChange={e => handleStatusChange(e.target.value as CreatorStatus)}
@@ -660,18 +660,18 @@ export function CreatorProfileView() {
                 {WORKFLOW_STATUSES.map(status => <option key={status} value={status}>{status}</option>)}
               </select>
             </label>
-            {statusLoading && <p className="mt-2 text-xs text-gray-500">Updating workflow...</p>}
+            {statusLoading && <p className="mt-2 text-xs text-charcoal-2">Updating workflow...</p>}
           </div>
 
           {/* Notes */}
           <div className="cockpit-card-pad">
             <h2 className="cockpit-section-title mb-3">Agency Notes</h2>
             <div className="space-y-2 mb-4 max-h-64 overflow-y-auto">
-              {notes.length === 0 && <p className="text-sm text-gray-600">No notes yet.</p>}
+              {notes.length === 0 && <p className="text-sm text-charcoal-2">No notes yet.</p>}
               {notes.map(n => (
                 <div key={n.id} className="bg-surface-2 rounded-lg px-3 py-2">
-                  <p className="text-sm text-gray-700">{n.note}</p>
-                  <p className="text-xs text-gray-600 mt-1">{new Date(n.created_at!).toLocaleString()}</p>
+                  <p className="text-sm text-charcoal-2">{n.note}</p>
+                  <p className="text-xs text-charcoal-2 mt-1">{new Date(n.created_at!).toLocaleString()}</p>
                 </div>
               ))}
             </div>
@@ -698,13 +698,13 @@ export function CreatorProfileView() {
           <div className="cockpit-card-pad">
             <h2 className="cockpit-section-title mb-3">Timeline</h2>
             <div className="space-y-3">
-              {events.length === 0 && <p className="text-sm text-gray-600">No events yet.</p>}
+              {events.length === 0 && <p className="text-sm text-charcoal-2">No events yet.</p>}
               {events.map(e => (
                 <div key={e.id} className="flex gap-3">
                   <div className="w-1.5 h-1.5 rounded-full bg-accent mt-2 shrink-0" />
                   <div>
-                    <p className="text-xs text-gray-600 capitalize">{e.event_type.replace(/_/g, ' ')}</p>
-                    <p className="text-xs text-gray-600">{new Date(e.created_at!).toLocaleString()}</p>
+                    <p className="text-xs text-charcoal-2 capitalize">{e.event_type.replace(/_/g, ' ')}</p>
+                    <p className="text-xs text-charcoal-2">{new Date(e.created_at!).toLocaleString()}</p>
                   </div>
                 </div>
               ))}

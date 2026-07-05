@@ -1,18 +1,18 @@
 @import 'tailwindcss';
 
 @theme {
-  --font-display: 'Inter', system-ui, sans-serif;
-  --font-sans: 'Inter', system-ui, sans-serif;
-  --color-surface: #151f32;
-  --color-surface-2: #0b1220;
-  --color-surface-3: #1b263b;
-  --color-accent: #f97316;
-  --color-accent-2: #ea580c;
-  --color-charcoal: #f8fafc;
-  --color-charcoal-2: #94a3b8;
-  --color-pink: #dc2626;
-  --color-success: #10b981;
-  --color-warn: #f59e0b;
+  --font-display: 'Georgia', 'Times New Roman', serif;
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --color-surface: #151515;
+  --color-surface-2: #000000;
+  --color-surface-3: #1f1d1d;
+  --color-accent: #e31f52;
+  --color-accent-2: #bc1a45;
+  --color-charcoal: #f5f2ef;
+  --color-charcoal-2: #6b6868;
+  --color-pink: #e31f52;
+  --color-success: #3ba99c;
+  --color-warn: #e7a83e;
 }
 
 html,
@@ -29,9 +29,33 @@ body {
 
 body {
   @apply bg-surface-2 text-charcoal font-sans antialiased;
-  background:
-    radial-gradient(circle at top left, rgba(249, 115, 22, 0.16), transparent 34rem),
-    linear-gradient(135deg, #0b1220 0%, #111827 52%, #0b1220 100%);
+  background-color: #000000;
+}
+
+.fyv-logo-mark {
+  image-rendering: auto;
+}
+
+.fyv-report-card {
+  border: 1px solid rgba(107, 104, 104, 0.28);
+  background-color: rgba(245, 242, 239, 0.92);
+  color: #000000;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.08);
+}
+
+.fyv-report-card-inset {
+  border: 1px solid rgba(107, 104, 104, 0.22);
+  background-color: rgba(255, 255, 255, 0.6);
+}
+
+.fyv-report-shell {
+  background-color: #f5f2ef;
+  color: #000000;
+}
+
+.fyv-public-shell {
+  background-color: #000000;
+  color: #f5f2ef;
 }
 
 button,
@@ -93,7 +117,7 @@ textarea:focus-visible {
   }
 
   .btn-primary {
-    @apply inline-flex min-h-10 items-center justify-center rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-orange-950/30 transition-colors hover:bg-accent-2 disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex min-h-10 items-center justify-center rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-black/25 transition-colors hover:bg-accent-2 disabled:cursor-not-allowed disabled:opacity-50;
   }
 
   .btn-secondary {
@@ -105,7 +129,7 @@ textarea:focus-visible {
   }
 
   .field-control {
-    @apply min-h-11 rounded-xl border border-white/10 bg-surface-3/80 px-4 py-2.5 text-sm text-charcoal transition-colors placeholder:text-slate-500 focus:border-accent/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/25 disabled:bg-white/5 disabled:opacity-70;
+    @apply min-h-11 rounded-xl border border-white/10 bg-surface-3/80 px-4 py-2.5 text-sm text-charcoal transition-colors placeholder:text-charcoal-2 focus:border-accent/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/25 disabled:bg-white/5 disabled:opacity-70;
   }
 
   .table-shell {
@@ -148,6 +172,27 @@ textarea:focus-visible {
     color: #94a3b8;
   }
 
+  .cockpit-page .text-red-700,
+  .cockpit-page .text-red-600,
+  .cockpit-page .text-red-500 {
+    color: #e31f52;
+  }
+
+  .cockpit-page .text-green-700,
+  .cockpit-page .text-green-600,
+  .cockpit-page .text-green-500 {
+    color: #3ba99c;
+  }
+
+  .cockpit-page .text-amber-700,
+  .cockpit-page .text-amber-600,
+  .cockpit-page .text-amber-500,
+  .cockpit-page .text-yellow-700,
+  .cockpit-page .text-yellow-600,
+  .cockpit-page .text-yellow-500 {
+    color: #e7a83e;
+  }
+
   .cockpit-page .bg-white,
   .cockpit-page .bg-gray-50,
   .cockpit-page .bg-gray-100,
@@ -155,10 +200,48 @@ textarea:focus-visible {
     background-color: rgba(255, 255, 255, 0.05);
   }
 
+  .cockpit-page .bg-red-50,
+  .cockpit-page .bg-red-100,
+  .cockpit-page .bg-red-200 {
+    background-color: rgba(227, 31, 82, 0.1);
+  }
+
+  .cockpit-page .bg-green-50,
+  .cockpit-page .bg-green-100,
+  .cockpit-page .bg-green-200 {
+    background-color: rgba(59, 169, 156, 0.1);
+  }
+
+  .cockpit-page .bg-amber-50,
+  .cockpit-page .bg-amber-100,
+  .cockpit-page .bg-amber-200,
+  .cockpit-page .bg-yellow-50,
+  .cockpit-page .bg-yellow-100,
+  .cockpit-page .bg-yellow-200 {
+    background-color: rgba(231, 168, 62, 0.1);
+  }
+
   .cockpit-page .border-gray-200,
   .cockpit-page .border-gray-100,
   .cockpit-page .border-gray-300 {
     border-color: rgba(255, 255, 255, 0.1);
+  }
+
+  .cockpit-page .border-red-200,
+  .cockpit-page .border-red-300 {
+    border-color: rgba(227, 31, 82, 0.28);
+  }
+
+  .cockpit-page .border-green-200,
+  .cockpit-page .border-green-300 {
+    border-color: rgba(59, 169, 156, 0.28);
+  }
+
+  .cockpit-page .border-amber-200,
+  .cockpit-page .border-amber-300,
+  .cockpit-page .border-yellow-200,
+  .cockpit-page .border-yellow-300 {
+    border-color: rgba(231, 168, 62, 0.28);
   }
 
   .cockpit-page .divide-gray-200 > :not([hidden]) ~ :not([hidden]) {
