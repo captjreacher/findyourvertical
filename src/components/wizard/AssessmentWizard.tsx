@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import brandLogo from '@/assets/find-your-vertical-logo.png';
+import brandLogo from '@/assets/fyv-brand-logo.png';
 import {
   getAssessmentInviteLink,
   getAssessmentTemplateBySlug,
@@ -553,7 +553,7 @@ function PublicBrandHeader({ eyebrow }: { eyebrow?: string }) {
       />
       {eyebrow && <p className="mt-5 text-xs font-semibold uppercase tracking-[0.18em] text-accent">{eyebrow}</p>}
       <h1 className="mt-3 font-display text-3xl font-bold text-charcoal">Find Your Vertical</h1>
-      <p className="mt-1 text-sm font-semibold text-charcoal-2">Modelling Creator Talent</p>
+      <p className="mt-1 text-sm font-semibold text-charcoal-2">Find the Creator in You</p>
     </div>
   );
 }
@@ -975,7 +975,7 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
   const renderDetailsStep = () => (
     <div className="mx-auto max-w-2xl space-y-6 animate-in">
       <div className="space-y-3">
-        <h2 className="font-display text-xl font-semibold">Find Your Vertical - Modelling Creator Talent</h2>
+        <h2 className="font-display text-xl font-semibold">Find Your Vertical - Find the Creator in You</h2>
         <p className="text-sm leading-6 text-charcoal-2">
           Find Your Vertical is designed to identify your strongest creator positioning, content opportunities, monetisation potential, and long-term growth paths.
         </p>

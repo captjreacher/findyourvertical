@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'rea
 import { useLocation } from 'react-router-dom';
 import { createCreatorInviteRequest } from '@/lib/creators-api';
 import { signInWithOtp, supabase } from '@/lib/supabase';
-import brandLogo from '@/assets/find-your-vertical-logo.png';
+import brandLogo from '@/assets/fyv-brand-logo.png';
 import type { Session } from '@supabase/supabase-js';
 
 type AuthMessageKind = 'success' | 'error';

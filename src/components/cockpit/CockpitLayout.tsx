@@ -1,6 +1,6 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { signOut } from '@/lib/supabase';
-import brandLogo from '@/assets/find-your-vertical-logo.png';
+import brandLogo from '@/assets/fyv-brand-logo.png';
 
 const NAV_ITEMS = [
   { label: 'Dashboard', to: '/cockpit', icon: 'D', end: true },
@@ -28,7 +28,7 @@ export function CockpitLayout() {
               className="fyv-logo-mark block h-auto w-full max-w-[208px] shrink-0 object-contain"
             />
             <p className="max-w-[208px] text-[12px] font-medium leading-snug tracking-[0.02em] text-charcoal-2">
-              Finding the Creator in you
+              Find the Creator in You
             </p>
           </div>
           <button
