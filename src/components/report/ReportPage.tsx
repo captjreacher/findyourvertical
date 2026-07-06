@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { getReportBySlug, requestStrategyDiscussion, trackAgencyCalendarClick, trackCreatorEvent } from '@/lib/creators-api';
-import { getCreatorCompletionCta } from '@/lib/fyv-completion';
-import type { CreatorCompletionNextAction, CreatorReport, ReportData } from '@/types/creator';
+import { getCreatorCompletionCta, getCreatorJourneyCtas } from '@/lib/fyv-completion';
+import type { CreatorPublicNextAction, CreatorReport, ReportData } from '@/types/creator';
 
 const AGENCY_PROMPT_COPY = 'Would you like to discuss what this result could mean for your creator growth?';
 
@@ -184,20 +184,24 @@ function SummaryList({ title, items }: { title: string; items: string[] }) {
   );
 }
 
-function CompletionCta({ action, profileId }: { action?: CreatorCompletionNextAction | null; profileId: string }) {
-  if (!action) return null;
-  const cta = getCreatorCompletionCta(action, profileId);
+function CreatorJourneyCta({ action }: { action: CreatorPublicNextAction }) {
+  const { primary, secondary } = getCreatorJourneyCtas(action);
 
   return (
     <section className="fyv-report-card rounded-xl border border-accent/30 bg-accent/10 p-5">
-      <p className="text-xs font-semibold uppercase tracking-wide text-accent">Recommended next step</p>
-      <h2 className={`${REPORT_HEADING_CLASS} mt-2 text-xl`}>{cta.label}</h2>
+      <p className="text-xs font-semibold uppercase tracking-wide text-accent">Continue Your Creator Journey</p>
+      <h2 className={`${REPORT_HEADING_CLASS} mt-2 text-xl`}>{primary.label}</h2>
       <p className="mt-2 text-sm leading-6 text-charcoal-2">
-        This action comes from the completion routing decision stored with your completed assessment.
+        Take the next step with creator services shaped around your result, or book a strategy call to talk it through.
       </p>
-      <a href={cta.href} className="mt-4 inline-flex rounded-lg bg-accent px-5 py-2.5 text-sm font-semibold text-white hover:bg-accent-2">
-        {cta.label}
-      </a>
+      <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+        <a href={primary.href} className="inline-flex rounded-lg bg-accent px-5 py-2.5 text-sm font-semibold text-white hover:bg-accent-2">
+          {primary.label}
+        </a>
+        <a href={secondary.href} className={`${REPORT_OUTLINE_BUTTON_CLASS} inline-flex`}>
+          {secondary.label}
+        </a>
+      </div>
     </section>
   );
 }
@@ -266,7 +270,14 @@ export function ReportPage() {
     Object.entries(d.scores).filter(([key]) => key !== 'agency_opportunity')
   ) as Record<string, number>;
   const guidance = buildGuidance(d, publicScores);
-  const completionAction = d.completion_routing?.recommended_next_action ?? null;
+  // Creator-facing action only. Never derived from `recommended_next_action`
+  // (internal routing). Legacy reports without `creator_next_action` fall back
+  // to the persisted consent/identity signals already stored on the router snapshot.
+  const creatorNextAction: CreatorPublicNextAction =
+    d.completion_routing?.creator_next_action
+    ?? (d.completion_routing?.consent && d.completion_routing?.identity_complete
+      ? 'explore_creator_services'
+      : 'book_strategy_call');
 
   const printSaveReport = async () => {
     const blob = createReportPdfBlob(d, publicScores, guidance);
@@ -440,7 +451,7 @@ export function ReportPage() {
             </button>
           </section>
 
-          <CompletionCta action={completionAction} profileId={report.creator_profile_id} />
+          <CreatorJourneyCta action={creatorNextAction} />
 
           <div className="border-t border-white/10 py-6">
             <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:justify-center">
@@ -697,7 +708,7 @@ export function ReportPage() {
           </div>
         </section>
 
-        <CompletionCta action={completionAction} profileId={report.creator_profile_id} />
+        <CreatorJourneyCta action={creatorNextAction} />
 
         {/* Report Actions */}
         <div className="border-t border-white/10 py-6">

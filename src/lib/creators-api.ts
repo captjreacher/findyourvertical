@@ -32,6 +32,7 @@ import { createCreatorIntelligenceResult } from './creator-intelligence';
 import {
   buildCreatorAssessmentCompletedPayload,
   determineCreatorCompletionNextAction,
+  determineCreatorPublicNextAction,
 } from './fyv-completion';
 
 // ── Assessment Submission (public) ──
@@ -677,10 +678,16 @@ export async function submitAssessment(
     reportData,
     completedAt,
   });
+  const creatorNextAction = determineCreatorPublicNextAction({
+    profile,
+    assessment,
+    reportData,
+  });
   const reportDataWithRouting: ReportData = {
     ...reportData,
     completion_routing: {
       recommended_next_action: recommendedNextAction,
+      creator_next_action: creatorNextAction,
       completed_at: completedAt,
       agency_interest: agencyInterest,
       consent: profile.consent_to_contact,
@@ -753,6 +760,7 @@ export async function submitAssessment(
     },
     completedAt,
     recommendedNextAction,
+    creatorNextAction,
   });
 
   const { error: outboxError } = await (supabase as any).from('events').insert({
