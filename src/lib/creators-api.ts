@@ -905,6 +905,26 @@ export async function trackAgencyCalendarClick(input: {
   if (profileError) throw new Error(`Failed to set follow-up flag: ${profileError.message}`);
 }
 
+export async function trackCreatorServicesClick(input: {
+  profileId: string;
+  reportSlug: string;
+}): Promise<void> {
+  const clickedAt = new Date().toISOString();
+  const details = {
+    report_slug: input.reportSlug,
+    funnel_step: 'creator_services_explore_clicked',
+    clicked_at: clickedAt,
+  };
+
+  const { error: eventError } = await supabase.from('creator_status_events').insert({
+    creator_profile_id: input.profileId,
+    event_type: 'creator_services.explore_clicked',
+    details,
+  });
+
+  if (eventError) throw new Error(`Failed to track creator services click: ${eventError.message}`);
+}
+
 export async function trackCreatorEvent(input: {
   profileId: string;
   eventType: string;
