@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { getReportBySlug, requestStrategyDiscussion, trackAgencyCalendarClick, trackCreatorEvent } from '@/lib/creators-api';
+import { getReportBySlug, requestStrategyDiscussion, trackAgencyCalendarClick, trackCreatorEvent, trackCreatorServicesClick } from '@/lib/creators-api';
 import { getCreatorCompletionCta, getCreatorJourneyCtas } from '@/lib/fyv-completion';
 import type { CreatorPublicNextAction, CreatorReport, ReportData } from '@/types/creator';
 
@@ -184,8 +184,14 @@ function SummaryList({ title, items }: { title: string; items: string[] }) {
   );
 }
 
-function CreatorJourneyCta({ action }: { action: CreatorPublicNextAction }) {
+function CreatorJourneyCta({ action, profileId, reportSlug }: { action: CreatorPublicNextAction; profileId: string; reportSlug: string }) {
   const { primary, secondary } = getCreatorJourneyCtas(action);
+
+  const handlePrimaryClick = () => {
+    // Best-effort tracking — navigation proceeds immediately regardless of DB outcome.
+    void trackCreatorServicesClick({ profileId, reportSlug }).catch(() => {});
+    window.location.href = primary.href;
+  };
 
   return (
     <section className="fyv-report-card rounded-xl border border-accent/30 bg-accent/10 p-5">
@@ -195,9 +201,9 @@ function CreatorJourneyCta({ action }: { action: CreatorPublicNextAction }) {
         Take the next step with creator services shaped around your result, or book a strategy call to talk it through.
       </p>
       <div className="mt-4 flex flex-col gap-3 sm:flex-row">
-        <a href={primary.href} className="inline-flex rounded-lg bg-accent px-5 py-2.5 text-sm font-semibold text-white hover:bg-accent-2">
+        <button onClick={handlePrimaryClick} className="inline-flex rounded-lg bg-accent px-5 py-2.5 text-sm font-semibold text-white hover:bg-accent-2">
           {primary.label}
-        </a>
+        </button>
         <a href={secondary.href} className={`${REPORT_OUTLINE_BUTTON_CLASS} inline-flex`}>
           {secondary.label}
         </a>
@@ -451,7 +457,7 @@ export function ReportPage() {
             </button>
           </section>
 
-          <CreatorJourneyCta action={creatorNextAction} />
+          <CreatorJourneyCta action={creatorNextAction} profileId={report.creator_profile_id} reportSlug={report.report_slug} />
 
           <div className="border-t border-white/10 py-6">
             <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:justify-center">
@@ -708,7 +714,7 @@ export function ReportPage() {
           </div>
         </section>
 
-        <CreatorJourneyCta action={creatorNextAction} />
+        <CreatorJourneyCta action={creatorNextAction} profileId={report.creator_profile_id} reportSlug={report.report_slug} />
 
         {/* Report Actions */}
         <div className="border-t border-white/10 py-6">
