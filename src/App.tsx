@@ -8,6 +8,8 @@ import {
 
 const AssessmentWizard = lazy(() => import('./components/wizard/AssessmentWizard').then(module => ({ default: module.AssessmentWizard })));
 const ReportPage = lazy(() => import('./components/report/ReportPage').then(module => ({ default: module.ReportPage })));
+const CreatorServicesPage = lazy(() => import('./components/report/CreatorServicesPage').then(module => ({ default: module.CreatorServicesPage })));
+const CreatorOnboardingPage = lazy(() => import('./components/report/CreatorOnboardingPage').then(module => ({ default: module.CreatorOnboardingPage })));
 const CockpitLayout = lazy(() => import('./components/cockpit/CockpitLayout').then(module => ({ default: module.CockpitLayout })));
 const CreatorPipeline = lazy(() => import('./components/cockpit/CreatorPipeline').then(module => ({ default: module.CreatorPipeline })));
 const CreatorAssessmentReview = lazy(() => import('./components/cockpit/CreatorAssessmentReview').then(module => ({ default: module.CreatorAssessmentReview })));
@@ -100,6 +102,8 @@ export default function App() {
           <Route path="/" element={<Navigate to="/cockpit" replace />} />
           <Route path="/a/:templateSlug" element={<AssessmentWizard />} />
           <Route path="/report/:slug" element={<ReportPage />} />
+          <Route path="/creator-services" element={<CreatorServicesPage />} />
+          <Route path="/creator-services/onboarding" element={<CreatorOnboardingPage />} />
 
           <Route path="/cockpit/*" element={<AuthGate><CockpitLayout /></AuthGate>}>
             <Route index element={<AgencyDashboard />} />
