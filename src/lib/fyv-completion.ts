@@ -4,6 +4,7 @@ import type {
   CreatorAssessmentInviteLink,
   CreatorCompletionNextAction,
   CreatorProfile,
+  CreatorPublicNextAction,
   CreatorReport,
   ReportData,
 } from '@/types/creator';
@@ -86,6 +87,32 @@ export function determineCreatorCompletionNextAction(input: {
   return 'book_strategy_call';
 }
 
+/**
+ * Derive the creator-facing next action.
+ *
+ * This is intentionally decoupled from `determineCreatorCompletionNextAction`
+ * (which is internal/operator routing). For this slice the creator-facing
+ * decision is coarse and never leaks internal states:
+ *   - valid completed assessment + consent + usable identity -> explore_creator_services
+ *   - otherwise (no report, missing consent, or unusable identity) -> book_strategy_call
+ */
+export function determineCreatorPublicNextAction(input: {
+  profile?: CreatorProfile | null;
+  assessment?: CreatorAssessment | null;
+  report?: CreatorReport | null;
+  reportData?: ReportData | null;
+}): CreatorPublicNextAction {
+  const reportData = input.reportData ?? reportDataFrom(input.report);
+  const consent = Boolean(input.profile?.consent_to_contact ?? input.assessment?.responses?.consent ?? input.assessment?.answers?.consent);
+  const identityComplete = profileIdentityComplete(input.profile, input.assessment);
+
+  if (!reportData || !consent || !identityComplete) {
+    return 'book_strategy_call';
+  }
+
+  return 'explore_creator_services';
+}
+
 function origin(): string {
   return typeof window !== 'undefined' ? window.location.origin : '';
 }
@@ -126,6 +153,36 @@ export function getCreatorCompletionCta(
   return ctaByAction[nextAction];
 }
 
+/**
+ * Creator-facing CTAs for the "Continue Your Creator Journey" report section.
+ *
+ * The section always offers both a primary and a secondary action; the
+ * `creator_next_action` value only decides which one leads. The primary
+ * "Explore Creator Services" destination is config-driven via
+ * VITE_FYV_CREATOR_SERVICES_URL. Until that is set (e.g. once FMF is wired) it
+ * falls back to the existing strategy-call URL, so the button never dead-ends
+ * and no downstream (FMF) internal is hard-coded here.
+ */
+export function getCreatorJourneyCtas(
+  creatorNextAction: CreatorPublicNextAction
+): { primary: { label: string; href: string }; secondary: { label: string; href: string } } {
+  const strategyHref = configuredUrl('VITE_FYV_STRATEGY_CALL_URL', DEFAULT_STRATEGY_CALL_URL);
+  const exploreServices = {
+    label: 'Explore Creator Services',
+    href: configuredUrl('VITE_FYV_CREATOR_SERVICES_URL', strategyHref),
+  };
+  const bookStrategyCall = {
+    label: 'Book Strategy Call',
+    href: strategyHref,
+  };
+
+  if (creatorNextAction === 'book_strategy_call') {
+    return { primary: bookStrategyCall, secondary: exploreServices };
+  }
+
+  return { primary: exploreServices, secondary: bookStrategyCall };
+}
+
 export function buildCreatorAssessmentCompletedPayload(input: {
   profile: CreatorProfile;
   invite?: Pick<CreatorAssessmentInviteLink, 'id' | 'invite_code' | 'status' | 'creator_name' | 'creator_email'> | null;
@@ -133,6 +190,7 @@ export function buildCreatorAssessmentCompletedPayload(input: {
   report: CreatorReport;
   completedAt: string;
   recommendedNextAction: CreatorCompletionNextAction;
+  creatorNextAction: CreatorPublicNextAction;
 }): Record<string, unknown> {
   const reportData = reportDataFrom(input.report);
   const agencyScore = getAgencyScore(input.profile, input.assessment, reportData);
@@ -178,5 +236,6 @@ export function buildCreatorAssessmentCompletedPayload(input: {
     agency_score: agencyScore,
     completed_at: input.completedAt,
     recommended_next_action: input.recommendedNextAction,
+    creator_next_action: input.creatorNextAction,
   };
 }

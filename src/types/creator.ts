@@ -287,6 +287,15 @@ export type CreatorCompletionNextAction =
   | 'qualify_opportunity'
   | 'book_strategy_call'
   | 'manual_review';
+/**
+ * Creator-facing next action. Deliberately coarse and safe to show publicly:
+ * it never exposes internal operator routing such as `qualify_opportunity`.
+ * `recommended_next_action` drives internal/downstream consumption (FYV Cockpit,
+ * MGRNZ, future Hermes/FMF); `creator_next_action` drives the public report CTA.
+ */
+export type CreatorPublicNextAction =
+  | 'explore_creator_services'
+  | 'book_strategy_call';
 export type PremiumReportStatus = 'not_started' | 'available' | 'purchased' | 'delivered';
 export type ResultConfidenceLabel = 'Low' | 'Moderate' | 'High';
 export type ReportTier = 'free' | 'premium' | 'agency';
@@ -460,7 +469,10 @@ export interface ReportData {
     opportunity_notes: string[];
   };
   completion_routing?: {
+    /** Internal operator / downstream routing. NOT for creator-facing surfaces. */
     recommended_next_action: CreatorCompletionNextAction;
+    /** Creator-facing CTA driver. Safe to render publicly. */
+    creator_next_action: CreatorPublicNextAction;
     completed_at: string;
     agency_interest: boolean;
     consent: boolean;
