@@ -79,7 +79,18 @@ export function CreatorPipeline() {
                   <td className="text-xs text-charcoal-2">
                     {p.last_activity_at ? new Date(p.last_activity_at).toLocaleDateString() : '-'}
                   </td>
-                  <td className="text-charcoal">{p.next_action}</td>
+                  <td className="text-charcoal">
+                    {p.next_action === 'Review report' || p.next_action === 'Qualify opportunity' ? (
+                      <Link
+                        to={`/cockpit/creators/${p.id}/review`}
+                        className="font-medium text-accent transition-colors hover:text-accent-2 hover:underline"
+                      >
+                        {p.next_action}
+                      </Link>
+                    ) : (
+                      p.next_action
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>

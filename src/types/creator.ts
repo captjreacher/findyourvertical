@@ -282,6 +282,11 @@ export type AuthenticityBand = 'High Authenticity' | 'Moderate Authenticity' | '
 export type MonetisationReadiness = 'Low' | 'Developing' | 'Ready' | 'Advanced';
 export type AgencyOpportunityBand = 'High Priority' | 'Qualified' | 'Needs Development' | 'Not Suitable Yet';
 export type AgencyPriority = 'low' | 'medium' | 'high';
+export type CreatorCompletionNextAction =
+  | 'onboard_to_creator_cockpit'
+  | 'qualify_opportunity'
+  | 'book_strategy_call'
+  | 'manual_review';
 export type PremiumReportStatus = 'not_started' | 'available' | 'purchased' | 'delivered';
 export type ResultConfidenceLabel = 'Low' | 'Moderate' | 'High';
 export type ReportTier = 'free' | 'premium' | 'agency';
@@ -453,6 +458,14 @@ export interface ReportData {
     management_fit_summary: string;
     risk_notes: string[];
     opportunity_notes: string[];
+  };
+  completion_routing?: {
+    recommended_next_action: CreatorCompletionNextAction;
+    completed_at: string;
+    agency_interest: boolean;
+    consent: boolean;
+    identity_complete: boolean;
+    conflict: boolean;
   };
   report_tier: ReportTier;
   free_report_summary: string;

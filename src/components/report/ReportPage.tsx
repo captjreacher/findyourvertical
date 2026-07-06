@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { getReportBySlug, requestStrategyDiscussion, trackAgencyCalendarClick, trackCreatorEvent } from '@/lib/creators-api';
-import type { CreatorReport, ReportData } from '@/types/creator';
+import { getCreatorCompletionCta } from '@/lib/fyv-completion';
+import type { CreatorCompletionNextAction, CreatorReport, ReportData } from '@/types/creator';
 
-const CALENDLY_URL = 'https://calendly.com/mikegrobinson/20-min';
 const AGENCY_PROMPT_COPY = 'Would you like to discuss what this result could mean for your creator growth?';
 
 type ReportAction = 'print_save' | 'email' | 'share' | 'discuss';
@@ -184,6 +184,24 @@ function SummaryList({ title, items }: { title: string; items: string[] }) {
   );
 }
 
+function CompletionCta({ action, profileId }: { action?: CreatorCompletionNextAction | null; profileId: string }) {
+  if (!action) return null;
+  const cta = getCreatorCompletionCta(action, profileId);
+
+  return (
+    <section className="fyv-report-card rounded-xl border border-accent/30 bg-accent/10 p-5">
+      <p className="text-xs font-semibold uppercase tracking-wide text-accent">Recommended next step</p>
+      <h2 className={`${REPORT_HEADING_CLASS} mt-2 text-xl`}>{cta.label}</h2>
+      <p className="mt-2 text-sm leading-6 text-charcoal-2">
+        This action comes from the completion routing decision stored with your completed assessment.
+      </p>
+      <a href={cta.href} className="mt-4 inline-flex rounded-lg bg-accent px-5 py-2.5 text-sm font-semibold text-white hover:bg-accent-2">
+        {cta.label}
+      </a>
+    </section>
+  );
+}
+
 export function ReportPage() {
   const { slug } = useParams<{ slug: string }>();
   const [report, setReport] = useState<CreatorReport | null>(null);
@@ -248,6 +266,7 @@ export function ReportPage() {
     Object.entries(d.scores).filter(([key]) => key !== 'agency_opportunity')
   ) as Record<string, number>;
   const guidance = buildGuidance(d, publicScores);
+  const completionAction = d.completion_routing?.recommended_next_action ?? null;
 
   const printSaveReport = async () => {
     const blob = createReportPdfBlob(d, publicScores, guidance);
@@ -358,7 +377,7 @@ export function ReportPage() {
       });
       window.sessionStorage.setItem(`agencyPrompt:${slug}`, 'yes');
       setAgencyAnswer('yes');
-      window.location.href = CALENDLY_URL;
+      window.location.href = getCreatorCompletionCta('book_strategy_call', report.creator_profile_id).href;
     } catch (e) {
       setActionError(e instanceof Error ? e.message : 'Something went wrong');
       setPromptWorking(false);
@@ -420,6 +439,8 @@ export function ReportPage() {
               Discuss My Full Report
             </button>
           </section>
+
+          <CompletionCta action={completionAction} profileId={report.creator_profile_id} />
 
           <div className="border-t border-white/10 py-6">
             <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:justify-center">
@@ -675,6 +696,8 @@ export function ReportPage() {
             </button>
           </div>
         </section>
+
+        <CompletionCta action={completionAction} profileId={report.creator_profile_id} />
 
         {/* Report Actions */}
         <div className="border-t border-white/10 py-6">

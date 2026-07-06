@@ -29,6 +29,10 @@ import type {
 } from '@/types/creator';
 import { scoreAssessment, generateReportSlug } from './scoring';
 import { createCreatorIntelligenceResult } from './creator-intelligence';
+import {
+  buildCreatorAssessmentCompletedPayload,
+  determineCreatorCompletionNextAction,
+} from './fyv-completion';
 
 // ── Assessment Submission (public) ──
 
@@ -39,7 +43,10 @@ type TemplateQuestionRow = CreatorAssessmentTemplateQuestion & {
 type TemplateQuestionJoinRow = Omit<CreatorAssessmentTemplateQuestion, 'question'>;
 type TemplateItemRow = Omit<CreatorAssessmentTemplateItem, 'question'>;
 type BranchRuleRow = CreatorAssessmentBranchRule;
-type AssessmentInviteContext = Pick<CreatorAssessmentInviteLink, 'id' | 'invite_code' | 'creator_name' | 'report_tier'>;
+type AssessmentInviteContext = Pick<
+  CreatorAssessmentInviteLink,
+  'id' | 'invite_code' | 'creator_name' | 'creator_email' | 'status' | 'report_tier'
+>;
 
 type AssessmentInviteCreatorInput = {
   creatorProfileId?: string | null;
@@ -661,16 +668,39 @@ export async function submitAssessment(
 
   // 5. Create report as a presentation view over Creator DNA
   const reportData: ReportData = intelligence.report;
+  const completedAt = new Date().toISOString();
+  const agencyInterest = Boolean(profile.status === 'Interested' || reportData.agency_recommendation.agency_priority === 'high');
+  const recommendedNextAction = determineCreatorCompletionNextAction({
+    profile,
+    assessment,
+    invite,
+    reportData,
+    completedAt,
+  });
+  const reportDataWithRouting: ReportData = {
+    ...reportData,
+    completion_routing: {
+      recommended_next_action: recommendedNextAction,
+      completed_at: completedAt,
+      agency_interest: agencyInterest,
+      consent: profile.consent_to_contact,
+      identity_complete: Boolean(profile.full_name && profile.email && profile.country),
+      conflict: Boolean(
+        reportData.creator_dna_profile?.authenticity_band === 'Potential Conflict'
+        || (reportData.internal_agency_scores.brand_risk ?? 0) >= 70
+      ),
+    },
+  };
 
   const { data: report, error: reportErr } = await supabase
     .from('creator_reports')
     .insert({
       creator_profile_id: profileId,
       report_slug: slug,
-      report_json: reportData,
-      report_tier: reportData.report_tier,
-      premium_report_available: reportData.premium_report_available,
-      premium_report_generated: reportData.premium_report_generated,
+      report_json: reportDataWithRouting,
+      report_tier: reportDataWithRouting.report_tier,
+      premium_report_available: reportDataWithRouting.premium_report_available,
+      premium_report_generated: reportDataWithRouting.premium_report_generated,
       version: '1.0',
     })
     .select()
@@ -684,19 +714,59 @@ export async function submitAssessment(
     .update({
       latest_assessment_id: assessment.id,
       latest_report_id: report.id,
-      archetype: reportData.archetype,
-      creator_dna_score: reportData.scores.creator_dna,
-      brand_clarity_score: reportData.scores.brand_clarity,
-      monetisation_score: reportData.scores.monetisation,
-      consistency_score: reportData.scores.consistency,
-      agency_opportunity_score: reportData.scores.agency_opportunity,
-      management_readiness: reportData.management_readiness,
-      recommended_pricing_model: reportData.pricing_strategy,
-      top_vertical_1: reportData.top_verticals[0]?.name ?? null,
-      top_vertical_2: reportData.top_verticals[1]?.name ?? null,
-      top_vertical_3: reportData.top_verticals[2]?.name ?? null,
+      archetype: reportDataWithRouting.archetype,
+      creator_dna_score: reportDataWithRouting.scores.creator_dna,
+      brand_clarity_score: reportDataWithRouting.scores.brand_clarity,
+      monetisation_score: reportDataWithRouting.scores.monetisation,
+      consistency_score: reportDataWithRouting.scores.consistency,
+      agency_opportunity_score: reportDataWithRouting.scores.agency_opportunity,
+      management_readiness: reportDataWithRouting.management_readiness,
+      recommended_pricing_model: reportDataWithRouting.pricing_strategy,
+      top_vertical_1: reportDataWithRouting.top_verticals[0]?.name ?? null,
+      top_vertical_2: reportDataWithRouting.top_verticals[1]?.name ?? null,
+      top_vertical_3: reportDataWithRouting.top_verticals[2]?.name ?? null,
     })
     .eq('id', profileId);
+
+  const completionPayload = buildCreatorAssessmentCompletedPayload({
+    profile: {
+      ...profile,
+      latest_assessment_id: assessment.id,
+      latest_report_id: report.id,
+      archetype: reportDataWithRouting.archetype,
+      creator_dna_score: reportDataWithRouting.scores.creator_dna,
+      brand_clarity_score: reportDataWithRouting.scores.brand_clarity,
+      monetisation_score: reportDataWithRouting.scores.monetisation,
+      consistency_score: reportDataWithRouting.scores.consistency,
+      agency_opportunity_score: reportDataWithRouting.scores.agency_opportunity,
+      management_readiness: reportDataWithRouting.management_readiness,
+      recommended_pricing_model: reportDataWithRouting.pricing_strategy,
+      top_vertical_1: reportDataWithRouting.top_verticals[0]?.name ?? null,
+      top_vertical_2: reportDataWithRouting.top_verticals[1]?.name ?? null,
+      top_vertical_3: reportDataWithRouting.top_verticals[2]?.name ?? null,
+    },
+    invite,
+    assessment,
+    report: {
+      ...report,
+      report_json: reportDataWithRouting,
+    },
+    completedAt,
+    recommendedNextAction,
+  });
+
+  const { error: outboxError } = await (supabase as any).from('events').insert({
+    source_system: 'findyourvertical',
+    event_type: 'creator.assessment.completed',
+    entity_type: 'creator_profile',
+    entity_id: profileId,
+    entity_ref: `creator_profile:${profileId}`,
+    status: 'pending',
+    delivery_status: 'pending',
+    payload: completionPayload,
+  });
+
+  if (outboxError) throw new Error(`Failed to write FYV completion outbox event: ${outboxError.message}`);
 
   const eventDetails = {
     assessment_id: assessment.id,
