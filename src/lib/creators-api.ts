@@ -763,16 +763,15 @@ export async function submitAssessment(
     creatorNextAction,
   });
 
-  const { error: outboxError } = await (supabase as any).from('events').insert({
-    source_system: 'findyourvertical',
-    event_type: 'creator.assessment.completed',
-    entity_type: 'creator_profile',
-    entity_id: profileId,
-    entity_ref: `creator_profile:${profileId}`,
-    status: 'pending',
-    delivery_status: 'pending',
-    payload: completionPayload,
-  });
+const { error: outboxError } = await (supabase as any).from('events').insert({
+  source_system: 'findyourvertical',
+  event_type: 'creator.assessment.completed',
+  entity_type: 'creator_profile',
+  entity_id: profileId,
+  entity_ref: `creator_profile:${profileId}`,
+  status: 'pending',
+  payload: completionPayload,
+});
 
   if (outboxError) throw new Error(`Failed to write FYV completion outbox event: ${outboxError.message}`);
 
