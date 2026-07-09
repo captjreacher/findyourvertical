@@ -39,17 +39,12 @@ const TAB_COMPONENTS: Record<TabId, React.FC> = {
   timeline: TimelineTab,
 };
 
-function isTabId(value: string | null): value is TabId {
-  return Boolean(value && COCKPIT_TABS.some(tab => tab.id === value));
-}
-
 export function CreatorIntelligence() {
   const { profileId } = useParams<{ profileId: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
-  const requestedTab = searchParams.get('tab');
-  const [tab, setTab] = useState<TabId>(isTabId(requestedTab) ? requestedTab : 'responses');
+  const [tab, setTab] = useState<TabId>('overview');
 
   // ── data loading ──
   const [profile, setProfile] = useState<CreatorIntelligenceResult | null>(null);
@@ -121,19 +116,18 @@ export function CreatorIntelligence() {
     if (!intelligence || !previewTier) return null;
     try {
       const legacy = scoreAssessment(selectedAssessment!.responses);
-      return buildReportFromCreatorDna({
-        legacy,
-        dnaProfile: intelligence.creator_dna,
-        evidence: intelligence.evidence,
-        traits: intelligence.traits,
-        confidence: intelligence.confidence,
-        reportTier: previewTier,
-      });
+return buildReportFromCreatorDna({
+  legacy,
+  dnaProfile: intelligence.creator_dna,
+  evidence: intelligence.evidence,
+  traits: intelligence.traits,
+  confidence: intelligence.confidence,
+  reportTier: previewTier,
+});
     } catch {
       return null;
     }
   }, [intelligence, previewTier, selectedAssessment]);
-
   const ctxValue = useMemo(
     () => ({
       profile: profile as any,
@@ -153,6 +147,7 @@ export function CreatorIntelligence() {
     [profile, assessments, dnaProfiles, reports, notes, events,
       selectedAssessment, intelligence, storedReport, previewTier, tierReport],
   );
+  
 
   // ── render states ──
 
