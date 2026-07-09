@@ -74,7 +74,7 @@ left join public.local_business_lead_assessments a on a.lead_id = l.id
 left join lateral (
   select event_type, created_at
   from public.events
-  where entity_id = l.id::text
+  where entity_id = l.id
     and entity_type in ('local_business', 'lead')
   order by created_at desc
   limit 1
