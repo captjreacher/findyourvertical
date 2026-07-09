@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
 import { createCreatorInviteRequest } from '@/lib/creators-api';
-import { signInWithOtp, supabase } from '@/lib/supabase';
+import { checkIsAgency, signInWithOtp, signOut, supabase } from '@/lib/supabase';
 import brandLogo from '@/assets/fyv-brand-logo.png';
 import type { Session } from '@supabase/supabase-js';
 
@@ -20,6 +20,9 @@ export function AuthGate({ children }: { children: ReactNode }) {
   const location = useLocation();
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  // Cockpit is agency-only. A valid session is necessary but NOT sufficient:
+  // the user must also be in the agency allowlist (is_agency()).
+  const [agencyStatus, setAgencyStatus] = useState<'checking' | 'agency' | 'denied' | 'error'>('checking');
   const [email, setEmail] = useState('');
   const [sending, setSending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -41,6 +44,19 @@ export function AuthGate({ children }: { children: ReactNode }) {
     });
     return () => subscription.unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (!session) {
+      setAgencyStatus('checking');
+      return;
+    }
+    let active = true;
+    setAgencyStatus('checking');
+    checkIsAgency()
+      .then(ok => { if (active) setAgencyStatus(ok ? 'agency' : 'denied'); })
+      .catch(() => { if (active) setAgencyStatus('error'); });
+    return () => { active = false; };
+  }, [session]);
 
   const handleLogin = async (e: FormEvent) => {
     e.preventDefault();
@@ -238,6 +254,43 @@ export function AuthGate({ children }: { children: ReactNode }) {
             </div>
           </section>
         </main>
+      </div>
+    );
+  }
+
+  if (agencyStatus === 'checking') {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-surface-2">
+        <div className="animate-pulse text-charcoal-2">Checking access…</div>
+      </div>
+    );
+  }
+
+  if (agencyStatus === 'denied') {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-surface-2 px-4">
+        <div className="w-full max-w-md rounded-3xl border border-white/10 bg-surface/92 p-6 text-center shadow-2xl shadow-black/25">
+          <h1 className="text-xl font-bold text-charcoal">This area is for agency operators</h1>
+          <p className="mt-2 text-sm text-charcoal-2">
+            Your account doesn't have cockpit access. If you're a creator, head to your own area.
+          </p>
+          <div className="mt-4 flex flex-col gap-2">
+            <a href="#/my" className="btn-primary w-full">Go to My Vertical</a>
+            <button onClick={() => void signOut()} className="btn-secondary w-full">Sign out</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (agencyStatus === 'error') {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-surface-2 px-4">
+        <div className="w-full max-w-md rounded-3xl border border-pink/30 bg-surface/92 p-6 text-center shadow-2xl shadow-black/25">
+          <h1 className="text-xl font-bold text-charcoal">We couldn't verify your access</h1>
+          <p className="mt-2 text-sm text-charcoal-2">Please try again in a moment.</p>
+          <button onClick={() => window.location.reload()} className="btn-primary mt-4 w-full">Retry</button>
+        </div>
       </div>
     );
   }

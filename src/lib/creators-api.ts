@@ -1,4 +1,5 @@
-import { supabase } from './supabase';
+import { supabase, publicSupabase } from './supabase';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
   CreatorProfile,
   CreatorAssessment,
@@ -159,6 +160,9 @@ async function findExistingCreatorProfile(
   email: string | null,
   onlyfansHandle: string | null
 ): Promise<CreatorProfile | null> {
+  // Public assessment flow: read as `anon` (behaves the same whether or not a
+  // creator is logged in). See publicSupabase docs in ./supabase.
+  const supabase = publicSupabase;
   const filters = [
     email ? `email.eq.${email}` : null,
     onlyfansHandle ? `onlyfans_handle.eq.${onlyfansHandle}` : null,
@@ -178,6 +182,8 @@ async function findExistingCreatorProfile(
 }
 
 async function upsertCreatorProfile(payload: CreatorProfileUpsertPayload): Promise<CreatorProfile> {
+  // Public assessment flow: write as `anon` (never sets auth_user_id).
+  const supabase = publicSupabase;
   const existing = await findExistingCreatorProfile(payload.email, payload.onlyfans_handle);
 
   if (existing) {
@@ -350,10 +356,10 @@ function flattenTemplate(
   };
 }
 
-async function loadBranchRuleRows(templateIds: string[]): Promise<BranchRuleRow[]> {
+async function loadBranchRuleRows(templateIds: string[], client: SupabaseClient = supabase): Promise<BranchRuleRow[]> {
   if (templateIds.length === 0) return [];
 
-  const { data, error } = await (supabase as any)
+  const { data, error } = await (client as any)
     .from('creator_assessment_branch_rules')
     .select('*')
     .in('template_id', templateIds);
@@ -373,10 +379,10 @@ async function loadBranchRuleRows(templateIds: string[]): Promise<BranchRuleRow[
   return (data ?? []) as BranchRuleRow[];
 }
 
-async function loadTemplateQuestionRows(templateIds: string[]): Promise<TemplateQuestionRow[]> {
+async function loadTemplateQuestionRows(templateIds: string[], client: SupabaseClient = supabase): Promise<TemplateQuestionRow[]> {
   if (templateIds.length === 0) return [];
 
-  const { data: joinRows, error: joinError } = await supabase
+  const { data: joinRows, error: joinError } = await client
     .from('creator_assessment_template_questions')
     .select('template_id,question_id,is_included,sort_order,created_at,updated_at')
     .in('template_id', templateIds);
@@ -385,7 +391,7 @@ async function loadTemplateQuestionRows(templateIds: string[]): Promise<Template
 
   const questionIds = [...new Set(((joinRows ?? []) as TemplateQuestionJoinRow[]).map(row => row.question_id))];
   const { data: questionRows, error: questionError } = questionIds.length > 0
-    ? await supabase.from('creator_question_bank').select('*').in('id', questionIds)
+    ? await client.from('creator_question_bank').select('*').in('id', questionIds)
     : { data: [], error: null };
 
   if (questionError) throw new Error(`Failed to load template question bank rows: ${questionError.message}`);
@@ -397,10 +403,10 @@ async function loadTemplateQuestionRows(templateIds: string[]): Promise<Template
   }));
 }
 
-async function loadTemplateItemRows(templateIds: string[]): Promise<TemplateItemRow[]> {
+async function loadTemplateItemRows(templateIds: string[], client: SupabaseClient = supabase): Promise<TemplateItemRow[]> {
   if (templateIds.length === 0) return [];
 
-  const { data, error } = await (supabase as any)
+  const { data, error } = await (client as any)
     .from('creator_assessment_template_items')
     .select('id,template_id,item_type,question_id,title,description,is_included,sort_order,created_at,updated_at')
     .in('template_id', templateIds);
@@ -421,7 +427,7 @@ async function loadTemplateItemRows(templateIds: string[]): Promise<TemplateItem
 }
 
 export async function getDefaultAssessmentTemplate(): Promise<CreatorAssessmentRuntimeTemplate | null> {
-  const { data, error } = await supabase
+  const { data, error } = await publicSupabase
     .from('creator_assessment_templates')
     .select('*')
     .eq('is_default', true)
@@ -433,9 +439,9 @@ export async function getDefaultAssessmentTemplate(): Promise<CreatorAssessmentR
 
   const template = data as CreatorAssessmentTemplate;
   const [questionRows, itemRows, branchRuleRows] = await Promise.all([
-    loadTemplateQuestionRows([template.id]),
-    loadTemplateItemRows([template.id]),
-    loadBranchRuleRows([template.id]),
+    loadTemplateQuestionRows([template.id], publicSupabase),
+    loadTemplateItemRows([template.id], publicSupabase),
+    loadBranchRuleRows([template.id], publicSupabase),
   ]);
 
   return flattenTemplate(template, questionRows, itemRows, branchRuleRows);
@@ -443,7 +449,7 @@ export async function getDefaultAssessmentTemplate(): Promise<CreatorAssessmentR
 
 export async function getAssessmentTemplateBySlug(slug: string): Promise<CreatorAssessmentRuntimeTemplate | null> {
   const normalizedSlug = slugify(slug);
-  const { data, error } = await (supabase as any)
+  const { data, error } = await (publicSupabase as any)
     .from('creator_assessment_templates')
     .select('*')
     .eq('slug', normalizedSlug)
@@ -456,15 +462,17 @@ export async function getAssessmentTemplateBySlug(slug: string): Promise<Creator
 
   const template = data as CreatorAssessmentTemplate;
   const [questionRows, itemRows, branchRuleRows] = await Promise.all([
-    loadTemplateQuestionRows([template.id]),
-    loadTemplateItemRows([template.id]),
-    loadBranchRuleRows([template.id]),
+    loadTemplateQuestionRows([template.id], publicSupabase),
+    loadTemplateItemRows([template.id], publicSupabase),
+    loadBranchRuleRows([template.id], publicSupabase),
   ]);
 
   return flattenTemplate(template, questionRows, itemRows, branchRuleRows);
 }
 
 export async function getAssessmentInviteLink(inviteCode: string): Promise<CreatorAssessmentInviteLink | null> {
+  // Public assessment flow: resolve invite via the anon client.
+  const supabase = publicSupabase;
   const code = inviteCode.trim();
   if (!code) return null;
 
@@ -504,6 +512,8 @@ export async function setAssessmentInviteStatus(
   inviteCode: string | null | undefined,
   status: 'Opened' | 'Email Verified' | 'Started' | 'Completed'
 ): Promise<void> {
+  // Public assessment flow: update invite status via the anon client.
+  const supabase = publicSupabase;
   const code = inviteCode?.trim();
   if (!code) return;
 
@@ -559,6 +569,11 @@ export async function submitAssessment(
   report: CreatorReport;
   dnaProfile: CreatorDnaProfile;
 }> {
+  // Public assessment completion: the entire write path (assessment RPC, report,
+  // DNA, profile pointers, status events, completion outbox) must run as `anon`
+  // — the events outbox insert policy is anon-only. Force the anonymous client
+  // so a logged-in creator's retake behaves exactly like a public submission.
+  const supabase = publicSupabase;
   // 1. Score the assessment
   if (responses.audience_target === null) {
     throw new Error('Audience target is required');
@@ -827,6 +842,8 @@ export async function requestStrategyDiscussion(input: {
   reportSlug: string;
   notes?: string;
 }): Promise<void> {
+  // Creator-facing engagement: write as `anon` (report page + /my).
+  const supabase = publicSupabase;
   const requestedAt = new Date().toISOString();
   const details = {
     report_slug: input.reportSlug,
@@ -869,6 +886,8 @@ export async function trackAgencyCalendarClick(input: {
   profileId: string;
   reportSlug: string;
 }): Promise<void> {
+  // Creator-facing engagement: write as `anon` (report page + /my).
+  const supabase = publicSupabase;
   const clickedAt = new Date().toISOString();
   const details = {
     report_slug: input.reportSlug,
@@ -908,6 +927,8 @@ export async function trackCreatorServicesClick(input: {
   profileId: string;
   reportSlug: string;
 }): Promise<void> {
+  // Creator-facing engagement: write as `anon` (report page + /my).
+  const supabase = publicSupabase;
   const clickedAt = new Date().toISOString();
   const details = {
     report_slug: input.reportSlug,
@@ -929,6 +950,8 @@ export async function trackCreatorEvent(input: {
   eventType: string;
   details?: Record<string, unknown>;
 }): Promise<void> {
+  // Creator-facing engagement: write as `anon` (report page + /my).
+  const supabase = publicSupabase;
   const { error } = await supabase.from('creator_status_events').insert({
     creator_profile_id: input.profileId,
     event_type: input.eventType,
@@ -944,6 +967,8 @@ export async function confirmStrategyMeetingBooked(input: {
   bookingTimestamp?: string;
   calendlyEventUri?: string;
 }): Promise<void> {
+  // Creator-facing engagement: write as `anon` (report page + /my).
+  const supabase = publicSupabase;
   const bookedAt = input.bookingTimestamp ?? new Date().toISOString();
   const details = {
     report_slug: normalizeNullableText(input.reportSlug),
@@ -990,12 +1015,52 @@ export async function getCreatorProfile(profileId: string): Promise<CreatorProfi
 }
 
 export async function getReportBySlug(slug: string): Promise<CreatorReport | null> {
+  // Public report page: always read via the anonymous client (shareable by slug,
+  // no auth required, no regression for public visitors or logged-in creators).
+  const supabase = publicSupabase;
   const { data } = await supabase
     .from('creator_reports')
     .select()
     .eq('report_slug', slug)
     .single();
   return data as CreatorReport | null;
+}
+
+// ── Creator self-service (authenticated /my) ─────────────────────────────────
+// These deliberately use the primary (authenticated) client so row-level
+// security resolves via auth.uid(): a creator sees only their own records.
+
+/** Resolve the authenticated creator's own profile (null if not linked yet). */
+export async function getMyCreatorProfile(authUserId: string): Promise<CreatorProfile | null> {
+  const { data, error } = await supabase
+    .from('creator_profiles')
+    .select('*')
+    .eq('auth_user_id', authUserId)
+    .maybeSingle();
+  if (error) throw new Error(`Failed to load your profile: ${error.message}`);
+  return (data ?? null) as CreatorProfile | null;
+}
+
+/**
+ * Link the authenticated user to their existing creator profile by verified
+ * email. Server-controlled (no client-supplied id/email); idempotent. Throws a
+ * descriptive error for: agency user, no match, ambiguous match, or a profile
+ * already linked to another account.
+ */
+export async function claimCreatorProfile(): Promise<CreatorProfile> {
+  const { data, error } = await supabase.rpc('claim_creator_profile');
+  if (error) throw new Error(error.message);
+  return data as CreatorProfile;
+}
+
+/**
+ * Create a fresh self-serve retake invite for the authenticated creator.
+ * Returns only the invite code + template slug needed to enter the wizard.
+ */
+export async function createCreatorRetakeInvite(): Promise<{ invite_code: string; template_slug: string }> {
+  const { data, error } = await supabase.rpc('create_creator_retake_invite');
+  if (error) throw new Error(error.message);
+  return data as { invite_code: string; template_slug: string };
 }
 
 // ── Authenticated Cockpit API ──
