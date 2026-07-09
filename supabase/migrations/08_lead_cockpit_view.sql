@@ -8,6 +8,33 @@ DO $$
 DECLARE
   v_has_paperclip_issues boolean;
 BEGIN
+  IF to_regclass('public.events') IS NULL THEN
+    EXECUTE $view$
+      CREATE OR REPLACE VIEW public.lead_cockpit_view AS
+      SELECT
+        NULL::uuid AS event_id,
+        NULL::timestamptz AS captured_at,
+        NULL::uuid AS lead_id,
+        NULL::text AS email,
+        NULL::text AS name,
+        NULL::text AS phone,
+        NULL::text AS message,
+        NULL::text AS source,
+        NULL::text AS source_system,
+        NULL::text AS event_status,
+        NULL::jsonb AS metadata,
+        NULL::uuid AS issue_id,
+        NULL::text AS issue_status,
+        NULL::text AS assigned_agent,
+        NULL::text AS priority,
+        NULL::timestamptz AS routed_at,
+        NULL::timestamptz AS resolved_at,
+        NULL::text AS workflow_state
+      WHERE false
+    $view$;
+    RETURN;
+  END IF;
+
   SELECT to_regclass('paperclip.issues') IS NOT NULL
     AND EXISTS (
       SELECT 1
