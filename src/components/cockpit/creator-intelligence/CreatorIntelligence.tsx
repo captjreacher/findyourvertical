@@ -39,12 +39,17 @@ const TAB_COMPONENTS: Record<TabId, React.FC> = {
   timeline: TimelineTab,
 };
 
+function isTabId(value: string | null): value is TabId {
+  return Boolean(value && COCKPIT_TABS.some(tab => tab.id === value));
+}
+
 export function CreatorIntelligence() {
   const { profileId } = useParams<{ profileId: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
-  const [tab, setTab] = useState<TabId>('overview');
+  const requestedTab = searchParams.get('tab');
+  const [tab, setTab] = useState<TabId>(isTabId(requestedTab) ? requestedTab : 'responses');
 
   // ── data loading ──
   const [profile, setProfile] = useState<CreatorIntelligenceResult | null>(null);
@@ -116,28 +121,18 @@ export function CreatorIntelligence() {
     if (!intelligence || !previewTier) return null;
     try {
       const legacy = scoreAssessment(selectedAssessment!.responses);
-return buildReportFromCreatorDna({
-  legacy,
-  dnaProfile: intelligence.creator_dna,
-  evidence: intelligence.evidence,
-  traits: intelligence.traits,
-  confidence: intelligence.confidence,
-  reportTier: previewTier,
-});
+      return buildReportFromCreatorDna({
+        legacy,
+        dnaProfile: intelligence.creator_dna,
+        evidence: intelligence.evidence,
+        traits: intelligence.traits,
+        confidence: intelligence.confidence,
+        reportTier: previewTier,
+      });
     } catch {
       return null;
     }
   }, [intelligence, previewTier, selectedAssessment]);
-
-  // ── render states ──
-
-  if (loading) return <div className="animate-pulse p-8 text-charcoal-2">Loading Creator Intelligence...</div>;
-  if (error) return <div className="rounded-lg border border-pink/30 bg-pink/10 p-4 text-sm text-pink">{error}</div>;
-  if (!profile) return <div className="p-4 text-sm text-charcoal-2">Creator not found.</div>;
-
-  const templateName = selectedAssessment?.assessment_snapshot?.template_name
-    ?? selectedAssessment?.template_slug
-    ?? 'Default';
 
   const ctxValue = useMemo(
     () => ({
@@ -158,6 +153,16 @@ return buildReportFromCreatorDna({
     [profile, assessments, dnaProfiles, reports, notes, events,
       selectedAssessment, intelligence, storedReport, previewTier, tierReport],
   );
+
+  // ── render states ──
+
+  if (loading) return <div className="animate-pulse p-8 text-charcoal-2">Loading Creator Intelligence...</div>;
+  if (error) return <div className="rounded-lg border border-pink/30 bg-pink/10 p-4 text-sm text-pink">{error}</div>;
+  if (!profile) return <div className="p-4 text-sm text-charcoal-2">Creator not found.</div>;
+
+  const templateName = selectedAssessment?.assessment_snapshot?.template_name
+    ?? selectedAssessment?.template_slug
+    ?? 'Default';
 
   const ActiveTab = TAB_COMPONENTS[tab];
 
