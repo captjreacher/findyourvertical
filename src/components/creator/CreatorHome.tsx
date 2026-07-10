@@ -9,8 +9,11 @@ import {
   requestStrategyDiscussion,
   trackAgencyCalendarClick,
   trackCreatorServicesClick,
+  getMyArchetypeSnapshot,
+  getMyVariationSelections,
 } from '@/lib/creators-api';
 import { getCreatorJourneyCtas } from '@/lib/fyv-completion';
+import { snapshotToRankedArchetypes, summariseSelectionCompleteness } from '@/lib/persona-archetypes';
 import type { CreatorAssessment, CreatorReport } from '@/types/creator';
 import brandLogo from '@/assets/fyv-brand-logo.png';
 
@@ -40,6 +43,7 @@ export function CreatorHome() {
   const [engageBusy, setEngageBusy] = useState('');
   const [engageMessage, setEngageMessage] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [characterState, setCharacterState] = useState<{ started: boolean; complete: boolean } | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -55,6 +59,34 @@ export function CreatorHome() {
       })
       .catch(() => mounted && setLoadError('We could not load your assessment history. Please refresh.'))
       .finally(() => mounted && setLoading(false));
+    return () => {
+      mounted = false;
+    };
+  }, [profile.id]);
+
+  // Character-possibilities progress (derived from the locked snapshot +
+  // persisted selection counts — no stored completion flag).
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const snapshot = await getMyArchetypeSnapshot(profile.id);
+        if (!mounted) return;
+        if (!snapshot) {
+          setCharacterState({ started: false, complete: false });
+          return;
+        }
+        const selections = await getMyVariationSelections(snapshot.id);
+        if (!mounted) return;
+        const { complete } = summariseSelectionCompleteness(
+          snapshotToRankedArchetypes(snapshot),
+          selections,
+        );
+        setCharacterState({ started: true, complete });
+      } catch {
+        if (mounted) setCharacterState(null);
+      }
+    })();
     return () => {
       mounted = false;
     };
@@ -161,6 +193,39 @@ export function CreatorHome() {
             </div>
           </div>
         </section>
+
+        {/* Build Your Character Possibilities — primary incomplete setup action (FYV-PERSONA-1A). */}
+        {latestAssessment && characterState && (
+          characterState.complete ? (
+            <section className="mb-5 rounded-2xl border border-white/10 bg-surface p-5">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h2 className="text-lg font-bold text-charcoal">Character possibilities</h2>
+                  <p className="mt-1 text-sm text-charcoal-2">
+                    You've mapped the versions of each direction that feel like you.
+                  </p>
+                </div>
+                <span className="rounded-full bg-success/15 px-3 py-1 text-xs font-semibold text-success">Complete</span>
+              </div>
+              <a href="#/my/characters" className="btn-secondary mt-4 text-sm">Review or edit</a>
+            </section>
+          ) : (
+            <section className="mb-5 rounded-2xl border border-accent/40 bg-surface p-5">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-accent">Next step</p>
+                <span className="rounded-full bg-accent/15 px-3 py-1 text-xs font-semibold text-accent">Action needed</span>
+              </div>
+              <h2 className="mt-1 text-lg font-bold text-charcoal">Build your character possibilities</h2>
+              <p className="mt-1 text-sm text-charcoal-2">
+                Your assessment identified three strong creative directions. Choose the versions of each that you could
+                genuinely see yourself enjoying and portraying.
+              </p>
+              <a href="#/my/characters" className="btn-primary mt-4 text-sm">
+                {characterState.started ? 'Continue setup' : 'Start now'}
+              </a>
+            </section>
+          )
+        )}
 
         {actionError && (
           <p className="mb-4 rounded-lg border border-pink/30 bg-pink/10 p-3 text-sm text-pink" role="alert">{actionError}</p>
