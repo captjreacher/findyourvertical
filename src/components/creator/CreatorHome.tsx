@@ -11,6 +11,7 @@ import {
   trackCreatorServicesClick,
   getMyArchetypeSnapshot,
   getMyVariationSelections,
+  getActivePersonaGeneration,
 } from '@/lib/creators-api';
 import { getCreatorJourneyCtas } from '@/lib/fyv-completion';
 import { snapshotToRankedArchetypes, summariseSelectionCompleteness } from '@/lib/persona-archetypes';
@@ -43,7 +44,11 @@ export function CreatorHome() {
   const [engageBusy, setEngageBusy] = useState('');
   const [engageMessage, setEngageMessage] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [characterState, setCharacterState] = useState<{ started: boolean; complete: boolean } | null>(null);
+  const [characterState, setCharacterState] = useState<{
+    started: boolean;
+    complete: boolean;
+    portfolio: 'none' | 'pending' | 'generating' | 'completed' | 'failed';
+  } | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -73,7 +78,7 @@ export function CreatorHome() {
         const snapshot = await getMyArchetypeSnapshot(profile.id);
         if (!mounted) return;
         if (!snapshot) {
-          setCharacterState({ started: false, complete: false });
+          setCharacterState({ started: false, complete: false, portfolio: 'none' });
           return;
         }
         const selections = await getMyVariationSelections(snapshot.id);
@@ -82,7 +87,13 @@ export function CreatorHome() {
           snapshotToRankedArchetypes(snapshot),
           selections,
         );
-        setCharacterState({ started: true, complete });
+        let portfolio: 'none' | 'pending' | 'generating' | 'completed' | 'failed' = 'none';
+        if (complete) {
+          const gen = await getActivePersonaGeneration(profile.id);
+          if (!mounted) return;
+          portfolio = (gen?.status as typeof portfolio) ?? 'none';
+        }
+        setCharacterState({ started: true, complete, portfolio });
       } catch {
         if (mounted) setCharacterState(null);
       }
@@ -194,22 +205,9 @@ export function CreatorHome() {
           </div>
         </section>
 
-        {/* Build Your Character Possibilities — primary incomplete setup action (FYV-PERSONA-1A). */}
+        {/* Character journey — derived progression: build → create → view (FYV-PERSONA-1A → 1B). */}
         {latestAssessment && characterState && (
-          characterState.complete ? (
-            <section className="mb-5 rounded-2xl border border-white/10 bg-surface p-5">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <h2 className="text-lg font-bold text-charcoal">Character possibilities</h2>
-                  <p className="mt-1 text-sm text-charcoal-2">
-                    You've mapped the versions of each direction that feel like you.
-                  </p>
-                </div>
-                <span className="rounded-full bg-success/15 px-3 py-1 text-xs font-semibold text-success">Complete</span>
-              </div>
-              <a href="#/my/characters" className="btn-secondary mt-4 text-sm">Review or edit</a>
-            </section>
-          ) : (
+          !characterState.complete ? (
             <section className="mb-5 rounded-2xl border border-accent/40 bg-surface p-5">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="text-xs font-semibold uppercase tracking-wide text-accent">Next step</p>
@@ -223,6 +221,41 @@ export function CreatorHome() {
               <a href="#/my/characters" className="btn-primary mt-4 text-sm">
                 {characterState.started ? 'Continue setup' : 'Start now'}
               </a>
+            </section>
+          ) : characterState.portfolio === 'completed' ? (
+            <section className="mb-5 rounded-2xl border border-white/10 bg-surface p-5">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h2 className="text-lg font-bold text-charcoal">Your character portfolio</h2>
+                  <p className="mt-1 text-sm text-charcoal-2">Six draft characters, built from your chosen directions.</p>
+                </div>
+                <span className="rounded-full bg-success/15 px-3 py-1 text-xs font-semibold text-success">Ready</span>
+              </div>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <a href="#/my/personas" className="btn-primary text-sm">View Your Character Portfolio</a>
+                <a href="#/my/characters" className="btn-secondary text-sm">Review character possibilities</a>
+              </div>
+            </section>
+          ) : characterState.portfolio === 'generating' || characterState.portfolio === 'pending' ? (
+            <section className="mb-5 rounded-2xl border border-accent/40 bg-surface p-5">
+              <h2 className="text-lg font-bold text-charcoal">Your characters are being created</h2>
+              <p className="mt-1 text-sm text-charcoal-2">
+                We're turning your chosen directions into six draft characters. This usually takes under a minute.
+              </p>
+              <a href="#/my/personas" className="btn-primary mt-4 text-sm">View progress</a>
+            </section>
+          ) : (
+            <section className="mb-5 rounded-2xl border border-accent/40 bg-surface p-5">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-accent">Next step</p>
+                <span className="rounded-full bg-accent/15 px-3 py-1 text-xs font-semibold text-accent">Ready to create</span>
+              </div>
+              <h2 className="mt-1 text-lg font-bold text-charcoal">Create your character portfolio</h2>
+              <p className="mt-1 text-sm text-charcoal-2">
+                You've mapped the versions that feel like you. Now turn them into six distinct draft characters built
+                around you.
+              </p>
+              <a href="#/my/characters" className="btn-primary mt-4 text-sm">Create Your Character Portfolio</a>
             </section>
           )
         )}
