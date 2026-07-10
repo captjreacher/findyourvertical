@@ -315,13 +315,35 @@ export function CreatorProfileView() {
           <h1 className="cockpit-title">{profile.full_name}</h1>
           <p className="cockpit-subtitle">{[profile.email, profile.onlyfans_handle ? `@${profile.onlyfans_handle}` : null, profile.country].filter(Boolean).join(' / ')}</p>
         </div>
-        <div className="flex items-center gap-2">
-          <Link
-            to={`/cockpit/creators/${profile.id}/intelligence`}
-            className="btn-primary text-xs"
-          >
-            View Intelligence
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Quick actions — reuse existing routes/components (no duplicate viewers). */}
+          <Link to={`/cockpit/creators/${profile.id}`} className="btn-secondary text-xs">
+            Profile
           </Link>
+          <Link to={`/cockpit/creators/${profile.id}/intelligence?tab=responses`} className="btn-secondary text-xs">
+            Raw Responses
+          </Link>
+          <Link to={`/cockpit/creators/${profile.id}/intelligence?tab=overview`} className="btn-primary text-xs">
+            Intelligence
+          </Link>
+          {latestReport ? (
+            <a
+              href={`#/report/${latestReport.report_slug}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn-secondary text-xs"
+            >
+              Report
+            </a>
+          ) : (
+            <span
+              className="btn-secondary cursor-not-allowed text-xs opacity-50"
+              aria-disabled="true"
+              title="No report available"
+            >
+              Report
+            </span>
+          )}
           <span className="rounded-full bg-surface-3 px-3 py-1 text-xs font-semibold capitalize text-charcoal">
             {profile.status}
           </span>

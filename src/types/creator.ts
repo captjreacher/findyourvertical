@@ -56,6 +56,8 @@ export interface CreatorProfile {
   id: string;
   created_at: string;
   updated_at: string;
+  /** Supabase auth user linked to this creator profile (null until claimed). */
+  auth_user_id?: string | null;
   full_name: string;
   first_name?: string | null;
   last_name?: string | null;

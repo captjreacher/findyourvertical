@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect } from 'react';
 import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import {
   consumeAuthRedirectPath,
-  normalizeCockpitPath,
+  normalizeRedirectPath,
   supabase,
 } from './lib/supabase';
 
@@ -18,6 +18,8 @@ const CreatorIntelligence = lazy(() => import('./components/cockpit/creator-inte
 const AgencyDashboard = lazy(() => import('./components/cockpit/AgencyDashboard').then(module => ({ default: module.AgencyDashboard })));
 const AuthGate = lazy(() => import('./components/cockpit/AuthGate').then(module => ({ default: module.AuthGate })));
 const AssessmentTemplates = lazy(() => import('./components/cockpit/AssessmentTemplates').then(module => ({ default: module.AssessmentTemplates })));
+const CreatorGate = lazy(() => import('./components/creator/CreatorGate').then(module => ({ default: module.CreatorGate })));
+const CreatorHome = lazy(() => import('./components/creator/CreatorHome').then(module => ({ default: module.CreatorHome })));
 
 function LoadingScreen({ label = 'Loading…' }: { label?: string }) {
   return (
@@ -43,7 +45,7 @@ function AuthCallback() {
     const params = new URLSearchParams(window.location.search);
     const code = params.get('code');
     const nextParam = params.get('next');
-    const next = normalizeCockpitPath(nextParam ?? consumeAuthRedirectPath() ?? '/cockpit');
+    const next = normalizeRedirectPath(nextParam ?? consumeAuthRedirectPath() ?? '/cockpit');
 
     const finishAuthRedirect = async () => {
       if (code) {
@@ -104,6 +106,9 @@ export default function App() {
           <Route path="/report/:slug" element={<ReportPage />} />
           <Route path="/creator-services" element={<CreatorServicesPage />} />
           <Route path="/creator-services/onboarding" element={<CreatorOnboardingPage />} />
+
+          {/* Creator Home ("My Vertical") — authenticated creator self-service. */}
+          <Route path="/my" element={<CreatorGate><CreatorHome /></CreatorGate>} />
 
           <Route path="/cockpit/*" element={<AuthGate><CockpitLayout /></AuthGate>}>
             <Route index element={<AgencyDashboard />} />
