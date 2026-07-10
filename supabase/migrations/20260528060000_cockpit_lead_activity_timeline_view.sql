@@ -53,8 +53,8 @@ cross join lateral (
     nullif(e.payload->>'lead_id', ''),
     case
       when e.entity_type in ('lead', 'local_business', 'local_business_lead')
-       and e.entity_id ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
-        then e.entity_id
+       and e.entity_id::text ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+        then e.entity_id::text
       else null
     end
   ) as lead_id_text

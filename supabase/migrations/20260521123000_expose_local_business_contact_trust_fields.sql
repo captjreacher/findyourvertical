@@ -63,7 +63,7 @@ left join lateral (
 left join lateral (
   select event_type, created_at
   from public.events
-  where entity_id = l.id::text
+  where entity_id = l.id
     and entity_type in ('local_business', 'local_business_lead', 'lead')
   order by created_at desc
   limit 1

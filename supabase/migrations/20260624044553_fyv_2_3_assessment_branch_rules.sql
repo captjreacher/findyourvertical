@@ -1,3 +1,7 @@
+-- Ensure invite lifecycle columns exist before functions below reference them.
+ALTER TABLE public.creator_assessment_links
+  ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'Created',
+  ADD COLUMN IF NOT EXISTS status_updated_at timestamptz NOT NULL DEFAULT now();
 -- FYV-2.3 option-level assessment branching rules.
 
 CREATE TABLE IF NOT EXISTS public.creator_assessment_branch_rules (
@@ -123,3 +127,4 @@ $$;
 
 REVOKE ALL ON FUNCTION public.set_creator_assessment_invite_status(text, text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.set_creator_assessment_invite_status(text, text) TO anon, authenticated;
+
