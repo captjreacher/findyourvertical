@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { CreatorShell } from './CreatorShell';
 import { useCreatorSession } from './CreatorGate';
-import { signOut } from '@/lib/supabase';
 import {
   getAssessmentsForProfile,
   getReportsForProfile,
@@ -12,11 +12,12 @@ import {
   getMyArchetypeSnapshot,
   getMyVariationSelections,
   getActivePersonaGeneration,
+  getMyOnboardingCase,
 } from '@/lib/creators-api';
 import { getCreatorJourneyCtas } from '@/lib/fyv-completion';
 import { snapshotToRankedArchetypes, summariseSelectionCompleteness } from '@/lib/persona-archetypes';
+import { deriveOnboardingHero, deriveProgress, type OnboardingStatus, type ProgressState } from '@/lib/onboarding';
 import type { CreatorAssessment, CreatorReport } from '@/types/creator';
-import brandLogo from '@/assets/fyv-brand-logo.png';
 
 function formatDate(value?: string | null): string {
   if (!value) return '—';
@@ -32,6 +33,17 @@ function templateNameFor(assessment: CreatorAssessment): string {
   );
 }
 
+const PROGRESS_DOT: Record<ProgressState, string> = {
+  done: 'bg-success text-white',
+  current: 'bg-accent text-white',
+  upcoming: 'bg-white/10 text-charcoal-2',
+};
+const PROGRESS_LABEL: Record<ProgressState, string> = {
+  done: 'text-charcoal',
+  current: 'text-charcoal',
+  upcoming: 'text-charcoal-2',
+};
+
 export function CreatorHome() {
   const { profile, reload } = useCreatorSession();
   const navigate = useNavigate();
@@ -44,6 +56,8 @@ export function CreatorHome() {
   const [engageBusy, setEngageBusy] = useState('');
   const [engageMessage, setEngageMessage] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [onboardingStatus, setOnboardingStatus] = useState<OnboardingStatus | null>(null);
+  const [onboardingNotes, setOnboardingNotes] = useState<string | null>(null);
   const [characterState, setCharacterState] = useState<{
     started: boolean;
     complete: boolean;
@@ -53,10 +67,7 @@ export function CreatorHome() {
   useEffect(() => {
     let mounted = true;
     setLoading(true);
-    Promise.all([
-      getAssessmentsForProfile(profile.id),
-      getReportsForProfile(profile.id),
-    ])
+    Promise.all([getAssessmentsForProfile(profile.id), getReportsForProfile(profile.id)])
       .then(([a, r]) => {
         if (!mounted) return;
         setAssessments(a);
@@ -69,8 +80,25 @@ export function CreatorHome() {
     };
   }, [profile.id]);
 
-  // Character-possibilities progress (derived from the locked snapshot +
-  // persisted selection counts — no stored completion flag).
+  // Onboarding case (read-only; no case is created just by viewing the dashboard).
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const onboardingCase = await getMyOnboardingCase();
+        if (!mounted) return;
+        setOnboardingStatus(onboardingCase?.status ?? null);
+        setOnboardingNotes(onboardingCase?.review_notes ?? null);
+      } catch {
+        if (mounted) setOnboardingStatus(null);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [profile.id]);
+
+  // Persona / character progress (derived from the locked snapshot + selections).
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -83,10 +111,7 @@ export function CreatorHome() {
         }
         const selections = await getMyVariationSelections(snapshot.id);
         if (!mounted) return;
-        const { complete } = summariseSelectionCompleteness(
-          snapshotToRankedArchetypes(snapshot),
-          selections,
-        );
+        const { complete } = summariseSelectionCompleteness(snapshotToRankedArchetypes(snapshot), selections);
         let portfolio: 'none' | 'pending' | 'generating' | 'completed' | 'failed' = 'none';
         if (complete) {
           const gen = await getActivePersonaGeneration(profile.id);
@@ -105,9 +130,9 @@ export function CreatorHome() {
 
   const latestReport = reports[0] ?? null;
   const latestAssessment = assessments[0] ?? null;
+  const hasAssessment = Boolean(latestAssessment);
+  const hasCompletedPortfolio = characterState?.portfolio === 'completed';
 
-  // Reports/assessments are created together per submission (no FK between
-  // them), so pair each assessment to the report closest in time.
   const reportForAssessment = (assessment: CreatorAssessment): CreatorReport | null => {
     if (!reports.length) return null;
     const target = new Date(assessment.created_at).getTime();
@@ -126,6 +151,12 @@ export function CreatorHome() {
   const displayName = profile.model_name || profile.first_name || profile.full_name || 'there';
   const reportSlug = latestReport?.report_slug ?? '';
 
+  const hero = deriveOnboardingHero(onboardingStatus, {
+    hasReport: Boolean(latestReport),
+    reviewNotes: onboardingNotes,
+  });
+  const progress = deriveProgress({ hasAssessment, onboardingStatus, hasCompletedPortfolio });
+
   const handleRetake = async () => {
     setRetaking(true);
     setActionError(null);
@@ -140,8 +171,9 @@ export function CreatorHome() {
   };
 
   const handleExploreServices = () => {
+    // Identity comes from the authenticated creator, not a query param.
     void trackCreatorServicesClick({ profileId: profile.id, reportSlug }).catch(() => {});
-    navigate(`/creator-services?profileId=${profile.id}${reportSlug ? `&reportSlug=${reportSlug}` : ''}`);
+    navigate('/creator-services');
   };
 
   const handleBookStrategyCall = async () => {
@@ -175,19 +207,71 @@ export function CreatorHome() {
   };
 
   return (
-    <div className="min-h-screen bg-surface-2 text-charcoal">
-      <div className="mx-auto w-full max-w-4xl px-4 py-6 sm:px-6 lg:px-8">
-        {/* Header */}
-        <header className="mb-6 flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <img src={brandLogo} alt="Find Your Vertical" className="h-14 w-auto object-contain" />
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-accent">My Vertical</p>
-              <h1 className="text-2xl font-bold leading-tight text-charcoal">Welcome back, {displayName}</h1>
-            </div>
-          </div>
-          <button onClick={() => void signOut()} className="btn-secondary text-xs">Sign out</button>
+    <CreatorShell>
+      <div className="mx-auto w-full max-w-4xl">
+        <header className="mb-5">
+          <p className="text-xs font-semibold uppercase tracking-wide text-accent">My Vertical</p>
+          <h1 className="text-2xl font-bold leading-tight text-charcoal">Welcome back, {displayName}</h1>
         </header>
+
+        {/* Onboarding-first hero (dominant until onboarding is complete). */}
+        {!hasAssessment ? (
+          <section className="mb-6 rounded-2xl border border-accent/40 bg-surface p-6">
+            <p className="text-xs font-semibold uppercase tracking-wide text-accent">Get started</p>
+            <h2 className="mt-1 text-2xl font-bold text-charcoal">Take your creator assessment</h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-charcoal-2">
+              Your assessment is the starting point — it unlocks your report, onboarding, and Persona Portfolio.
+            </p>
+            <button onClick={handleRetake} disabled={retaking} className="btn-primary mt-4 text-sm">
+              {retaking ? 'Starting…' : 'Start assessment'}
+            </button>
+          </section>
+        ) : (
+          <section
+            className={`mb-6 rounded-2xl border p-6 ${hero.kind === 'workspace' ? 'border-success/40 bg-surface' : 'border-accent/40 bg-surface'}`}
+          >
+            <p className="text-xs font-semibold uppercase tracking-wide text-accent">
+              {hero.kind === 'workspace' ? 'Workspace' : 'Your next step'}
+            </p>
+            <h2 className="mt-1 text-2xl font-bold text-charcoal">{hero.heading}</h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-charcoal-2">{hero.body}</p>
+            {hero.note && (
+              <p className="mt-3 rounded-lg border border-white/10 bg-surface-2 px-3 py-2 text-sm text-charcoal-2">{hero.note}</p>
+            )}
+            {hero.actions.length > 0 && (
+              <div className="mt-4 flex flex-wrap gap-2">
+                {hero.actions.map(action => (
+                  <Link
+                    key={action.label}
+                    to={action.to}
+                    className={`${action.variant === 'primary' ? 'btn-primary' : 'btn-secondary'} text-sm`}
+                  >
+                    {action.label}
+                  </Link>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* Progress strip: Assessment complete → Onboarding → Persona Portfolio → Services ready. */}
+        <section className="mb-6 rounded-2xl border border-white/10 bg-surface p-5">
+          <ol className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-2">
+            {progress.map((step, i) => (
+              <li key={step.key} className="flex flex-1 items-center gap-3">
+                <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${PROGRESS_DOT[step.state]}`}>
+                  {step.state === 'done' ? '✓' : i + 1}
+                </span>
+                <span className={`text-sm font-medium ${PROGRESS_LABEL[step.state]}`}>{step.label}</span>
+                {i < progress.length - 1 && <span className="mx-1 hidden h-px flex-1 bg-white/10 sm:block" />}
+              </li>
+            ))}
+          </ol>
+        </section>
+
+        {actionError && (
+          <p className="mb-4 rounded-lg border border-pink/30 bg-pink/10 p-3 text-sm text-pink" role="alert">{actionError}</p>
+        )}
 
         {/* Status summary */}
         <section className="mb-6 grid gap-3 sm:grid-cols-2">
@@ -205,80 +289,49 @@ export function CreatorHome() {
           </div>
         </section>
 
-        {/* Character journey — derived progression: build → create → view (FYV-PERSONA-1A → 1B). */}
-        {latestAssessment && characterState && (
+        {/* Persona / character journey (secondary to onboarding; keeps PERSONA-1A/1B access). */}
+        {hasAssessment && characterState && (
           !characterState.complete ? (
-            <section className="mb-5 rounded-2xl border border-accent/40 bg-surface p-5">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-xs font-semibold uppercase tracking-wide text-accent">Next step</p>
-                <span className="rounded-full bg-accent/15 px-3 py-1 text-xs font-semibold text-accent">Action needed</span>
-              </div>
-              <h2 className="mt-1 text-lg font-bold text-charcoal">Build your character possibilities</h2>
+            <section className="mb-5 rounded-2xl border border-white/10 bg-surface p-5">
+              <h2 className="text-lg font-bold text-charcoal">Build your character possibilities</h2>
               <p className="mt-1 text-sm text-charcoal-2">
-                Your assessment identified three strong creative directions. Choose the versions of each that you could
-                genuinely see yourself enjoying and portraying.
+                Choose the creative directions that feel like you — the basis for your Persona Portfolio.
               </p>
-              <a href="#/my/characters" className="btn-primary mt-4 text-sm">
+              <Link to="/my/characters" className="btn-secondary mt-4 inline-flex text-sm">
                 {characterState.started ? 'Continue setup' : 'Start now'}
-              </a>
+              </Link>
             </section>
           ) : characterState.portfolio === 'completed' ? (
             <section className="mb-5 rounded-2xl border border-white/10 bg-surface p-5">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <h2 className="text-lg font-bold text-charcoal">Your character portfolio</h2>
-                  <p className="mt-1 text-sm text-charcoal-2">Six draft characters, built from your chosen directions.</p>
-                </div>
-                <span className="rounded-full bg-success/15 px-3 py-1 text-xs font-semibold text-success">Ready</span>
-              </div>
-              <div className="mt-4 flex flex-wrap gap-2">
-                <a href="#/my/personas" className="btn-primary text-sm">View Your Character Portfolio</a>
-                <a href="#/my/characters" className="btn-secondary text-sm">Review character possibilities</a>
-              </div>
+              <h2 className="text-lg font-bold text-charcoal">Your character portfolio</h2>
+              <p className="mt-1 text-sm text-charcoal-2">Six draft characters, built from your chosen directions.</p>
+              <Link to="/my/personas" className="btn-secondary mt-4 inline-flex text-sm">View Your Character Portfolio</Link>
             </section>
           ) : characterState.portfolio === 'generating' || characterState.portfolio === 'pending' ? (
-            <section className="mb-5 rounded-2xl border border-accent/40 bg-surface p-5">
+            <section className="mb-5 rounded-2xl border border-white/10 bg-surface p-5">
               <h2 className="text-lg font-bold text-charcoal">Your characters are being created</h2>
-              <p className="mt-1 text-sm text-charcoal-2">
-                We're turning your chosen directions into six draft characters. This usually takes under a minute.
-              </p>
-              <a href="#/my/personas" className="btn-primary mt-4 text-sm">View progress</a>
+              <p className="mt-1 text-sm text-charcoal-2">This usually takes under a minute.</p>
+              <Link to="/my/personas" className="btn-secondary mt-4 inline-flex text-sm">View progress</Link>
             </section>
           ) : (
-            <section className="mb-5 rounded-2xl border border-accent/40 bg-surface p-5">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-xs font-semibold uppercase tracking-wide text-accent">Next step</p>
-                <span className="rounded-full bg-accent/15 px-3 py-1 text-xs font-semibold text-accent">Ready to create</span>
-              </div>
-              <h2 className="mt-1 text-lg font-bold text-charcoal">Create your character portfolio</h2>
-              <p className="mt-1 text-sm text-charcoal-2">
-                You've mapped the versions that feel like you. Now turn them into six distinct draft characters built
-                around you.
-              </p>
-              <a href="#/my/characters" className="btn-primary mt-4 text-sm">Create Your Character Portfolio</a>
+            <section className="mb-5 rounded-2xl border border-white/10 bg-surface p-5">
+              <h2 className="text-lg font-bold text-charcoal">Create your character portfolio</h2>
+              <p className="mt-1 text-sm text-charcoal-2">Turn your chosen directions into six distinct draft characters.</p>
+              <Link to="/my/characters" className="btn-secondary mt-4 inline-flex text-sm">Create Your Character Portfolio</Link>
             </section>
           )
         )}
 
-        {actionError && (
-          <p className="mb-4 rounded-lg border border-pink/30 bg-pink/10 p-3 text-sm text-pink" role="alert">{actionError}</p>
-        )}
-
-        {/* Latest report */}
-        <section className="mb-5 rounded-2xl border border-accent/30 bg-surface p-5">
+        {/* Latest report (report access retained; duplicate Explore Services button removed). */}
+        <section className="mb-5 rounded-2xl border border-white/10 bg-surface p-5">
           <h2 className="text-lg font-bold text-charcoal">Your latest report</h2>
           {latestReport ? (
             <>
               <p className="mt-1 text-sm text-charcoal-2">
                 Your personalised Find Your Vertical report is ready to revisit any time.
               </p>
-              <div className="mt-4 flex flex-wrap gap-2">
-                <a href={`#/report/${latestReport.report_slug}`} className="btn-primary text-sm">
-                  View My Latest Report
-                </a>
-                <button onClick={handleExploreServices} className="btn-secondary text-sm">
-                  Explore Creator Services
-                </button>
+              <div className="mt-4">
+                <a href={`#/report/${latestReport.report_slug}`} className="btn-primary text-sm">View My Latest Report</a>
               </div>
             </>
           ) : (
@@ -292,7 +345,7 @@ export function CreatorHome() {
         <section className="mb-5 rounded-2xl border border-white/10 bg-surface p-5">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-lg font-bold text-charcoal">Assessment history</h2>
-            <button onClick={handleRetake} disabled={retaking} className="btn-primary text-sm">
+            <button onClick={handleRetake} disabled={retaking} className="btn-secondary text-sm">
               {retaking ? 'Starting…' : 'Retake Assessment'}
             </button>
           </div>
@@ -325,9 +378,7 @@ export function CreatorHome() {
                         </td>
                         <td className="py-2 pr-4">
                           {linkedReport ? (
-                            <a href={`#/report/${linkedReport.report_slug}`} className="text-xs font-medium text-accent hover:underline">
-                              View report
-                            </a>
+                            <a href={`#/report/${linkedReport.report_slug}`} className="text-xs font-medium text-accent hover:underline">View report</a>
                           ) : (
                             <span className="text-xs text-charcoal-2">—</span>
                           )}
@@ -370,7 +421,7 @@ export function CreatorHome() {
           </div>
           <p className="mt-2 text-sm text-charcoal-2">
             Your FunkMyFans creator workspace becomes available when operational onboarding begins — after you decide to
-            proceed with full service. That's where day-to-day operations live once we're working together.
+            proceed with full service.
           </p>
           <div className="mt-3 grid gap-2 text-xs text-charcoal-2 sm:grid-cols-2">
             <div className="rounded-lg bg-surface-2 px-3 py-2">Workspace status: <span className="font-semibold text-charcoal">Not active</span></div>
@@ -378,6 +429,6 @@ export function CreatorHome() {
           </div>
         </section>
       </div>
-    </div>
+    </CreatorShell>
   );
 }
