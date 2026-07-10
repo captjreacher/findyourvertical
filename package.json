@@ -9,7 +9,8 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "deploy": "wrangler versions upload",
-    "db:types": "supabase gen types typescript --linked > src/lib/database.types.ts"
+    "db:types": "supabase gen types typescript --linked > src/lib/database.types.ts",
+    "test": "node --experimental-strip-types --test tests/persona-portfolio.test.ts tests/persona-worker.test.ts tests/persona-workspace.test.ts tests/persona-migration.test.ts tests/persona-ui-contract.test.ts"
   },
 
     "dependencies": {
