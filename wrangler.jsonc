@@ -2,9 +2,16 @@
   "name": "findyourvertical",
   "compatibility_date": "2025-03-03",
   "compatibility_flags": ["nodejs_compat"],
+  // FYV-PERSONA-1B: a single Worker entry now fronts the app. It handles only
+  // POST /api/personas/generate; every other request is served directly from the
+  // static SPA assets (run_worker_first is scoped to /api/*). The Worker also
+  // delegates any non-API path it is invoked for back to the ASSETS binding.
+  "main": "worker/index.ts",
   "assets": {
     "directory": "./dist",
-    "not_found_handling": "single-page-application"
+    "not_found_handling": "single-page-application",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*"]
   },
   "observability": { "enabled": true }
 }

@@ -21,6 +21,8 @@ const AssessmentTemplates = lazy(() => import('./components/cockpit/AssessmentTe
 const CreatorGate = lazy(() => import('./components/creator/CreatorGate').then(module => ({ default: module.CreatorGate })));
 const CreatorHome = lazy(() => import('./components/creator/CreatorHome').then(module => ({ default: module.CreatorHome })));
 const CharacterPossibilities = lazy(() => import('./components/creator/CharacterPossibilities').then(module => ({ default: module.CharacterPossibilities })));
+const PersonaWorkspace = lazy(() => import('./components/creator/PersonaWorkspace').then(module => ({ default: module.PersonaWorkspace })));
+const PersonaDetail = lazy(() => import('./components/creator/PersonaDetail').then(module => ({ default: module.PersonaDetail })));
 
 function LoadingScreen({ label = 'Loading…' }: { label?: string }) {
   return (
@@ -112,6 +114,9 @@ export default function App() {
           <Route path="/my" element={<CreatorGate><CreatorHome /></CreatorGate>} />
           {/* Build Your Character Possibilities — archetype variation selection (FYV-PERSONA-1A). */}
           <Route path="/my/characters" element={<CreatorGate><CharacterPossibilities /></CreatorGate>} />
+          {/* Your Character Portfolio — six generated draft personas (FYV-PERSONA-1B). */}
+          <Route path="/my/personas" element={<CreatorGate><PersonaWorkspace /></CreatorGate>} />
+          <Route path="/my/personas/:personaId" element={<CreatorGate><PersonaDetail /></CreatorGate>} />
 
           <Route path="/cockpit/*" element={<AuthGate><CockpitLayout /></AuthGate>}>
             <Route index element={<AgencyDashboard />} />

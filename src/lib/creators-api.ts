@@ -31,6 +31,8 @@ import type {
   ArchetypeRank,
   CreatorArchetypeSnapshot,
   CreatorVariationSelection,
+  CreatorPersona,
+  CreatorPersonaGeneration,
 } from '@/types/creator';
 import { scoreAssessment, generateReportSlug } from './scoring';
 import { createCreatorIntelligenceResult } from './creator-intelligence';
@@ -1196,6 +1198,113 @@ export async function saveMyVariationSelections(input: {
   }
 
   return getMyVariationSelections(input.snapshotId);
+}
+
+// ── Persona portfolio (FYV-PERSONA-1B) ───────────────────────────────────────
+// Creator reads are own-row via RLS. Generation is initiated ONLY through the
+// Worker (POST /api/personas/generate) using the service role — never a direct
+// table insert from the browser.
+
+/** The creator's active persona generation for the current snapshot cycle, or null. */
+export async function getActivePersonaGeneration(
+  creatorProfileId: string,
+): Promise<CreatorPersonaGeneration | null> {
+  const { data, error } = await supabase
+    .from('creator_persona_generations')
+    .select('*')
+    .eq('creator_profile_id', creatorProfileId)
+    .eq('lifecycle_status', 'active')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw new Error(`Failed to load your character portfolio: ${error.message}`);
+  return (data ?? null) as CreatorPersonaGeneration | null;
+}
+
+/** The generated personas for a generation, ordered by portfolio position. */
+export async function getPersonasForGeneration(
+  generationId: string,
+): Promise<CreatorPersona[]> {
+  const { data, error } = await supabase
+    .from('creator_personas')
+    .select('*')
+    .eq('generation_id', generationId)
+    .order('portfolio_position', { ascending: true });
+  if (error) throw new Error(`Failed to load your characters: ${error.message}`);
+  return (data ?? []) as CreatorPersona[];
+}
+
+/** A single generated persona by id (own-row via RLS). */
+export async function getMyPersona(personaId: string): Promise<CreatorPersona | null> {
+  const { data, error } = await supabase
+    .from('creator_personas')
+    .select('*')
+    .eq('id', personaId)
+    .maybeSingle();
+  if (error) throw new Error(`Failed to load this character: ${error.message}`);
+  return (data ?? null) as CreatorPersona | null;
+}
+
+export interface GeneratePortfolioResult {
+  generationId: string;
+  status: string;
+  personaCount?: number;
+  reused?: boolean;
+  inProgress?: boolean;
+}
+
+/**
+ * Start (or resume) persona-portfolio generation for the creator's active
+ * snapshot. Calls the secure Worker endpoint with the creator's bearer token;
+ * the Worker validates ownership, enforces the exact 3-2-1 source set, invokes
+ * the provider, validates output, and persists atomically. Provider keys never
+ * reach the browser.
+ */
+export async function generateMyPersonaPortfolio(
+  snapshotId: string,
+): Promise<GeneratePortfolioResult> {
+  const { data: { session } } = await supabase.auth.getSession();
+  const token = session?.access_token;
+  if (!token) throw new Error('Please sign in again to build your character portfolio.');
+
+  const response = await fetch('/api/personas/generate', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+    body: JSON.stringify({ snapshotId }),
+  });
+
+  let payload: Record<string, unknown> = {};
+  try {
+    payload = (await response.json()) as Record<string, unknown>;
+  } catch {
+    payload = {};
+  }
+
+  if (!response.ok) {
+    const base = typeof payload.error === 'string' ? payload.error : 'generation_failed';
+    if (base === 'selection_incomplete') {
+      throw new Error('Please finish choosing your character variations before generating.');
+    }
+    const code = typeof payload.code === 'string' ? ` (${payload.code})` : '';
+    throw new Error(`We could not build your character portfolio: ${base}${code}`);
+  }
+
+  return {
+    generationId: String(payload.generationId ?? ''),
+    status: String(payload.status ?? 'unknown'),
+    personaCount: typeof payload.personaCount === 'number' ? payload.personaCount : undefined,
+    reused: payload.reused === true,
+    inProgress: payload.inProgress === true,
+  };
+}
+
+/** Record that the creator viewed their portfolio (server-controlled audit event). */
+export async function recordPersonaPortfolioViewed(generationId: string): Promise<void> {
+  const { error } = await supabase.rpc('record_persona_portfolio_viewed', {
+    p_generation_id: generationId,
+  });
+  // Non-critical audit; swallow errors so the workspace view is never blocked.
+  if (error) return;
 }
 
 // ── Authenticated Cockpit API ──

@@ -8,6 +8,8 @@ import {
   getActiveVariationsForArchetypes,
   getMyVariationSelections,
   saveMyVariationSelections,
+  getActivePersonaGeneration,
+  generateMyPersonaPortfolio,
   type VariationSelectionInput,
 } from '@/lib/creators-api';
 import {
@@ -18,7 +20,7 @@ import {
   type RankedArchetype,
 } from '@/lib/persona-archetypes';
 import { getArchetypeKnowledge } from '@/lib/knowledge';
-import type { ArchetypeRank, ArchetypeVariation } from '@/types/creator';
+import type { ArchetypeRank, ArchetypeVariation, CreatorPersonaGeneration } from '@/types/creator';
 import brandLogo from '@/assets/fyv-brand-logo.png';
 
 // Selectable-tile styling mirrors the assessment wizard's option cards so the
@@ -55,6 +57,12 @@ export function CharacterPossibilities() {
   const [saving, setSaving] = useState<'progress' | 'finish' | null>(null);
   const [savedMessage, setSavedMessage] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  // Persona portfolio (FYV-PERSONA-1B): once selection is complete, the creator
+  // can turn their chosen directions into six draft characters.
+  const [portfolio, setPortfolio] = useState<CreatorPersonaGeneration | null>(null);
+  const [genBusy, setGenBusy] = useState(false);
+  const [genError, setGenError] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -126,6 +134,24 @@ export function CharacterPossibilities() {
       mounted = false;
     };
   }, [profile.id]);
+
+  // Load any existing active portfolio generation once the snapshot is known,
+  // so the CTA can reflect ready / generating / completed state.
+  useEffect(() => {
+    if (!snapshotId) return;
+    let mounted = true;
+    (async () => {
+      try {
+        const gen = await getActivePersonaGeneration(profile.id);
+        if (mounted) setPortfolio(gen);
+      } catch {
+        if (mounted) setPortfolio(null);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [snapshotId, profile.id]);
 
   const variationsByArchetype = useMemo(() => {
     const map = new Map<string, ArchetypeVariation[]>();
@@ -205,6 +231,27 @@ export function CharacterPossibilities() {
       setSaveError(error instanceof Error ? error.message : 'We could not save your selections. Please try again.');
     } finally {
       setSaving(null);
+    }
+  };
+
+  const handleCreatePortfolio = async () => {
+    if (!snapshotId) return;
+    setGenBusy(true);
+    setGenError(null);
+    try {
+      // Persist the current selections first so the Worker reads the exact set.
+      await saveMyVariationSelections({
+        creatorProfileId: profile.id,
+        snapshotId,
+        selections: buildSelectionInputs(),
+      });
+      await generateMyPersonaPortfolio(snapshotId);
+      navigate('/my/personas');
+    } catch (error) {
+      setGenError(
+        error instanceof Error ? error.message : 'We could not build your character portfolio. Please try again.',
+      );
+      setGenBusy(false);
     }
   };
 
@@ -291,6 +338,43 @@ export function CharacterPossibilities() {
                 </p>
               )}
             </section>
+
+            {/* Create My Character Portfolio — appears once 3-2-1 minimums are met (FYV-PERSONA-1B). */}
+            {progress.complete && (
+              <section className="mb-6 rounded-2xl border border-accent/40 bg-surface p-5">
+                {portfolio?.status === 'completed' ? (
+                  <>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <h2 className="text-lg font-bold text-charcoal">Your character portfolio is ready</h2>
+                      <span className="rounded-full bg-success/15 px-3 py-1 text-xs font-semibold text-success">Created</span>
+                    </div>
+                    <p className="mt-1 text-sm text-charcoal-2">
+                      We turned your chosen directions into six draft characters built around you.
+                    </p>
+                    <a href="#/my/personas" className="btn-primary mt-4 text-sm">View Your Character Portfolio</a>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-accent">Next step</p>
+                    <h2 className="mt-1 text-lg font-bold text-charcoal">Create My Character Portfolio</h2>
+                    <p className="mt-1 text-sm text-charcoal-2">
+                      We'll turn your chosen creative directions into six distinct character concepts built around you.
+                    </p>
+                    {genError && <p className="mt-3 text-sm text-pink" role="alert">{genError}</p>}
+                    <button
+                      type="button"
+                      onClick={() => void handleCreatePortfolio()}
+                      disabled={genBusy || portfolio?.status === 'generating' || portfolio?.status === 'pending'}
+                      className="btn-primary mt-4 text-sm"
+                    >
+                      {genBusy || portfolio?.status === 'generating' || portfolio?.status === 'pending'
+                        ? 'Building your characters…'
+                        : 'Create My Character Portfolio'}
+                    </button>
+                  </>
+                )}
+              </section>
+            )}
 
             {/* Archetype panels */}
             <div className="space-y-5">
