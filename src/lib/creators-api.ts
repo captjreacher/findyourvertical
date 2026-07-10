@@ -36,6 +36,7 @@ import type {
 } from '@/types/creator';
 import { scoreAssessment, generateReportSlug } from './scoring';
 import { createCreatorIntelligenceResult } from './creator-intelligence';
+import type { CreatorOnboardingCase, RedemptionResult } from './onboarding';
 import {
   buildCreatorAssessmentCompletedPayload,
   determineCreatorCompletionNextAction,
@@ -1305,6 +1306,72 @@ export async function recordPersonaPortfolioViewed(generationId: string): Promis
   });
   // Non-critical audit; swallow errors so the workspace view is never blocked.
   if (error) return;
+}
+
+// ── Creator onboarding (FYV-ONBOARDING-FIRST) ────────────────────────────────
+// Creator-scoped RPCs; ownership is enforced server-side via
+// current_creator_profile_id(). No client-supplied profile id is ever trusted.
+
+export async function getMyOnboardingCase(): Promise<CreatorOnboardingCase | null> {
+  const { data, error } = await supabase.rpc('get_my_onboarding_case');
+  if (error) throw new Error(error.message);
+  return (data ?? null) as CreatorOnboardingCase | null;
+}
+
+/** Create-or-resume the caller's own onboarding case. */
+export async function startMyOnboarding(): Promise<CreatorOnboardingCase> {
+  const { data, error } = await supabase.rpc('start_my_onboarding');
+  if (error) throw new Error(error.message);
+  return data as CreatorOnboardingCase;
+}
+
+export async function saveMyOnboardingProgress(
+  caseId: string,
+  responses: Record<string, unknown>,
+): Promise<CreatorOnboardingCase> {
+  const { data, error } = await supabase.rpc('save_my_onboarding_progress', {
+    p_case_id: caseId,
+    p_responses: responses,
+  });
+  if (error) throw new Error(error.message);
+  return data as CreatorOnboardingCase;
+}
+
+export async function submitMyOnboarding(caseId: string): Promise<CreatorOnboardingCase> {
+  const { data, error } = await supabase.rpc('submit_my_onboarding', { p_case_id: caseId });
+  if (error) throw new Error(error.message);
+  return data as CreatorOnboardingCase;
+}
+
+/** Redeem a single-use onboarding invitation token for the authenticated creator. */
+export async function redeemOnboardingInvitation(token: string): Promise<RedemptionResult> {
+  const { data, error } = await supabase.rpc('redeem_onboarding_invitation', { p_token: token });
+  if (error) throw new Error(error.message);
+  return (data ?? { ok: false, code: 'invalid' }) as RedemptionResult;
+}
+
+/** Result of creating an onboarding invitation. `raw_token` is returned ONCE. */
+export interface OnboardingInvitationResult {
+  invitation_id: string;
+  onboarding_case_id: string;
+  expires_at: string;
+  raw_token: string;
+  accept_path: string;
+}
+
+/**
+ * Agency/cockpit: create a single-use onboarding invitation and get the raw link
+ * ONCE for copying. No transactional email provider exists — callers must copy
+ * and send the link manually and must NOT claim an email was sent.
+ */
+export async function createOnboardingInvitation(
+  creatorProfileId: string,
+): Promise<OnboardingInvitationResult> {
+  const { data, error } = await supabase.rpc('create_onboarding_invitation', {
+    p_creator_profile_id: creatorProfileId,
+  });
+  if (error) throw new Error(error.message);
+  return data as OnboardingInvitationResult;
 }
 
 // ── Authenticated Cockpit API ──

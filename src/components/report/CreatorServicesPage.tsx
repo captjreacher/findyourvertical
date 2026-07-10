@@ -42,11 +42,9 @@ export function CreatorServicesPage() {
   const profileId = params.get('profileId');
   const reportSlug = params.get('reportSlug');
 
-  const onboardingParams = new URLSearchParams();
-  if (profileId) onboardingParams.set('profileId', profileId);
-  if (reportSlug) onboardingParams.set('reportSlug', reportSlug);
-  const onboardingQs = onboardingParams.toString();
-  const onboardingUrl = `/creator-services/onboarding${onboardingQs ? `?${onboardingQs}` : ''}`;
+  // Onboarding is authenticated now — identity comes from the signed-in creator,
+  // never a query-string profileId. Route into the authenticated onboarding flow.
+  const onboardingUrl = '/my/onboarding';
 
   return (
     <div className="fyv-report-shell min-h-screen text-charcoal">
