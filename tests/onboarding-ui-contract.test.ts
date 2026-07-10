@@ -62,10 +62,13 @@ test('creators-api exposes the onboarding functions', () => {
   }
 });
 
-test('cockpit invite action generates a link and never claims an email was sent', () => {
+test('cockpit invite action generates a link, runs the email boundary, and never claims it was sent', () => {
   const action = read('src/components/cockpit/OnboardingInviteAction.tsx');
   assert.match(action, /createOnboardingInvitation/);
-  assert.match(action, /not<\/strong> been emailed|not been emailed/i);
+  assert.match(action, /deliverOnboardingInvitation/);
+  assert.match(action, /Invitation link generated/);
+  assert.match(action, /manual delivery/i);
+  assert.match(action, /Nothing was emailed/i);
 });
 
 test('creator services Start button routes into authenticated onboarding (no profileId)', () => {

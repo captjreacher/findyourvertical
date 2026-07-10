@@ -70,17 +70,33 @@ Agency (cockpit) → create_onboarding_invitation → copy secure link
 
 ## Email boundary
 
-No transactional email provider exists in the repo. This phase:
-- generates the secure invitation URL and provides a cockpit **Create / Copy
-  onboarding link** action on the creator profile;
-- emits `onboarding.invitation.created` to the existing `public.events` outbox
-  (safe payload only);
-- leaves a provider-neutral send seam (unimplemented) and **never claims an email
-  was sent** — the UI states delivery is not configured.
+No transactional email provider exists in the repo, so a **provider-neutral
+boundary** (`src/lib/email/`) is implemented with a safe default that never sends:
+- `types.ts` — `EmailProvider.send()` → `EmailSendResult { delivered, mode:
+  'manual' | 'sent', provider, reason }`.
+- `manualProvider.ts` — `ManualNoopEmailProvider` returns `{ delivered: false,
+  mode: 'manual', reason: 'no_provider_configured' }` (browser-safe; no network,
+  no credentials).
+- `provider.ts` — `resolveEmailProvider()` returns the manual/no-op default; a
+  real provider must be added **server-side** (Worker route + secret), never in
+  the browser.
+- `onboardingInvitationEmail.ts` — `buildOnboardingInvitationEmail(...)` → subject
+  `Complete your creator setup` + FYV-styled responsive HTML (dark `#121212`,
+  card `#1E1E1E`, brand pink `#FF2D74` button, Poppins/Inter, 12px radius) + text;
+  first name HTML-escaped.
+- `deliverOnboardingInvitation.ts` — composes the email and runs it through the
+  resolved provider; always `linkGenerated: true`, `delivered: true` only if a
+  real provider sent it.
 
-**Missing delivery dependency:** a transactional email provider (and a send
-implementation for the seam) must be added in a later phase to actually email the
-link. No paid provider was introduced and no credentials were hard-coded.
+The cockpit **Create / Copy onboarding link** action calls this and shows
+**"Invitation link generated"** distinctly from **"Email not sent · manual
+delivery"** (copy-link + copy-email-HTML for manual sending). The DB still emits
+the safe `onboarding.invitation.created` audit event (identifiers only).
+
+**Missing delivery dependency:** to actually email the link, integrate a
+transactional provider server-side behind `resolveEmailProvider()` (Worker route
++ secret) in a later phase. No paid provider was introduced and no credentials
+were hard-coded.
 
 ## Dashboard
 
@@ -112,10 +128,25 @@ None added. (Onboarding uses Supabase RPCs via the existing client; no email
 provider is configured.)
 
 ## Testing (deterministic, no DB, no network, no new deps)
-`npm test` (Node built-in runner, type stripping) covers: onboarding hero/progress
-derivation, distinct redemption codes + redirect, accept-path, nav; the migration
-security/idempotency/event-safety/`force_new` contract; and the UI/route contract.
+`npm test` (Node built-in runner, type stripping) — **77/77 pass in-sandbox** —
+covers: onboarding hero/progress derivation, distinct redemption codes + redirect,
+accept-path, nav; the migration security/idempotency/event-safety/`force_new`
+contract; the UI/route contract; and the email boundary (subject/body, HTML-escaping,
+manual/no-op non-delivery, and link-generated-vs-sent separation).
 DB-applied `verify_onboarding.sql` and live email are pre-merge steps.
+
+### Validation handoff — this authoring environment
+`npm test` passes (no registry needed). `npm run typecheck` and `npm run build`
+could **not** run because dependencies are not installed and the npm registry is
+firewalled here:
+- `npm ci` → `npm error code E403` (`403 Forbidden - GET https://registry.npmjs.org/...`)
+- `npm run typecheck` → `tsc -b` → `sh: tsc: command not found` (exit 127)
+- `npm run build` → `tsc -b && vite build` → `sh: tsc: command not found` (exit 127)
+
+These are environment limitations (dependencies cannot be fetched), **not**
+implementation failures. Re-run `npm ci && npm run typecheck && npm run build`
+where the registry is reachable. No new dependencies were added — the feature
+uses only packages already declared in `package.json`.
 
 ## Validation matrix
 new invitation · existing active case resumes · duplicate initiation resumes ·
