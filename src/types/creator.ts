@@ -1,4 +1,10 @@
 import type { KnowledgeEnrichment } from '@/lib/knowledge/types';
+import type {
+  PersonaRank,
+  PersonaStatus,
+  PersonaGenerationStatus,
+  PersonaProfileDetail,
+} from '@/lib/persona-portfolio';
 
 // ── Creator Profile (primary entity) ──
 export type CreatorStatus =
@@ -622,4 +628,58 @@ export interface CreatorVariationSelection {
   archetype_rank: ArchetypeRank;
   variation_id: string;
   status: 'selected' | 'deselected';
+}
+
+// ── FYV-PERSONA-1B — persona portfolio generation ────────────────────────────
+
+/**
+ * One persona-portfolio generation event for a creator's active archetype
+ * snapshot (public.creator_persona_generations). Holds lifecycle state plus the
+ * immutable input/output provenance snapshots. Creator-readable (own-row);
+ * written only by the service-role generation RPCs.
+ */
+export interface CreatorPersonaGeneration {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  creator_profile_id: string;
+  snapshot_id: string;
+  status: PersonaGenerationStatus;
+  lifecycle_status: 'active' | 'superseded';
+  generation_method: 'ai_provider' | 'fixture';
+  provider: string | null;
+  model: string | null;
+  prompt_version: string;
+  schema_version: string;
+  request_digest: string;
+  input_snapshot: Record<string, unknown>;
+  output_snapshot: Record<string, unknown> | null;
+  attempts: number;
+  failure_code: string | null;
+  failure_reason: string | null;
+  completed_at: string | null;
+}
+
+/**
+ * A single generated draft persona (public.creator_personas). Stable display
+ * fields are explicit columns; variable-length creative detail lives in `profile`.
+ * Linked to exactly one source variation (lineage). Read-only in this sprint.
+ */
+export interface CreatorPersona {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  creator_profile_id: string;
+  generation_id: string;
+  snapshot_id: string;
+  source_variation_id: string;
+  source_archetype: string;
+  archetype_rank: PersonaRank;
+  portfolio_position: number;
+  display_name: string;
+  persona_title: string;
+  one_line_premise: string;
+  profile: PersonaProfileDetail;
+  status: PersonaStatus;
+  sort_order: number;
 }
