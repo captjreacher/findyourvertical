@@ -20,6 +20,7 @@ const AuthGate = lazy(() => import('./components/cockpit/AuthGate').then(module 
 const AssessmentTemplates = lazy(() => import('./components/cockpit/AssessmentTemplates').then(module => ({ default: module.AssessmentTemplates })));
 const CreatorGate = lazy(() => import('./components/creator/CreatorGate').then(module => ({ default: module.CreatorGate })));
 const CreatorHome = lazy(() => import('./components/creator/CreatorHome').then(module => ({ default: module.CreatorHome })));
+const CharacterPossibilities = lazy(() => import('./components/creator/CharacterPossibilities').then(module => ({ default: module.CharacterPossibilities })));
 
 function LoadingScreen({ label = 'Loading…' }: { label?: string }) {
   return (
@@ -109,6 +110,8 @@ export default function App() {
 
           {/* Creator Home ("My Vertical") — authenticated creator self-service. */}
           <Route path="/my" element={<CreatorGate><CreatorHome /></CreatorGate>} />
+          {/* Build Your Character Possibilities — archetype variation selection (FYV-PERSONA-1A). */}
+          <Route path="/my/characters" element={<CreatorGate><CharacterPossibilities /></CreatorGate>} />
 
           <Route path="/cockpit/*" element={<AuthGate><CockpitLayout /></AuthGate>}>
             <Route index element={<AgencyDashboard />} />

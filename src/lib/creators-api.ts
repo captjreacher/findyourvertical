@@ -27,6 +27,10 @@ import type {
   AssessmentQuestionType,
   ReportData,
   ReportTier,
+  ArchetypeVariation,
+  ArchetypeRank,
+  CreatorArchetypeSnapshot,
+  CreatorVariationSelection,
 } from '@/types/creator';
 import { scoreAssessment, generateReportSlug } from './scoring';
 import { createCreatorIntelligenceResult } from './creator-intelligence';
@@ -1061,6 +1065,137 @@ export async function createCreatorRetakeInvite(): Promise<{ invite_code: string
   const { data, error } = await supabase.rpc('create_creator_retake_invite');
   if (error) throw new Error(error.message);
   return data as { invite_code: string; template_slug: string };
+}
+
+// ── Archetype variation library + creator selections (FYV-PERSONA-1A) ────────
+// Authenticated creator-self-service + agency. The library is public-read of
+// active rows; snapshots and selections are creator-own via RLS.
+
+/** Active variations for the given archetypes, ordered for display. */
+export async function getActiveVariationsForArchetypes(
+  archetypes: string[],
+): Promise<ArchetypeVariation[]> {
+  const unique = Array.from(new Set(archetypes.filter(Boolean)));
+  if (unique.length === 0) return [];
+  const { data, error } = await supabase
+    .from('archetype_variations')
+    .select('*')
+    .in('archetype', unique)
+    .eq('is_active', true)
+    .order('archetype', { ascending: true })
+    .order('display_order', { ascending: true });
+  if (error) throw new Error(`Failed to load archetype variations: ${error.message}`);
+  return (data ?? []) as ArchetypeVariation[];
+}
+
+/** The creator's active (current-cycle) archetype snapshot, or null if none yet. */
+export async function getMyArchetypeSnapshot(
+  creatorProfileId: string,
+): Promise<CreatorArchetypeSnapshot | null> {
+  const { data, error } = await supabase
+    .from('creator_archetype_snapshots')
+    .select('*')
+    .eq('creator_profile_id', creatorProfileId)
+    .eq('status', 'active')
+    .maybeSingle();
+  if (error) throw new Error(`Failed to load your character basis: ${error.message}`);
+  return (data ?? null) as CreatorArchetypeSnapshot | null;
+}
+
+/**
+ * Insert the creator's active archetype snapshot (the locked ranked basis),
+ * called once when the creator first enters the selection step. If a concurrent
+ * insert already created the active snapshot (unique index), reuse it.
+ */
+export async function createMyArchetypeSnapshot(input: {
+  creatorProfileId: string;
+  sourceAssessmentId: string | null;
+  primaryArchetype: string;
+  secondaryArchetype: string;
+  thirdArchetype: string;
+}): Promise<CreatorArchetypeSnapshot> {
+  const { data, error } = await supabase
+    .from('creator_archetype_snapshots')
+    .insert({
+      creator_profile_id: input.creatorProfileId,
+      source_assessment_id: input.sourceAssessmentId,
+      primary_archetype: input.primaryArchetype,
+      secondary_archetype: input.secondaryArchetype,
+      third_archetype: input.thirdArchetype,
+      status: 'active',
+    })
+    .select()
+    .single();
+  if (error) {
+    // Unique-violation → another tab/session already created it; reuse that one.
+    const existing = await getMyArchetypeSnapshot(input.creatorProfileId);
+    if (existing) return existing;
+    throw new Error(`Failed to save your character basis: ${error.message}`);
+  }
+  return data as CreatorArchetypeSnapshot;
+}
+
+/** All selection rows for a snapshot cycle. */
+export async function getMyVariationSelections(
+  snapshotId: string,
+): Promise<CreatorVariationSelection[]> {
+  const { data, error } = await supabase
+    .from('creator_variation_selections')
+    .select('*')
+    .eq('snapshot_id', snapshotId)
+    .order('created_at', { ascending: true });
+  if (error) throw new Error(`Failed to load your selections: ${error.message}`);
+  return (data ?? []) as CreatorVariationSelection[];
+}
+
+export interface VariationSelectionInput {
+  variationId: string;
+  archetype: string;
+  rank: ArchetypeRank;
+}
+
+/**
+ * Reconcile the creator's selected variations for a snapshot to exactly the
+ * provided set: insert newly-selected rows, delete de-selected ones. Selections
+ * stay editable until the creator finishes; duplicates are prevented by the
+ * (snapshot_id, variation_id) unique constraint.
+ */
+export async function saveMyVariationSelections(input: {
+  creatorProfileId: string;
+  snapshotId: string;
+  selections: VariationSelectionInput[];
+}): Promise<CreatorVariationSelection[]> {
+  const existing = await getMyVariationSelections(input.snapshotId);
+  const desiredIds = new Set(input.selections.map(selection => selection.variationId));
+  const existingIds = new Set(existing.map(row => row.variation_id));
+
+  const toInsert = input.selections.filter(selection => !existingIds.has(selection.variationId));
+  const toDeleteIds = existing
+    .filter(row => !desiredIds.has(row.variation_id))
+    .map(row => row.id);
+
+  if (toDeleteIds.length > 0) {
+    const { error } = await supabase
+      .from('creator_variation_selections')
+      .delete()
+      .in('id', toDeleteIds);
+    if (error) throw new Error(`Failed to update your selections: ${error.message}`);
+  }
+
+  if (toInsert.length > 0) {
+    const rows = toInsert.map(selection => ({
+      creator_profile_id: input.creatorProfileId,
+      snapshot_id: input.snapshotId,
+      archetype: selection.archetype,
+      archetype_rank: selection.rank,
+      variation_id: selection.variationId,
+      status: 'selected' as const,
+    }));
+    const { error } = await supabase.from('creator_variation_selections').insert(rows);
+    if (error) throw new Error(`Failed to save your selections: ${error.message}`);
+  }
+
+  return getMyVariationSelections(input.snapshotId);
 }
 
 // ── Authenticated Cockpit API ──

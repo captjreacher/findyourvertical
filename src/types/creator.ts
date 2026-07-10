@@ -567,3 +567,59 @@ export const CREATOR_ARCHETYPES = [
   'Other',
 ] as const;
 export type CreatorArchetype = (typeof CREATOR_ARCHETYPES)[number];
+
+// ── Archetype Variations & Creator Variation Selection (FYV-PERSONA-1A) ──────
+// Foundation for the creator persona system: the managed library of creative
+// variations per archetype, the locked ranked top-three "creative basis"
+// snapshot, and the creator's chosen variations. This sprint stops at
+// selection — no persona generation.
+
+/** Rank of an archetype within a creator's top-three creative basis. */
+export type ArchetypeRank = 'primary' | 'secondary' | 'third';
+
+/** A managed creative variation of an archetype (public.archetype_variations). */
+export interface ArchetypeVariation {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  /** Parent archetype identity — matches a CREATOR_ARCHETYPES display name. */
+  archetype: string;
+  name: string;
+  description: string;
+  is_active: boolean;
+  display_order: number;
+  /** Forward-compatible creative guidance (prompt/visual/story/etc.). */
+  guidance: Record<string, unknown>;
+}
+
+/**
+ * A locked, ranked top-three archetype basis captured once when a creator
+ * enters the variation-selection step (public.creator_archetype_snapshots).
+ * Persisted so the creative basis stays auditable and stable even if scoring
+ * logic later changes; a future assessment can supersede it and start a fresh
+ * selection cycle.
+ */
+export interface CreatorArchetypeSnapshot {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  creator_profile_id: string;
+  source_assessment_id: string | null;
+  primary_archetype: string;
+  secondary_archetype: string;
+  third_archetype: string;
+  status: 'active' | 'superseded';
+}
+
+/** A creator's selected variation for one snapshot (public.creator_variation_selections). */
+export interface CreatorVariationSelection {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  creator_profile_id: string;
+  snapshot_id: string;
+  archetype: string;
+  archetype_rank: ArchetypeRank;
+  variation_id: string;
+  status: 'selected' | 'deselected';
+}
