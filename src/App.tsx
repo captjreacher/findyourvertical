@@ -9,7 +9,6 @@ import {
 const AssessmentWizard = lazy(() => import('./components/wizard/AssessmentWizard').then(module => ({ default: module.AssessmentWizard })));
 const ReportPage = lazy(() => import('./components/report/ReportPage').then(module => ({ default: module.ReportPage })));
 const CreatorServicesPage = lazy(() => import('./components/report/CreatorServicesPage').then(module => ({ default: module.CreatorServicesPage })));
-const CreatorOnboardingPage = lazy(() => import('./components/report/CreatorOnboardingPage').then(module => ({ default: module.CreatorOnboardingPage })));
 const CockpitLayout = lazy(() => import('./components/cockpit/CockpitLayout').then(module => ({ default: module.CockpitLayout })));
 const CreatorPipeline = lazy(() => import('./components/cockpit/CreatorPipeline').then(module => ({ default: module.CreatorPipeline })));
 const CreatorAssessmentReview = lazy(() => import('./components/cockpit/CreatorAssessmentReview').then(module => ({ default: module.CreatorAssessmentReview })));
@@ -23,6 +22,11 @@ const CreatorHome = lazy(() => import('./components/creator/CreatorHome').then(m
 const CharacterPossibilities = lazy(() => import('./components/creator/CharacterPossibilities').then(module => ({ default: module.CharacterPossibilities })));
 const PersonaWorkspace = lazy(() => import('./components/creator/PersonaWorkspace').then(module => ({ default: module.PersonaWorkspace })));
 const PersonaDetail = lazy(() => import('./components/creator/PersonaDetail').then(module => ({ default: module.PersonaDetail })));
+const OnboardingFlow = lazy(() => import('./components/creator/OnboardingFlow').then(module => ({ default: module.OnboardingFlow })));
+const OnboardingAccept = lazy(() => import('./components/creator/OnboardingAccept').then(module => ({ default: module.OnboardingAccept })));
+const MyReportRedirect = lazy(() => import('./components/creator/MyReportRedirect').then(module => ({ default: module.MyReportRedirect })));
+const CreatorAssessments = lazy(() => import('./components/creator/CreatorAssessments').then(module => ({ default: module.CreatorAssessments })));
+const CreatorAccount = lazy(() => import('./components/creator/CreatorAccount').then(module => ({ default: module.CreatorAccount })));
 
 function LoadingScreen({ label = 'Loading…' }: { label?: string }) {
   return (
@@ -108,7 +112,9 @@ export default function App() {
           <Route path="/a/:templateSlug" element={<AssessmentWizard />} />
           <Route path="/report/:slug" element={<ReportPage />} />
           <Route path="/creator-services" element={<CreatorServicesPage />} />
-          <Route path="/creator-services/onboarding" element={<CreatorOnboardingPage />} />
+          {/* Legacy public placeholder now routes into the authenticated onboarding
+              flow (kills the old ?profileId= identity path). */}
+          <Route path="/creator-services/onboarding" element={<Navigate to="/my/onboarding" replace />} />
 
           {/* Creator Home ("My Vertical") — authenticated creator self-service. */}
           <Route path="/my" element={<CreatorGate><CreatorHome /></CreatorGate>} />
@@ -117,6 +123,12 @@ export default function App() {
           {/* Your Character Portfolio — six generated draft personas (FYV-PERSONA-1B). */}
           <Route path="/my/personas" element={<CreatorGate><PersonaWorkspace /></CreatorGate>} />
           <Route path="/my/personas/:personaId" element={<CreatorGate><PersonaDetail /></CreatorGate>} />
+          {/* Onboarding-first creator dashboard (FYV-ONBOARDING-FIRST). */}
+          <Route path="/my/onboarding" element={<CreatorGate><OnboardingFlow /></CreatorGate>} />
+          <Route path="/my/onboarding/accept" element={<CreatorGate><OnboardingAccept /></CreatorGate>} />
+          <Route path="/my/report" element={<CreatorGate><MyReportRedirect /></CreatorGate>} />
+          <Route path="/my/assessments" element={<CreatorGate><CreatorAssessments /></CreatorGate>} />
+          <Route path="/my/account" element={<CreatorGate><CreatorAccount /></CreatorGate>} />
 
           <Route path="/cockpit/*" element={<AuthGate><CockpitLayout /></AuthGate>}>
             <Route index element={<AgencyDashboard />} />

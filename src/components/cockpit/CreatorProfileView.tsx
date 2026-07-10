@@ -13,6 +13,7 @@ import {
   updateCreatorServiceQualification,
   updateCreatorStatus,
 } from '@/lib/creators-api';
+import { OnboardingInviteAction } from './OnboardingInviteAction';
 import type {
   CreatorProfile,
   CreatorAssessment,
@@ -356,6 +357,9 @@ export function CreatorProfileView() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Left: Details */}
         <div className="lg:col-span-2 space-y-6">
+          {/* Onboarding invitation (create + copy secure link; email boundary is manual/no-op). */}
+          <OnboardingInviteAction profileId={profile.id} firstName={profile.first_name} email={profile.email} />
+
           {/* Scorecard */}
           <div className="cockpit-card-pad">
             <h2 className="cockpit-section-title mb-4">Profile Details</h2>
