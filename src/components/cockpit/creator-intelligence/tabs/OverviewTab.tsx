@@ -59,7 +59,7 @@ export function OverviewTab() {
             ['Version', storedReport?.version ?? '1.0'],
             ['Report Tier', storedReport?.report_tier ?? 'free'],
             ['DNA Confidence', dna ? `${dna.confidence}%` : '-'],
-            ['Invite Code', selectedAssessment?.invite_code ?? '-'],
+            ['Assessment Invite', selectedAssessment?.invite_code ?? 'Not available'],
           ].map(([label, value]) => (
             <div key={label} className="bg-surface-2 rounded-lg p-3">
               <div className="text-xs text-charcoal-2">{label}</div>
