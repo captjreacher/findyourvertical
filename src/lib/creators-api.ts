@@ -1,4 +1,5 @@
 import { supabase, publicSupabase } from './supabase';
+import { buildIntelligencePackageBody } from './intelligence-package';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
   CreatorProfile,
@@ -756,6 +757,33 @@ export async function submitAssessment(
       top_vertical_3: reportDataWithRouting.top_verticals[2]?.name ?? null,
     })
     .eq('id', profileId);
+
+  // 6b. Publish the Creator Intelligence Package (FYV → downstream handoff).
+  //
+  // A single atomic RPC creates the published package, supersedes the creator's
+  // previous active package, and emits `creator.intelligence_package.published`
+  // into the existing events outbox. This runs BEFORE the completion event and a
+  // hard failure THROWS: a creator assessment cannot report successful
+  // completion without its intelligence package being published. Publication is
+  // NOT gated on consent / conflict / onboarding / FMF — a valid assessment
+  // completion is the only requirement. report_json is left untouched.
+  const intelligencePackageBody = buildIntelligencePackageBody(reportDataWithRouting, {
+    creatorReference: profileId,
+  });
+  const { error: publishError } = await (supabase as any).rpc(
+    'publish_creator_intelligence_package',
+    {
+      p_creator_profile_id: profileId,
+      p_assessment_id: assessment.id,
+      p_report_reference: report.id,
+      p_package_json: intelligencePackageBody,
+      p_version: '1',
+    },
+  );
+
+  if (publishError) {
+    throw new Error(`Failed to publish creator intelligence package: ${publishError.message}`);
+  }
 
   const completionPayload = buildCreatorAssessmentCompletedPayload({
     profile: {
