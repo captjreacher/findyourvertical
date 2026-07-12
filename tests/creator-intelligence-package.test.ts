@@ -17,7 +17,9 @@ import {
   assertConsumablePackage,
   buildCreatorIntelligencePackagePublishedEvent,
   buildAssessmentReference,
+  CREATOR_ASSESSMENT_REFERENCE_PREFIX,
 } from '../src/lib/contracts/creator-intelligence-package-v1.ts';
+import { MOONSIREN_CREATOR_INTELLIGENCE_PACKAGE_V1 } from '../src/lib/contracts/creator-intelligence-package-v1.fixture.ts';
 
 // A representative completed report, deliberately including internal-only fields
 // the downstream package body must NEVER leak.
@@ -152,4 +154,18 @@ test('versioning: first publish active; second supersedes; only latest active; h
   assert.equal(active[0].id, 'p2', 'the latest package is active');
   assert.equal(records.length, 2, 'history retained + traceable');
   assert.equal(records.find(r => r.id === 'p1')?.package_state, 'superseded');
+});
+
+test('fixture: MoonSiren scaffold uses the canonical reference format (no legacy styles)', () => {
+  const pkg = MOONSIREN_CREATOR_INTELLIGENCE_PACKAGE_V1;
+  // Package reference is the canonical opaque fyv.creator.intelligence.<uuid> form.
+  assert.ok(
+    isValidPackageReference(pkg.packageReference),
+    `fixture packageReference must be canonical, got: ${pkg.packageReference}`,
+  );
+  // Assessment reference is the canonical opaque form.
+  assert.ok(pkg.provenance.assessmentReference.startsWith(CREATOR_ASSESSMENT_REFERENCE_PREFIX));
+  // No legacy reference prefixes remain on the package/assessment references.
+  assert.ok(!pkg.packageReference.startsWith('cip:'), 'legacy cip: prefix removed');
+  assert.ok(!pkg.provenance.assessmentReference.startsWith('fyv-assessment:'), 'legacy fyv-assessment: prefix removed');
 });

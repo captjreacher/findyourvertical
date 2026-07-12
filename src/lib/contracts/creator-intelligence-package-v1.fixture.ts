@@ -1,7 +1,9 @@
 import type { CreatorIntelligencePackageV1 } from './creator-intelligence-package-v1';
 
 export const MOONSIREN_CREATOR_INTELLIGENCE_PACKAGE_V1 = {
-  packageReference: 'cip:moon-siren:leah:0001',
+  // Canonical, opaque, UUID-based package reference (fyv.creator.intelligence.<uuid>).
+  // Consumers must treat this as an opaque identifier — no parsable structure.
+  packageReference: 'fyv.creator.intelligence.0f9c1e2a-6b47-4c31-9a5e-2d8f1b4c7e90',
   packageVersion: '1.0.0',
   identity: {
     sourceCreatorReference: 'moon-siren/leah',
@@ -13,7 +15,7 @@ export const MOONSIREN_CREATOR_INTELLIGENCE_PACKAGE_V1 = {
     producerProduct: 'FYV',
     contractVersion: 'v1',
     intelligenceResultVersion: '2026-07-04.1',
-    assessmentReference: 'fyv-assessment:moon-siren:2026-07-04',
+    assessmentReference: 'fyv.creator.assessment.7c3d5f8a-1e24-4b96-8f0a-6a2b9c4d7e13',
     assessmentTemplateVersion: 'fyv-assessment-template:v2.4',
     generatedAt: '2026-07-04T09:30:00Z',
     publishedAt: '2026-07-04T09:35:00Z',
