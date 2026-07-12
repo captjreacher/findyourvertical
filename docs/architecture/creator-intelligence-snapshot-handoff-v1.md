@@ -67,6 +67,16 @@ systems own creator ids. FMF resolves its own creator via `external_identity`
 `package_reference`), backed by a partial unique index — so publishing is
 idempotent and rerunning a backfill never duplicates the event.
 
+### Contract semantics (authoritative)
+- **`creator_reference`** is FYV's **namespaced identity** (`fyv:<creator_profiles.id>`) — a source-system trace handle only, never a cross-system key. Consumers must not treat it as their own creator id.
+- **`external_identity`** (`platform_provider` + `platform_account_id`, e.g. `betterfans:517509783`) is the **cross-product resolution key**. FMF resolves its own `of_creators` from this (its `betterfans_account_id` is unique); it never resolves FYV UUIDs.
+- **FMF consumption is downstream and asynchronous — NOT synchronous.** FYV only appends the `creator.intelligence_package.published` event and returns; it does not call FMF, block on FMF, or advance FMF onboarding. A consumer may process the event later, or not exist yet.
+
+### Dedupe & versioning strategy
+- Idempotency key = `correlation_id` = `package_reference` (`fyv/<slug>/intelligence-package/<version>`), enforced by a partial unique index. Re-emitting the **same** package is a safe no-op.
+- A **new package version** carries a **different `<version>`** in the reference → a different `correlation_id` → a new event. The uniqueness constraint therefore dedupes identical republishes **without** blocking legitimate version changes.
+- Active-vs-superseded package **lifecycle** is a separate axis, modelled by `creator_intelligence_snapshots.superseded_at` — not by the event dedupe key.
+
 ## MoonSiren (anchor creator) — reconciled, not re-provisioned
 MoonSiren (`of_creators.id ba8284f7…` in FYV) already had the seed snapshot
 `fyv/moonsiren/intelligence-package/2026-07-05` + 3 projections and
