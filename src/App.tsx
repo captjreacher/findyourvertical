@@ -24,6 +24,7 @@ const PersonaWorkspace = lazy(() => import('./components/creator/PersonaWorkspac
 const PersonaDetail = lazy(() => import('./components/creator/PersonaDetail').then(module => ({ default: module.PersonaDetail })));
 const OnboardingFlow = lazy(() => import('./components/creator/OnboardingFlow').then(module => ({ default: module.OnboardingFlow })));
 const OnboardingAccept = lazy(() => import('./components/creator/OnboardingAccept').then(module => ({ default: module.OnboardingAccept })));
+const AcceptInvite = lazy(() => import('./components/creator/AcceptInvite').then(module => ({ default: module.AcceptInvite })));
 const MyReportRedirect = lazy(() => import('./components/creator/MyReportRedirect').then(module => ({ default: module.MyReportRedirect })));
 const CreatorAssessments = lazy(() => import('./components/creator/CreatorAssessments').then(module => ({ default: module.CreatorAssessments })));
 const CreatorAccount = lazy(() => import('./components/creator/CreatorAccount').then(module => ({ default: module.CreatorAccount })));
@@ -112,6 +113,8 @@ export default function App() {
           <Route path="/a/:templateSlug" element={<AssessmentWizard />} />
           <Route path="/report/:slug" element={<ReportPage />} />
           <Route path="/creator-services" element={<CreatorServicesPage />} />
+          {/* Public FYV access-invite acceptance (unauthenticated → provisions + signs in). */}
+          <Route path="/accept-invite" element={<AcceptInvite />} />
           {/* Legacy public placeholder now routes into the authenticated onboarding
               flow (kills the old ?profileId= identity path). */}
           <Route path="/creator-services/onboarding" element={<Navigate to="/my/onboarding" replace />} />

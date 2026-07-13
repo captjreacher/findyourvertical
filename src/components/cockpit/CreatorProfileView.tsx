@@ -14,6 +14,7 @@ import {
   updateCreatorStatus,
 } from '@/lib/creators-api';
 import { OnboardingInviteAction } from './OnboardingInviteAction';
+import { CreatorAccessInviteAction } from './CreatorAccessInviteAction';
 import type {
   CreatorProfile,
   CreatorAssessment,
@@ -359,6 +360,10 @@ export function CreatorProfileView() {
         <div className="lg:col-span-2 space-y-6">
           {/* Onboarding invitation (create + copy secure link; email boundary is manual/no-op). */}
           <OnboardingInviteAction profileId={profile.id} firstName={profile.first_name} email={profile.email} />
+
+          {/* FYV access invitation — maps FYV identity to a canonical FMF creator id
+              and issues a magic link (draft → invited). Email boundary is manual/no-op. */}
+          <CreatorAccessInviteAction profileId={profile.id} email={profile.email} />
 
           {/* Scorecard */}
           <div className="cockpit-card-pad">

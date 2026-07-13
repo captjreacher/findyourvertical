@@ -30,6 +30,7 @@ import {
   type SelectedVariation,
 } from '../src/lib/persona-portfolio.ts';
 import { generatePortfolio, ProviderError, resolveProviderMethod, type ProviderDeps } from './provider.ts';
+import { routeCreatorRelationship } from './creator-relationship.ts';
 
 export interface Env {
   SUPABASE_URL: string;
@@ -40,6 +41,7 @@ export interface Env {
   PERSONA_PROVIDER_API_KEY?: string;
   PERSONA_MODEL?: string;
   PERSONA_APP_ENV?: string;
+  APP_BASE_URL?: string;
   ASSETS?: { fetch: (request: Request) => Promise<Response> };
 }
 
@@ -360,6 +362,11 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
     if (url.pathname === GENERATE_PATH) return handleGenerate(request, env);
+    // FYV Creator Relationship & Access Layer (invite / accept / activate).
+    if (url.pathname.startsWith('/api/creators/')) {
+      const handled = await routeCreatorRelationship(request, env);
+      if (handled) return handled;
+    }
     if (url.pathname.startsWith('/api/')) return json({ error: 'not_found' }, 404);
     // SPA fallback (only reached if the Worker is invoked for a non-API path).
     if (env.ASSETS) return env.ASSETS.fetch(request);
