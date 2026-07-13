@@ -1392,6 +1392,100 @@ export async function createOnboardingInvitation(
   return data as OnboardingInvitationResult;
 }
 
+// ── Creator Relationship & Access Layer (FYV → FMF identity + access) ────────
+// FYV owns the creator identity relationship + access onboarding. These helpers
+// drive the draft → invited → accepted → active lifecycle. Identity is CANONICAL
+// (creator_profiles.id ↔ of_creators.id); BetterFans usernames are never used.
+
+export interface CreatorAccessInvitationResult {
+  ok: boolean;
+  relationshipId: string;
+  invitationId: string;
+  relationshipState: string;
+  fmfCreatorId: string;
+  email: string;
+  expiresAt: string;
+  acceptPath: string;
+  acceptUrl: string;
+}
+
+interface CreatorRelationshipRow {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  fyv_creator_id: string;
+  fmf_creator_id: string;
+  relationship_state: 'draft' | 'invited' | 'accepted' | 'active';
+}
+
+/**
+ * Agency: issue an FYV access invitation for a creator, mapping their FYV
+ * identity to a canonical FMF creator id. Calls the Worker invite endpoint with
+ * the operator's Supabase JWT; the raw magic-link token is returned ONCE inside
+ * acceptUrl for the operator to copy/send (no email provider is configured).
+ */
+export async function createCreatorAccessInvitation(
+  creatorId: string,
+  fmfCreatorId: string,
+  email?: string | null,
+): Promise<CreatorAccessInvitationResult> {
+  const { data: { session } } = await supabase.auth.getSession();
+  const token = session?.access_token;
+  if (!token) throw new Error('Please sign in again to issue an invitation.');
+
+  const res = await fetch(`/api/creators/${encodeURIComponent(creatorId)}/invite`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+    body: JSON.stringify({ fmfCreatorId, email: email ?? undefined }),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok || !body?.ok) {
+    throw new Error(body?.message || body?.code || 'Could not create an access invitation.');
+  }
+  return body as CreatorAccessInvitationResult;
+}
+
+/** Public: validate an access-invite token WITHOUT consuming it (accept screen). */
+export async function validateCreatorAccessInvite(
+  token: string,
+): Promise<{ ok: boolean; code?: string; email?: string; relationshipState?: string }> {
+  const res = await fetch(`/api/creators/invite/accept?token=${encodeURIComponent(token)}`);
+  return (await res.json().catch(() => ({ ok: false, code: 'invalid' }))) as {
+    ok: boolean; code?: string; email?: string; relationshipState?: string;
+  };
+}
+
+/** Public: accept an access invite — provisions the creator's account + returns a magic link. */
+export async function acceptCreatorAccessInvite(
+  token: string,
+): Promise<{ ok: boolean; code?: string; email?: string; magicLink?: string | null; relationshipState?: string; next?: string }> {
+  const res = await fetch('/api/creators/invite/accept', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ token }),
+  });
+  return (await res.json().catch(() => ({ ok: false, code: 'invalid' }))) as {
+    ok: boolean; code?: string; email?: string; magicLink?: string | null; relationshipState?: string; next?: string;
+  };
+}
+
+/** The authenticated creator's own FYV↔FMF relationship (own-row via RLS), or null. */
+export async function getMyRelationship(): Promise<CreatorRelationshipRow | null> {
+  const { data, error } = await (supabase as any)
+    .from('creator_relationships')
+    .select('id, created_at, updated_at, fyv_creator_id, fmf_creator_id, relationship_state')
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return (data ?? null) as CreatorRelationshipRow | null;
+}
+
+/** Creator self-activation (accepted → active) once they have FYV access. Idempotent. */
+export async function activateMyRelationship(): Promise<{ ok: boolean; relationship_state?: string; code?: string }> {
+  const { data, error } = await supabase.rpc('activate_creator_relationship', { p_fyv_creator_id: null });
+  if (error) throw new Error(error.message);
+  return (data ?? { ok: false }) as { ok: boolean; relationship_state?: string; code?: string };
+}
+
 // ── Authenticated Cockpit API ──
 
 export async function getAllCreatorProfiles(): Promise<CreatorProfile[]> {
