@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "deploy": "wrangler versions upload",
     "db:types": "supabase gen types typescript --linked > src/lib/database.types.ts",
-    "test": "node --experimental-strip-types --test tests/persona-portfolio.test.ts tests/persona-worker.test.ts tests/persona-workspace.test.ts tests/persona-migration.test.ts tests/persona-ui-contract.test.ts tests/onboarding.test.ts tests/onboarding-migration.test.ts tests/onboarding-ui-contract.test.ts tests/email.test.ts tests/intelligence-snapshot.test.ts tests/intelligence-snapshot-migration.test.ts tests/creator-relationship.test.ts tests/creator-relationship-migration.test.ts tests/creator-relationship-worker.test.ts"
+    "test": "node --experimental-strip-types --test tests/persona-portfolio.test.ts tests/persona-worker.test.ts tests/persona-workspace.test.ts tests/persona-migration.test.ts tests/persona-ui-contract.test.ts tests/onboarding.test.ts tests/onboarding-migration.test.ts tests/onboarding-ui-contract.test.ts tests/email.test.ts tests/intelligence-snapshot.test.ts tests/intelligence-snapshot-migration.test.ts tests/creator-relationship.test.ts tests/creator-relationship-migration.test.ts tests/creator-relationship-worker.test.ts tests/agency-admin-console.test.ts"
   },
 
     "dependencies": {

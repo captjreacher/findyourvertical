@@ -114,3 +114,22 @@ export async function checkIsAgency(): Promise<boolean> {
   if (error) throw error;
   return data === true;
 }
+
+/**
+ * Thin identity helpers over the existing allowlist model — they add NO new
+ * role column and do not replace is_agency(). `isAgencyAdmin()` is an alias for
+ * the agency allowlist check; `isCreator()` is an authenticated non-agency user
+ * with a linked creator profile (current_creator_profile_id()).
+ */
+export async function isAgencyAdmin(): Promise<boolean> {
+  return checkIsAgency();
+}
+
+export async function isCreator(): Promise<boolean> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return false;
+  if (await checkIsAgency()) return false;
+  const { data, error } = await supabase.rpc('current_creator_profile_id');
+  if (error) return false;
+  return typeof data === 'string' && data.length > 0;
+}

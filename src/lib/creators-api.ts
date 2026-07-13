@@ -1486,6 +1486,41 @@ export async function activateMyRelationship(): Promise<{ ok: boolean; relations
   return (data ?? { ok: false }) as { ok: boolean; relationship_state?: string; code?: string };
 }
 
+export interface CreatorRelationshipListRow {
+  relationship_id: string;
+  fyv_creator_id: string;
+  fmf_creator_id: string;
+  relationship_state: 'draft' | 'invited' | 'accepted' | 'active';
+  creator_name: string | null;
+  email: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Agency: list every FYV↔FMF creator relationship with the creator's display
+ * name (embedded via the creator_profiles FK). Agency-only by RLS. This is the
+ * read side of the cockpit Creator Relationships console — it does NOT expose or
+ * depend on FMF onboarding_status / readiness / operational status.
+ */
+export async function getCreatorRelationships(): Promise<CreatorRelationshipListRow[]> {
+  const { data, error } = await (supabase as any)
+    .from('creator_relationships')
+    .select('id, fyv_creator_id, fmf_creator_id, relationship_state, created_at, updated_at, creator_profiles(full_name, email)')
+    .order('created_at', { ascending: false });
+  if (error) throw new Error(error.message);
+  return ((data ?? []) as any[]).map(r => ({
+    relationship_id: r.id,
+    fyv_creator_id: r.fyv_creator_id,
+    fmf_creator_id: r.fmf_creator_id,
+    relationship_state: r.relationship_state,
+    creator_name: r.creator_profiles?.full_name ?? null,
+    email: r.creator_profiles?.email ?? null,
+    created_at: r.created_at,
+    updated_at: r.updated_at,
+  }));
+}
+
 // ── Authenticated Cockpit API ──
 
 export async function getAllCreatorProfiles(): Promise<CreatorProfile[]> {

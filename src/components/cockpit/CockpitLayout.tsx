@@ -5,6 +5,7 @@ import brandLogo from '@/assets/fyv-brand-logo.png';
 const NAV_ITEMS = [
   { label: 'Dashboard', to: '/cockpit', icon: 'D', end: true },
   { label: 'Creators', to: '/cockpit/creators', icon: 'C' },
+  { label: 'Relationships', to: '/cockpit/relationships', icon: 'R' },
   { label: 'Assessment Templates', to: '/cockpit/settings/assessment-templates', icon: 'T' },
   { label: 'Question Bank', to: '/cockpit/settings/question-bank', icon: 'Q' },
 ];

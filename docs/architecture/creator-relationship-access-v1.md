@@ -135,4 +135,21 @@ then:
 3. Smoke: cockpit → creator → **FYV Access Invitation** (enter FMF id `20fdee3c-…`) → copy link →
    open `/accept-invite?token=…` → accept → sign in → `/my` → activate. Confirm three events land on
    `public.events` with the payload above and correct `correlation_id`s.
-```
+
+## Agency console & identity (delta)
+
+The agency/admin side reuses the **existing allowlist identity model** — there is **no role column** and **no separate `/admin` console**.
+
+- **Identity source of truth:** `public.agency_users` membership, checked by `public.is_agency()` (SECURITY DEFINER). A creator is an authenticated non-agency user with a linked `creator_profiles` row (`current_creator_profile_id()`).
+- **Derived helpers (thin, non-authoritative):** `src/lib/agency-identity.ts` `resolveIdentityRole({authenticated,isAgency,hasCreatorProfile}) → agency_admin | creator | guest`; `supabase.ts` `isAgencyAdmin()` (alias of `is_agency()`) and `isCreator()`. RLS + `is_agency()` remain authoritative on the server.
+- **Separation (already enforced, unchanged):** `AuthGate` gates `/cockpit/*` to `is_agency()` (creators are bounced to `/my`); `CreatorGate` detects agency users and refuses to run them through creator onboarding. Creator surface = `/my`, `/my/onboarding`, `/my/report`, `/my/personas`; agency surface = `/cockpit/*`.
+- **Creator Relationships console:** `/cockpit/relationships` (`CreatorRelationships`) lists every relationship — creator name, FYV creator id, FMF creator id, `relationship_state` — for agency operators only. The per-row **Invite** action reuses `createCreatorAccessInvitation` → `POST /api/creators/{id}/invite` (the PR #21 endpoint); it does **not** introduce a competing invitation system, and it surfaces only the FYV `relationship_state`, never FMF `onboarding_status`/readiness/operational status.
+- **Agency admin seed:** `20260714000200_seed_agency_admin_mike.sql` idempotently ensures `mike@mgrnz.com` is on the `agency_users` allowlist — no duplicate user, no creator profile, no assessment records, no role column.
+
+### Ownership contract (reaffirmed)
+
+| FYV owns | FMF owns |
+| --- | --- |
+| creator assessment, intelligence generation, **creator identity relationship**, **creator access** (`creator_relationships` lifecycle) | creator operations, opportunities, journeys, playbooks, automation execution |
+
+The FYV `relationship_state` (`draft→invited→accepted→active`) is a **distinct axis** from FMF `status`/`onboarding_status` (e.g. MoonSiren is FMF `connected`/`ready` while FYV starts at `draft`). FYV never reads or writes FMF operational state; FMF consumes the FYV events asynchronously.
