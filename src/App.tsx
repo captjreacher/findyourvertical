@@ -13,6 +13,7 @@ const CockpitLayout = lazy(() => import('./components/cockpit/CockpitLayout').th
 const CreatorPipeline = lazy(() => import('./components/cockpit/CreatorPipeline').then(module => ({ default: module.CreatorPipeline })));
 const CreatorAssessmentReview = lazy(() => import('./components/cockpit/CreatorAssessmentReview').then(module => ({ default: module.CreatorAssessmentReview })));
 const CreatorProfileView = lazy(() => import('./components/cockpit/CreatorProfileView').then(module => ({ default: module.CreatorProfileView })));
+const CreatorRelationships = lazy(() => import('./components/cockpit/CreatorRelationships').then(module => ({ default: module.CreatorRelationships })));
 const CreatorIntelligence = lazy(() => import('./components/cockpit/creator-intelligence/CreatorIntelligence').then(module => ({ default: module.CreatorIntelligence })));
 const AgencyDashboard = lazy(() => import('./components/cockpit/AgencyDashboard').then(module => ({ default: module.AgencyDashboard })));
 const AuthGate = lazy(() => import('./components/cockpit/AuthGate').then(module => ({ default: module.AuthGate })));
@@ -136,6 +137,8 @@ export default function App() {
           <Route path="/cockpit/*" element={<AuthGate><CockpitLayout /></AuthGate>}>
             <Route index element={<AgencyDashboard />} />
             <Route path="creators" element={<CreatorPipeline />} />
+            {/* FYV↔FMF creator relationship + access lifecycle console (agency-only). */}
+            <Route path="relationships" element={<CreatorRelationships />} />
             <Route path="creators/:profileId/review" element={<CreatorAssessmentReview />} />
             <Route path="creators/:profileId" element={<CreatorProfileView />} />
             <Route path="creators/:profileId/intelligence" element={<CreatorIntelligence />} />
