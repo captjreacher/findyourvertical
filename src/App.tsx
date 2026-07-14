@@ -31,6 +31,9 @@ const CreatorAssessments = lazy(() => import('./components/creator/CreatorAssess
 const CreatorAccount = lazy(() => import('./components/creator/CreatorAccount').then(module => ({ default: module.CreatorAccount })));
 const CreatorAuth = lazy(() => import('./components/creator/CreatorAuth').then(module => ({ default: module.CreatorAuth })));
 const PasswordResetPage = lazy(() => import('./components/creator/PasswordResetPage').then(module => ({ default: module.PasswordResetPage })));
+const AboutPage = lazy(() => import('./pages/AboutPage').then(module => ({ default: module.AboutPage })));
+const PrivacyPage = lazy(() => import('./pages/PrivacyPage').then(module => ({ default: module.PrivacyPage })));
+const TermsPage = lazy(() => import('./pages/TermsPage').then(module => ({ default: module.TermsPage })));
 
 function LoadingScreen({ label = 'Loading…' }: { label?: string }) {
   return (
@@ -116,6 +119,9 @@ export default function App() {
           <Route path="/a/:templateSlug" element={<AssessmentWizard />} />
           <Route path="/report/:slug" element={<ReportPage />} />
           <Route path="/creator-services" element={<CreatorServicesPage />} />
+          <Route path="/about" element={<AboutPage />} />
+          <Route path="/privacy" element={<PrivacyPage />} />
+          <Route path="/terms" element={<TermsPage />} />
           <Route path="/auth/login" element={<CreatorAuth mode="page" />} />
           <Route path="/auth/reset-password" element={<PasswordResetPage />} />
           {/* Public FYV access-invite acceptance (unauthenticated → provisions + signs in). */}
