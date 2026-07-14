@@ -279,7 +279,9 @@ export async function handleActivate(
 export async function routeCreatorRelationship(
   request: Request,
   env: RelEnv,
-  deps: RelDeps = { fetch: globalThis.fetch },
+  deps: RelDeps = {
+  fetch: (input, init) => globalThis.fetch(input, init),
+},
 ): Promise<Response | null> {
   const url = new URL(request.url);
   const path = url.pathname;
