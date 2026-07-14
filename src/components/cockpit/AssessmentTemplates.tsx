@@ -37,7 +37,8 @@ import type {
 type DraftItem = CreatorAssessmentTemplateItem;
 type DeleteEligibility = { canDelete: boolean; reason?: string };
 type SaveState = 'Saved' | 'Unsaved changes' | 'Saving' | 'Error';
-type OptionDraft = { id: string; label: string };
+type OptionDraft = { id: string; label: string; requiresText: boolean; textPrompt: string };
+type QuestionDraftEnvelope = { form: QuestionForm; baseUpdatedAt: string | null; savedAt: string };
 type BranchRuleDraft = Pick<CreatorAssessmentBranchRule, 'source_question_id' | 'option_value' | 'action' | 'target_question_id' | 'target_section_item_id'>;
 type QuestionForm = {
   id: string;
@@ -131,6 +132,8 @@ function optionsToDrafts(options: AssessmentQuestionOption[] | null | undefined)
     .map((option, index) => ({
       id: `option-${index}-${typeof option === 'string' ? option : option.value}`,
       label: typeof option === 'string' ? option : option.label || option.value,
+      requiresText: typeof option === 'string' ? false : option.requiresText === true,
+      textPrompt: typeof option === 'string' ? '' : option.textPrompt ?? '',
     }))
     .filter(option => option.label);
 }
@@ -139,7 +142,14 @@ function draftsToOptions(options: OptionDraft[]): AssessmentQuestionOption[] {
   return options
     .map(option => option.label.trim())
     .filter(Boolean)
-    .map(label => ({ value: normalizeKey(label) || label, label }));
+    .map((label, index) => {
+      const draft = options.filter(option => option.label.trim())[index];
+      return {
+        value: normalizeKey(label) || label,
+        label,
+        ...(draft?.requiresText ? { requiresText: true, textPrompt: draft.textPrompt.trim() || 'Please specify' } : {}),
+      };
+    });
 }
 
 function scaleNumber(value: unknown, fallback: number): number {
@@ -171,7 +181,7 @@ function questionCount(template: CreatorAssessmentRuntimeTemplate): number {
 export function AssessmentTemplates() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { templateId } = useParams();
+  const { templateId, questionId } = useParams();
   const isQuestionBankRoute = location.pathname.includes('/settings/question-bank');
 
   const [templates, setTemplates] = useState<CreatorAssessmentRuntimeTemplate[]>([]);
@@ -201,6 +211,9 @@ export function AssessmentTemplates() {
   const [questionSearch, setQuestionSearch] = useState('');
   const [questionForm, setQuestionForm] = useState<QuestionForm>(EMPTY_QUESTION_FORM);
   const [questionEditorOpen, setQuestionEditorOpen] = useState(false);
+  const [draftRestored, setDraftRestored] = useState(false);
+  const [draftConflict, setDraftConflict] = useState(false);
+  const [draftOwner, setDraftOwner] = useState('anonymous');
 
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
   const [inviteForm, setInviteForm] = useState(EMPTY_INVITE_FORM);
@@ -339,10 +352,49 @@ export function AssessmentTemplates() {
   };
 
   useEffect(() => {
+    void import('@/lib/supabase').then(({ supabase }) => supabase.auth.getUser()).then(({ data: { user } }) => {
+      if (user) setDraftOwner(user.id);
+    });
     load()
       .catch(e => setError(e instanceof Error ? e.message : 'Failed to load assessment templates'))
       .finally(() => setLoading(false));
   }, []);
+
+  const draftKey = (id: string) => `fyv:question-draft:${draftOwner}:${id || 'new'}`;
+
+  useEffect(() => {
+    if (loading || !isQuestionBankRoute || (!questionId && !location.pathname.endsWith('/new'))) return;
+    const question = questionId ? questions.find(item => item.id === questionId) : null;
+    if (questionId && !question) return;
+    const baseForm = question ? questionToForm(question) : EMPTY_QUESTION_FORM;
+    const raw = sessionStorage.getItem(draftKey(questionId ?? 'new'));
+    if (raw) {
+      try {
+        const draft = JSON.parse(raw) as QuestionDraftEnvelope;
+        setQuestionForm(draft.form);
+        setDraftRestored(true);
+        setDraftConflict(Boolean(question && draft.baseUpdatedAt && question.updated_at !== draft.baseUpdatedAt));
+      } catch {
+        setQuestionForm(baseForm);
+      }
+    } else {
+      setQuestionForm(baseForm);
+      setDraftRestored(false);
+      setDraftConflict(false);
+    }
+    setQuestionEditorOpen(true);
+  }, [loading, isQuestionBankRoute, questionId, questions, location.pathname, draftOwner]);
+
+  useEffect(() => {
+    if (!questionEditorOpen) return;
+    const record = questionForm.id ? questions.find(item => item.id === questionForm.id) : null;
+    const envelope: QuestionDraftEnvelope = {
+      form: questionForm,
+      baseUpdatedAt: record?.updated_at ?? null,
+      savedAt: new Date().toISOString(),
+    };
+    sessionStorage.setItem(draftKey(questionForm.id || 'new'), JSON.stringify(envelope));
+  }, [questionForm, questionEditorOpen, draftOwner]);
 
   useEffect(() => {
     if (loading || inviteAutoOpenRef.current || new URLSearchParams(location.search).get('invite') !== '1') return;
@@ -575,13 +627,13 @@ export function AssessmentTemplates() {
   };
 
   const openNewQuestionEditor = () => {
-    setQuestionForm(EMPTY_QUESTION_FORM);
-    setQuestionEditorOpen(true);
+    navigate('/cockpit/settings/question-bank/new');
   };
 
   const openEditQuestionEditor = (question: CreatorQuestion) => {
-    setQuestionForm(questionToForm(question));
-    setQuestionEditorOpen(true);
+    navigate(`/cockpit/settings/question-bank/${question.id}/edit`, {
+      state: { returnTo: `${location.pathname}${location.search}`, scrollY: window.scrollY },
+    });
   };
 
   const openDuplicateQuestionEditor = (question: CreatorQuestion) => {
@@ -623,7 +675,16 @@ export function AssessmentTemplates() {
 
   const closeQuestionEditor = () => {
     setQuestionEditorOpen(false);
-    setQuestionForm(EMPTY_QUESTION_FORM);
+    const state = location.state as { returnTo?: string; scrollY?: number } | null;
+    navigate(state?.returnTo ?? '/cockpit/settings/question-bank');
+    if (typeof state?.scrollY === 'number') requestAnimationFrame(() => window.scrollTo(0, state.scrollY!));
+  };
+
+  const discardQuestionDraft = () => {
+    sessionStorage.removeItem(draftKey(questionForm.id || 'new'));
+    setDraftRestored(false);
+    setDraftConflict(false);
+    closeQuestionEditor();
   };
 
   const saveTemplate = async () => {
@@ -805,6 +866,7 @@ export function AssessmentTemplates() {
           is_active: questionForm.is_active,
         });
         showSuccess('Question updated.');
+        sessionStorage.removeItem(draftKey(questionForm.id));
       } else {
         const createdQuestion = await createQuestion(payload);
         const normalizedQuestion = questionForm.is_active
@@ -817,6 +879,7 @@ export function AssessmentTemplates() {
           [createdQuestion.id]: { canDelete: true },
         }));
         showSuccess('Question created.');
+        sessionStorage.removeItem(draftKey('new'));
       }
       closeQuestionEditor();
     } catch (e) {
@@ -833,7 +896,7 @@ export function AssessmentTemplates() {
   const addOption = () => {
     setQuestionForm(current => ({
       ...current,
-      options: [...current.options, { id: `option-${Date.now()}`, label: '' }],
+      options: [...current.options, { id: `option-${Date.now()}`, label: '', requiresText: false, textPrompt: '' }],
     }));
   };
 
@@ -841,6 +904,13 @@ export function AssessmentTemplates() {
     setQuestionForm(current => ({
       ...current,
       options: current.options.map(option => option.id === id ? { ...option, label } : option),
+    }));
+  };
+
+  const updateOptionDetails = (id: string, changes: Partial<Pick<OptionDraft, 'requiresText' | 'textPrompt'>>) => {
+    setQuestionForm(current => ({
+      ...current,
+      options: current.options.map(option => option.id === id ? { ...option, ...changes } : option),
     }));
   };
 
@@ -1240,43 +1310,35 @@ export function AssessmentTemplates() {
             <div className="cockpit-panel-header">
               <input value={questionSearch} onChange={e => setQuestionSearch(e.target.value)} placeholder="Search questions" className="field-control w-full" />
             </div>
-            <div className="max-h-[42rem] overflow-y-auto">
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Question</th>
-                    <th>Key</th>
-                    <th>Type</th>
-                    <th>Used</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
+            <div className="divide-y divide-white/10">
+              <div className="hidden gap-4 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-charcoal-2 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(180px,0.32fr)_110px_minmax(260px,auto)]">
+                <span>Question</span><span>Category &amp; metadata</span><span>Status</span><span>Actions</span>
+              </div>
                   {filteredQuestionBank.map(question => {
                     const eligibility = questionDeleteEligibility[question.id];
                     return (
-                      <tr key={question.id}>
-                        <td>
-                          <p className="font-semibold text-charcoal">{question.question_text}</p>
-                          <p className="mt-1 text-xs text-charcoal-2">{question.section}{question.scoring_dimension ? ` / ${question.scoring_dimension}` : ''}</p>
-                          <StatusPill active={question.is_active} />
-                        </td>
-                        <td className="font-mono text-xs text-charcoal-2">{question.question_key}</td>
-                        <td>{question.question_type}</td>
-                        <td>{usedCounts[question.id] ?? 0} template{(usedCounts[question.id] ?? 0) === 1 ? '' : 's'}</td>
-                        <td>
-                          <div className="flex flex-wrap gap-2">
+                      <article key={question.id} className="grid min-w-0 gap-3 p-4 lg:grid-cols-[minmax(0,1fr)_minmax(180px,0.32fr)_110px_minmax(260px,auto)] lg:items-start">
+                        <div className="min-w-0">
+                          <p className="break-words font-semibold leading-6 text-charcoal">{question.question_text}</p>
+                          {question.help_text && <p className="mt-1 break-words text-sm leading-5 text-charcoal-2">{question.help_text}</p>}
+                        </div>
+                        <div className="min-w-0 text-xs text-charcoal-2">
+                          <p>{question.section}{question.scoring_dimension ? ` / ${question.scoring_dimension}` : ''}</p>
+                          <p className="mt-1 break-all font-mono">{question.question_key}</p>
+                          <p className="mt-1">{question.question_type} · {usedCounts[question.id] ?? 0} template{(usedCounts[question.id] ?? 0) === 1 ? '' : 's'}</p>
+                        </div>
+                        <div><StatusPill active={question.is_active} /></div>
+                        <div>
+                          <div className="flex flex-wrap gap-2 lg:justify-end">
                             <button type="button" onClick={() => openEditQuestionEditor(question)} className="btn-primary">Edit</button>
                             <button type="button" onClick={() => duplicateQuestion(question)} className="btn-subtle">Duplicate</button>
                             <button type="button" onClick={() => questionStatusAction(question, question.is_active ? 'archive' : 'restore')} className="btn-subtle">{question.is_active ? 'Archive' : 'Restore'}</button>
                             <button type="button" onClick={() => questionStatusAction(question, 'delete')} disabled={!eligibility?.canDelete} title={eligibility?.reason ?? 'Checking delete safety.'} className="btn-subtle">Delete</button>
                           </div>
-                        </td>
-                      </tr>
+                        </div>
+                      </article>
                     );
                   })}
-                </tbody>
-              </table>
             </div>
           </section>
         </div>
@@ -1313,8 +1375,14 @@ export function AssessmentTemplates() {
               <h2 className="cockpit-section-title">{questionForm.id ? 'Edit Question' : 'Add Question'}</h2>
               <p className="mt-1 text-xs text-charcoal-2">Create and edit reusable bank questions only.</p>
             </div>
-            <button type="button" onClick={closeQuestionEditor} className="btn-subtle">Close</button>
+            <div className="flex gap-2">
+              <button type="button" onClick={discardQuestionDraft} className="btn-subtle">Discard draft</button>
+              <button type="button" onClick={closeQuestionEditor} className="btn-subtle">Close</button>
+            </div>
           </div>
+
+          {draftRestored && <p className="mb-3 rounded-xl border border-success/30 bg-success/10 px-3 py-2 text-sm text-success" role="status">Unsaved draft restored</p>}
+          {draftConflict && <p className="mb-3 rounded-xl border border-warn/30 bg-warn/10 px-3 py-2 text-sm text-warn" role="alert">This question changed after this draft was created. Review the latest saved record before saving over it.</p>}
 
           <form onSubmit={submitQuestion} className="space-y-3">
             <textarea value={questionForm.question_text} onChange={e => {
@@ -1350,8 +1418,16 @@ export function AssessmentTemplates() {
                 </div>
                 <div className="space-y-2">
                   {questionForm.options.map((option, index) => (
-                    <div key={option.id} className="grid gap-2 sm:grid-cols-[1fr_auto]">
-                      <input value={option.label} onChange={e => updateOption(option.id, e.target.value)} placeholder={`Option ${index + 1}`} className="field-control" />
+                    <div key={option.id} className="grid gap-2 rounded-xl border border-white/10 p-3 sm:grid-cols-[1fr_auto]">
+                      <div className="grid gap-2">
+                        <input value={option.label} onChange={e => updateOption(option.id, e.target.value)} placeholder={`Option ${index + 1}`} className="field-control" />
+                        {questionForm.question_type === 'multi_choice' && (
+                          <>
+                            <label className="flex items-center gap-2 text-sm text-charcoal"><input type="checkbox" checked={option.requiresText} onChange={e => updateOptionDetails(option.id, { requiresText: e.target.checked })} className="accent-accent" /> Requires clarification text</label>
+                            {option.requiresText && <input value={option.textPrompt} onChange={e => updateOptionDetails(option.id, { textPrompt: e.target.value })} placeholder="Please specify" className="field-control" aria-label={`Clarification prompt for ${option.label || `option ${index + 1}`}`} />}
+                          </>
+                        )}
+                      </div>
                       <div className="flex gap-2">
                         <button type="button" onClick={() => moveOption(option.id, -1)} disabled={index === 0} title={index === 0 ? 'Already first option.' : undefined} className="btn-subtle">Up</button>
                         <button type="button" onClick={() => moveOption(option.id, 1)} disabled={index === questionForm.options.length - 1} title={index === questionForm.options.length - 1 ? 'Already last option.' : undefined} className="btn-subtle">Down</button>

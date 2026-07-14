@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { createPublicAssessmentInvite } from '@/lib/creators-api';
 import {
   buildPublicAssessmentInviteUrl,
@@ -397,6 +398,9 @@ export function AuthGate({ children }: { children: ReactNode }) {
                   </p>
                 )}
               </div>
+              <Link to="/my" className="btn-secondary min-h-11 w-full text-center">
+                Existing creator? Sign in
+              </Link>
             </div>
           </section>
         </main>

@@ -128,6 +128,11 @@ export interface AssessmentResponses {
   [key: string]: unknown;
 }
 
+export interface MultiChoiceAnswer {
+  selectedOptionIds: string[];
+  optionText: Record<string, string>;
+}
+
 export type AssessmentQuestionType =
   | 'short_text'
   | 'long_text'
@@ -145,6 +150,8 @@ export type AssessmentQuestionOption =
       label: string;
       description?: string;
       is_active?: boolean;
+      requiresText?: boolean;
+      textPrompt?: string;
     };
 
 export type AssessmentBranchAction = 'continue' | 'jump_question' | 'jump_section' | 'end';

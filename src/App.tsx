@@ -145,6 +145,8 @@ export default function App() {
             <Route path="settings/assessment-templates" element={<AssessmentTemplates />} />
             <Route path="settings/assessment-templates/:templateId" element={<AssessmentTemplates />} />
             <Route path="settings/question-bank" element={<AssessmentTemplates />} />
+            <Route path="settings/question-bank/new" element={<AssessmentTemplates />} />
+            <Route path="settings/question-bank/:questionId/edit" element={<AssessmentTemplates />} />
           </Route>
           <Route path="*" element={<Navigate to="/cockpit" replace />} />
         </Routes>
