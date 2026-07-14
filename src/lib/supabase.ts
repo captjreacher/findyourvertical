@@ -100,6 +100,30 @@ export async function signInWithOtp(
   return response;
 }
 
+export async function signInWithPassword(email: string, password: string) {
+  return supabase.auth.signInWithPassword({ email, password });
+}
+
+export async function signInWithGoogle(redirectPath = getRequestedRedirectPath()) {
+  const destination = normalizeRedirectPath(redirectPath);
+  storeAuthRedirectPath(destination);
+  return supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: authCallbackUrl(destination),
+    },
+  });
+}
+
+export async function sendPasswordResetEmail(email: string) {
+  const redirectTo = `${window.location.origin}/#/auth/reset-password`;
+  return supabase.auth.resetPasswordForEmail(email, { redirectTo });
+}
+
+export async function updatePassword(password: string) {
+  return supabase.auth.updateUser({ password });
+}
+
 export async function signOut() {
   return supabase.auth.signOut();
 }

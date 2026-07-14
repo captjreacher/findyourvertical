@@ -29,6 +29,8 @@ const AcceptInvite = lazy(() => import('./components/creator/AcceptInvite').then
 const MyReportRedirect = lazy(() => import('./components/creator/MyReportRedirect').then(module => ({ default: module.MyReportRedirect })));
 const CreatorAssessments = lazy(() => import('./components/creator/CreatorAssessments').then(module => ({ default: module.CreatorAssessments })));
 const CreatorAccount = lazy(() => import('./components/creator/CreatorAccount').then(module => ({ default: module.CreatorAccount })));
+const CreatorAuth = lazy(() => import('./components/creator/CreatorAuth').then(module => ({ default: module.CreatorAuth })));
+const PasswordResetPage = lazy(() => import('./components/creator/PasswordResetPage').then(module => ({ default: module.PasswordResetPage })));
 
 function LoadingScreen({ label = 'Loading…' }: { label?: string }) {
   return (
@@ -114,6 +116,8 @@ export default function App() {
           <Route path="/a/:templateSlug" element={<AssessmentWizard />} />
           <Route path="/report/:slug" element={<ReportPage />} />
           <Route path="/creator-services" element={<CreatorServicesPage />} />
+          <Route path="/auth/login" element={<CreatorAuth mode="page" />} />
+          <Route path="/auth/reset-password" element={<PasswordResetPage />} />
           {/* Public FYV access-invite acceptance (unauthenticated → provisions + signs in). */}
           <Route path="/accept-invite" element={<AcceptInvite />} />
           {/* Legacy public placeholder now routes into the authenticated onboarding

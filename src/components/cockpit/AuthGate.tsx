@@ -398,8 +398,12 @@ export function AuthGate({ children }: { children: ReactNode }) {
                   </p>
                 )}
               </div>
-              <Link to="/my" className="btn-secondary min-h-11 w-full text-center">
-                Existing creator? Sign in
+              <Link
+                to="/auth/login"
+                className="rounded-2xl border border-white/10 bg-surface/80 p-4 text-left transition-colors hover:border-accent/40 hover:bg-surface"
+              >
+                <div className="text-sm font-semibold text-charcoal">Existing creator</div>
+                <div className="mt-1 text-sm text-charcoal-2">Already have an account? Sign in with Google, password, or a magic link.</div>
               </Link>
             </div>
           </section>

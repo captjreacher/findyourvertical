@@ -1,19 +1,10 @@
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useRef,
-  useState,
-  type FormEvent,
-  type ReactNode,
-} from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { useLocation } from 'react-router-dom';
-import { checkIsAgency, signInWithOtp, signOut, supabase } from '@/lib/supabase';
+import { checkIsAgency, signOut, supabase } from '@/lib/supabase';
 import { claimCreatorProfile, getMyCreatorProfile } from '@/lib/creators-api';
 import type { CreatorProfile } from '@/types/creator';
-import brandLogo from '@/assets/fyv-brand-logo.png';
+import { CreatorAuth } from './CreatorAuth';
 
 // ── Creator session context ─────────────────────────────────────────────────
 // Provided by CreatorGate once an authenticated creator's identity is resolved
@@ -50,10 +41,6 @@ export function CreatorGate({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<CreatorProfile | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
-  const [email, setEmail] = useState('');
-  const [sending, setSending] = useState(false);
-  const [loginMessage, setLoginMessage] = useState<string | null>(null);
-  const [loginError, setLoginError] = useState<string | null>(null);
   const resolvingFor = useRef<string | null>(null);
 
   const resolveCreator = useCallback(async (activeSession: Session) => {
@@ -129,23 +116,6 @@ export function CreatorGate({ children }: { children: ReactNode }) {
     if (session) await resolveCreator(session);
   }, [session, resolveCreator]);
 
-  const handleLogin = async (event: FormEvent) => {
-    event.preventDefault();
-    setSending(true);
-    setLoginMessage(null);
-    setLoginError(null);
-    const requestedPath = location.pathname.startsWith('/my')
-      ? `${location.pathname}${location.search}`
-      : '/my';
-    const { error } = await signInWithOtp(email, requestedPath);
-    if (error) {
-      setLoginError('Unable to send a magic link. Check the email address or contact us for access.');
-    } else {
-      setLoginMessage('Magic link sent. Check your inbox to sign in.');
-    }
-    setSending(false);
-  };
-
   if (phase === 'loading') {
     return (
       <FullScreen>
@@ -155,43 +125,7 @@ export function CreatorGate({ children }: { children: ReactNode }) {
   }
 
   if (phase === 'unauthenticated') {
-    return (
-      <FullScreen>
-        <div className="grid gap-5 rounded-3xl border border-white/10 bg-surface/92 p-6 shadow-2xl shadow-black/25">
-          <img src={brandLogo} alt="Find Your Vertical" className="h-20 w-auto object-contain" />
-          <div>
-            <h1 className="text-2xl font-bold text-charcoal">Welcome back</h1>
-            <p className="mt-2 text-sm text-charcoal-2">
-              Sign in with the email you used for your assessment. We'll send you a secure magic link — no password needed.
-            </p>
-          </div>
-          <form onSubmit={handleLogin} className="grid gap-3">
-            <input
-              type="email"
-              name="email"
-              autoComplete="email"
-              value={email}
-              onChange={event => {
-                setEmail(event.target.value);
-                setLoginMessage(null);
-                setLoginError(null);
-              }}
-              placeholder="Email address"
-              required
-              className="field-control w-full"
-            />
-            <button type="submit" disabled={sending} className="btn-primary min-h-12 w-full text-base">
-              {sending ? 'Sending…' : loginMessage ? 'Send again' : 'Send magic link'}
-            </button>
-          </form>
-          {loginMessage && <p className="text-sm text-success" role="status">{loginMessage}</p>}
-          {loginError && <p className="text-sm text-pink" role="alert">{loginError}</p>}
-          <p className="text-xs text-charcoal-2">
-            Access is invitation-only. If you don't have an account yet, ask us for an assessment invite.
-          </p>
-        </div>
-      </FullScreen>
-    );
+    return <CreatorAuth mode="gate" />;
   }
 
   if (phase === 'agency') {
