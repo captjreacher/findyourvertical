@@ -42,7 +42,7 @@
 
 begin;
 
-create extension if not exists pgcrypto;  -- digest(), gen_random_bytes()
+create extension if not exists pgcrypto;  -- digest(), extensions.gen_random_bytes()
 
 -- ── 1. Relationship: FYV creator identity ↔ FMF creator id ───────────────────
 create table if not exists public.creator_relationships (
@@ -262,7 +262,13 @@ begin
      set status = 'revoked', revoked_at = now(), updated_at = now()
    where relationship_id = v_rel.id and status = 'pending';
 
-  v_raw := encode(gen_random_bytes(32), 'hex');  -- 64 hex chars, URL-safe
+  v_raw := encode(
+  digest(
+    gen_random_uuid()::text || clock_timestamp()::text,
+    'sha256'
+  ),
+  'hex'
+);  -- 64 hex chars, URL-safe
 
   insert into public.creator_invitations (
     relationship_id, token_hash, email, status, expires_at, created_by
