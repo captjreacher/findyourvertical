@@ -1,5 +1,10 @@
 import { supabase, publicSupabase } from './supabase';
 import { publishCreatorIntelligencePackage } from './intelligence-publisher';
+import type {
+  PublicAssessmentInviteInput,
+  PublicAssessmentInviteResult,
+} from './public-assessment-invite';
+import { validatePublicAssessmentInviteInput } from './public-assessment-invite';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
   CreatorProfile,
@@ -2280,6 +2285,63 @@ export async function createAssessmentInviteLink(input: {
   return data as CreatorAssessmentInviteLink;
 }
 
+/**
+ * FYV-ONBOARD-2 — Public assessment-invite helper (System A producer).
+ *
+ * Calls the anon-callable SECURITY DEFINER RPC create_public_assessment_invite
+ * (see migration 20260714010000). The RPC upserts a creator_profile by
+ * lower(email), then issues (or dedupe-reuses) a creator_assessment_links row
+ * using the same shape agency AssessmentTemplates already produces. The
+ * caller receives a working invite that unlocks the assessment wizard
+ * immediately — no pending-approval gate.
+ *
+ * This helper is the canonical browser path for the public landing form. The
+ * old dead-end request-then-approve helper (createCreatorInviteRequest) is
+ * kept in-place but deprecated; nothing writes to creator_invite_requests
+ * from the public form anymore.
+ */
+export async function createPublicAssessmentInvite(
+  input: PublicAssessmentInviteInput,
+): Promise<PublicAssessmentInviteResult> {
+  const localError = validatePublicAssessmentInviteInput(input);
+  if (localError) throw new Error(localError);
+
+  const { data, error } = await (publicSupabase as any).rpc(
+    'create_public_assessment_invite',
+    {
+      p_name: input.name.trim(),
+      p_email: input.email.trim().toLowerCase(),
+      p_onlyfans_handle:
+        input.onlyfansHandle && input.onlyfansHandle.trim().length > 0
+          ? input.onlyfansHandle.trim()
+          : null,
+      p_template_slug:
+        input.templateSlug && input.templateSlug.trim().length > 0
+          ? input.templateSlug.trim()
+          : null,
+    },
+  );
+
+  if (error) {
+    // The RPC raises SQLSTATE 22023 for input-shape failures and P0001 for
+    // "no active template" — both surface with a human-readable message
+    // suitable for the toast/inline error.
+    throw new Error(error.message || 'Failed to issue assessment invite.');
+  }
+  if (!data) {
+    throw new Error('Failed to issue assessment invite (empty response).');
+  }
+  return data as PublicAssessmentInviteResult;
+}
+
+/**
+ * @deprecated FYV-ONBOARD-2 (2026-07-14): the public assessment onboarding
+ * flow no longer routes through creator_invite_requests. The public landing
+ * form (AuthGate) now calls createPublicAssessmentInvite above, which issues
+ * a working assessment invite immediately. This helper is kept only so
+ * historic references keep compiling; it does not participate in the
+ * assessment-invite path.
+ */
 export async function createCreatorInviteRequest(input: {
   name: string;
   email: string;
