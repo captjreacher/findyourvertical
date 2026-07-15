@@ -17,7 +17,7 @@ export function PublicSiteShell({
     <div className="fyv-report-shell min-h-screen text-charcoal">
       <header className="border-b border-white/10 bg-surface/80">
         <div className="mx-auto flex w-full max-w-4xl flex-wrap items-center justify-between gap-4 px-6 py-6">
-          <Link to="/#" className="flex items-center gap-3">
+          <Link to="/" className="flex items-center gap-3">
             <img src={brandLogo} alt="Find Your Vertical" className="h-10 w-auto object-contain" />
             <div>
               <div className="text-xs font-semibold uppercase tracking-[0.18em] text-accent">{eyebrow}</div>
@@ -25,9 +25,9 @@ export function PublicSiteShell({
             </div>
           </Link>
           <nav className="flex flex-wrap items-center gap-2 text-sm">
-            <Link to="/#/about" className="btn-subtle">About</Link>
-            <Link to="/#/privacy" className="btn-subtle">Privacy</Link>
-            <Link to="/#/terms" className="btn-subtle">Terms</Link>
+            <Link to="/about" className="btn-subtle">About</Link>
+            <Link to="/privacy" className="btn-subtle">Privacy</Link>
+            <Link to="/terms" className="btn-subtle">Terms</Link>
           </nav>
         </div>
       </header>
@@ -46,10 +46,10 @@ export function PublicSiteShell({
         <div className="mx-auto flex w-full max-w-4xl flex-wrap items-center justify-between gap-4 px-6 py-6 text-sm text-charcoal-2">
           <p>Find Your Vertical</p>
           <nav className="flex flex-wrap gap-4">
-            <Link to="/#/about" className="hover:text-charcoal">About</Link>
-            <Link to="/#/privacy" className="hover:text-charcoal">Privacy</Link>
-            <Link to="/#/terms" className="hover:text-charcoal">Terms</Link>
-            <Link to="/#/auth/login" className="hover:text-charcoal">Sign in</Link>
+            <Link to="/about" className="hover:text-charcoal">About</Link>
+            <Link to="/privacy" className="hover:text-charcoal">Privacy</Link>
+            <Link to="/terms" className="hover:text-charcoal">Terms</Link>
+            <Link to="/auth/login" className="hover:text-charcoal">Sign in</Link>
           </nav>
         </div>
       </footer>
