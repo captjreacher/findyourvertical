@@ -48,3 +48,18 @@ test('existing FYV emitters route through the canonical emitter', () => {
   has(sql, /create or replace function public\.fyv_emit_creator_relationship_event[\s\S]*perform public\.fyv_emit_event/i,
     'relationship wrapper calls canonical emitter');
 });
+
+test('non-blocking event wrappers record structured diagnostics instead of swallowing failures', () => {
+  has(sql, /create table if not exists public\.fyv_event_emit_failures/i,
+    'event emit failure diagnostics table exists');
+  has(sql, /create or replace function public\.fyv_record_event_emit_failure/i,
+    'diagnostic writer function exists');
+  has(sql, /get stacked diagnostics[\s\S]*returned_sqlstate[\s\S]*message_text[\s\S]*pg_exception_context/i,
+    'wrappers capture structured postgres exception diagnostics');
+  has(sql, /perform public\.fyv_record_event_emit_failure\(\s*'fyv_emit_onboarding_event'/i,
+    'onboarding wrapper records failures');
+  has(sql, /perform public\.fyv_record_event_emit_failure\(\s*'fyv_emit_persona_event'/i,
+    'persona wrapper records failures');
+  missing(sql, /exception when others then\s*null\s*;/i,
+    'event wrapper failures are not silently swallowed');
+});
