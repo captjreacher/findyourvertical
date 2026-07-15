@@ -12,9 +12,9 @@
 //
 // Agency/creator-scoped calls forward the caller's Supabase JWT so the RPC's own
 // is_agency()/current_creator_profile_id() gating applies. The public acceptance
-// flow uses the service role: it validates the single-use token, provisions (or
-// resolves) the Supabase auth user for the invited email, associates it with the
-// FYV creator identity, and returns a magic link that signs the creator in.
+// flow uses the service role: it validates the single-use token, resolves the
+// Supabase auth user for the invited email, associates it with the FYV creator
+// identity, and returns a magic link that signs the creator in.
 //
 // Service-role + anon keys live only as Worker secrets — never in the browser.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -164,6 +164,12 @@ export async function handleInvite(
   }, deps);
   if (!r.ok) return json({ error: 'invite_failed', code: r.data?.code, message: r.data?.message }, statusForPgError(r.data));
 
+  const invitedEmail = typeof r.data?.email === 'string' ? r.data.email : '';
+  if (!invitedEmail) return json({ error: 'invite_failed', code: 'missing_email' }, 502);
+
+  const authUserId = await ensureAuthUser(env, invitedEmail, deps).catch(() => null);
+  if (!authUserId) return json({ error: 'invite_failed', code: 'provisioning_failed' }, 502);
+
   const acceptPath: string = r.data?.accept_path ?? '';
   const acceptUrl = `${appBase(env, request)}/#${acceptPath}`;
   return json({
@@ -198,7 +204,7 @@ export async function handleValidateInvite(
   }, 200);
 }
 
-/** POST /api/creators/invite/accept — public. Body: { token }. Provisions + signs in. */
+/** POST /api/creators/invite/accept — public. Body: { token }. Links + signs in. */
 export async function handleAcceptInvite(
   request: Request,
   env: RelEnv,
@@ -220,7 +226,9 @@ export async function handleAcceptInvite(
   }
   const email: string = vd.email;
 
-  // 2. Provision (or resolve) the Supabase auth user for the invited email.
+  // 2. Resolve the Supabase auth user for the invited email. Invite-time
+  // provisioning should already have created it; this stays idempotent for
+  // older invitations and retry safety.
   const authUserId = await ensureAuthUser(env, email, deps).catch(() => null);
   if (!authUserId) return json({ ok: false, code: 'provisioning_failed' }, 502);
 

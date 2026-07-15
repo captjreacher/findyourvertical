@@ -105,6 +105,16 @@ test('invite: happy path → 200 with hash-route accept URL', async () => {
   assert.equal(j.relationshipState, 'invited');
   assert.equal(j.acceptUrl, 'https://app/#/accept-invite?token=RAWTOKEN');
   assert.ok(calls.some(c => c.includes('create_creator_access_invitation')));
+  assert.ok(calls.some(c => c.startsWith('POST') && c.includes('/auth/v1/admin/users')), 'provisions auth user at invite time');
+});
+
+test('invite: auth provisioning failure → 502', async () => {
+  const { fetchImpl } = harness({ adminCreate: { ok: false, data: { msg: 'boom' } }, adminList: { ok: false, data: {} } });
+  const res = await handleInvite(bearerReq(`/api/creators/${FYV}/invite`, 'POST', { fmfCreatorId: FMF }), env, { creatorId: FYV }, { fetch: fetchImpl });
+  assert.equal(res.status, 502);
+  const j = await res.json() as { error: string; code: string };
+  assert.equal(j.error, 'invite_failed');
+  assert.equal(j.code, 'provisioning_failed');
 });
 
 test('invite: RPC agency-forbidden (42501) → 403', async () => {
