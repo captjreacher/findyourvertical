@@ -15,6 +15,7 @@ import type {
   CreatorAssessmentInviteLink,
   CreatorAssessmentRuntimeTemplate,
 } from '@/types/creator';
+import { multiChoiceAnswerIsValid, optionRequiresText, readMultiChoiceAnswer } from '@/lib/multi-choice-answer';
 
 const INITIAL: AssessmentResponses = {
   strengths: '',
@@ -399,7 +400,9 @@ function normalizedConditionTargets(value: unknown): string[] {
 }
 
 function selectedLabels(question: CreatorAssessmentQuestion, selectedValue: unknown): string[] {
-  const selected = Array.isArray(selectedValue) ? selectedValue : [selectedValue];
+  const selected = question.question_type === 'multi_choice'
+    ? readMultiChoiceAnswer(selectedValue).selectedOptionIds
+    : Array.isArray(selectedValue) ? selectedValue : [selectedValue];
 
   return selected.flatMap(value => {
     const valueText = String(value ?? '');
@@ -564,8 +567,13 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
   const resolvedTemplateSlug = templateSlug ?? params.templateSlug;
   const inviteRef = refFromLocation(location.search);
   const inviteEmailParam = emailFromLocation(location.search);
-  const [step, setStep] = useState(0);
-  const [data, setData] = useState<AssessmentResponses>(INITIAL);
+  const progressKey = `fyv:assessment-progress:${inviteRef || resolvedTemplateSlug || 'default'}`;
+  const restoredProgress = useMemo(() => {
+    try { return JSON.parse(sessionStorage.getItem(progressKey) ?? 'null') as { step?: number; data?: AssessmentResponses } | null; }
+    catch { return null; }
+  }, [progressKey]);
+  const [step, setStep] = useState(restoredProgress?.step ?? 0);
+  const [data, setData] = useState<AssessmentResponses>({ ...INITIAL, ...(restoredProgress?.data ?? {}) });
   const [template, setTemplate] = useState<CreatorAssessmentRuntimeTemplate | null>(null);
   const [inviteLink, setInviteLink] = useState<CreatorAssessmentInviteLink | null>(null);
   const [loading, setLoading] = useState(true);
@@ -581,6 +589,10 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
   const [error, setError] = useState('');
   const detailsPrefillKeyRef = useRef<string | null>(null);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    sessionStorage.setItem(progressKey, JSON.stringify({ step, data }));
+  }, [progressKey, step, data]);
 
   useEffect(() => {
     let mounted = true;
@@ -814,22 +826,41 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
 
   const toggleArray = (question: CreatorAssessmentQuestion, value: string) => {
     setData(d => {
-      const existing = Array.isArray(d[question.response_key]) ? d[question.response_key] as string[] : [];
+      const current = readMultiChoiceAnswer(d[question.response_key]);
+      const existing = question.question_type === 'multi_choice'
+        ? current.selectedOptionIds
+        : Array.isArray(d[question.response_key]) ? d[question.response_key] as string[] : [];
       const limit = maxSelections(question);
       if (!existing.includes(value) && limit !== null && existing.length >= limit) return d;
 
+      if (question.question_type !== 'multi_choice') {
+        return { ...d, [question.response_key]: existing.includes(value) ? existing.filter(x => x !== value) : [...existing, value] };
+      }
+
       return {
         ...d,
-        [question.response_key]: existing.includes(value)
-          ? existing.filter(x => x !== value)
-          : [...existing, value],
+        [question.response_key]: {
+          selectedOptionIds: existing.includes(value) ? existing.filter(x => x !== value) : [...existing, value],
+          optionText: existing.includes(value)
+            ? Object.fromEntries(Object.entries(current.optionText).filter(([key]) => key !== value))
+            : current.optionText,
+        },
       };
+    });
+  };
+
+  const updateOptionText = (question: CreatorAssessmentQuestion, optionId: string, text: string) => {
+    setData(current => {
+      const answer = readMultiChoiceAnswer(current[question.response_key]);
+      return { ...current, [question.response_key]: { ...answer, optionText: { ...answer.optionText, [optionId]: text } } };
     });
   };
 
   const branchRuleForQuestion = (question: CreatorAssessmentQuestion) => {
     const selectedValue = data[question.response_key];
-    const selectedValues = Array.isArray(selectedValue) ? selectedValue.map(String) : [String(selectedValue ?? '')];
+    const selectedValues = question.question_type === 'multi_choice'
+      ? readMultiChoiceAnswer(selectedValue).selectedOptionIds
+      : Array.isArray(selectedValue) ? selectedValue.map(String) : [String(selectedValue ?? '')];
     const optionOrder = activeOptions(question).map(option => optionValue(option));
 
     for (const option of optionOrder) {
@@ -904,6 +935,7 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
     if (!activeQuestion || !isVisible(activeQuestion, data, templateQuestions)) return true;
     if (!activeQuestion.config.required) return true;
     const value = data[activeQuestion.response_key];
+    if (activeQuestion.question_type === 'multi_choice') return multiChoiceAnswerIsValid(value, activeQuestion.options, true);
     if (Array.isArray(value)) return value.length > 0;
     return value !== '' && value !== null && value !== undefined;
   };
@@ -965,6 +997,7 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
       });
       void setAssessmentInviteStatus(inviteLink?.invite_code, 'Completed').catch(() => undefined);
       setSubmittedReportSlug(result.report.report_slug);
+      sessionStorage.removeItem(progressKey);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Something went wrong');
     } finally {
@@ -1130,27 +1163,32 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
           <div className={question.section === 'Current Approach' || question.section === 'Options for the Future' ? 'grid max-w-xl grid-cols-1 gap-2 sm:grid-cols-2' : 'flex max-w-lg flex-wrap gap-2'}>
             {activeOptions(question).map(option => {
               const optionKey = optionValue(option);
-              const selected = Array.isArray(value) && value.includes(optionKey);
+              const multiAnswer = readMultiChoiceAnswer(value);
+              const selectedValues = question.question_type === 'multi_choice' ? multiAnswer.selectedOptionIds : Array.isArray(value) ? value : [];
+              const selected = selectedValues.includes(optionKey);
               const rank = question.question_type === 'scenario_ranking' && Array.isArray(value)
                 ? value.indexOf(optionKey) + 1
                 : 0;
               const limit = maxSelections(question);
-              const atLimit = !selected && limit !== null && Array.isArray(value) && value.length >= limit;
+              const atLimit = !selected && limit !== null && selectedValues.length >= limit;
               return (
-                <button
-                  key={optionKey}
-                  disabled={atLimit}
-                  onClick={() => toggleArray(question, optionKey)}
-                  className={`${question.section === 'Current Approach' || question.section === 'Options for the Future' ? 'rounded-xl px-4 py-3' : 'max-w-full rounded-full px-4 py-2'} ${OPTION_BASE_CLASS} text-sm font-semibold ${
-                    selected
-                      ? OPTION_SELECTED_CLASS
-                      : atLimit
-                        ? OPTION_DISABLED_CLASS
-                        : OPTION_IDLE_CLASS
-                  }`}
-                >
-                  {rank > 0 ? `${rank}. ${optionLabel(option)}` : optionLabel(option)}
-                </button>
+                <div key={optionKey} className="min-w-0">
+                  <button
+                    type="button"
+                    disabled={atLimit}
+                    onClick={() => toggleArray(question, optionKey)}
+                    aria-pressed={selected}
+                    className={`${question.section === 'Current Approach' || question.section === 'Options for the Future' ? 'w-full rounded-xl px-4 py-3' : 'max-w-full rounded-full px-4 py-2'} ${OPTION_BASE_CLASS} text-sm font-semibold ${selected ? OPTION_SELECTED_CLASS : atLimit ? OPTION_DISABLED_CLASS : OPTION_IDLE_CLASS}`}
+                  >
+                    {rank > 0 ? `${rank}. ${optionLabel(option)}` : optionLabel(option)}
+                  </button>
+                  {question.question_type === 'multi_choice' && selected && optionRequiresText(option) && (
+                    <label className="mt-2 grid gap-1 text-sm text-charcoal">
+                      <span>{typeof option === 'string' ? 'Please specify' : option.textPrompt || 'Please specify'}</span>
+                      <input value={multiAnswer.optionText[optionKey] ?? ''} onChange={event => updateOptionText(question, optionKey, event.target.value)} required className="field-control" />
+                    </label>
+                  )}
+                </div>
               );
             })}
           </div>

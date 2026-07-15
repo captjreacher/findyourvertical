@@ -18,12 +18,19 @@ import type {
   CreatorReport,
   ReportData,
 } from '@/types/creator';
+import { readMultiChoiceAnswer } from '@/lib/multi-choice-answer';
 
 function formatValue(value: unknown): string {
   if (Array.isArray(value)) return value.map(item => String(item)).join(', ');
   if (typeof value === 'boolean') return value ? 'Yes' : 'No';
   if (value === null || value === undefined || value === '') return '-';
-  if (typeof value === 'object') return JSON.stringify(value);
+  if (typeof value === 'object') {
+    const answer = readMultiChoiceAnswer(value);
+    if (answer.selectedOptionIds.length > 0) {
+      return answer.selectedOptionIds.map(id => answer.optionText[id]?.trim() ? `${id} — ${answer.optionText[id].trim()}` : id).join(', ');
+    }
+    return JSON.stringify(value);
+  }
   return String(value);
 }
 
@@ -42,7 +49,7 @@ function AnswerList({ assessment }: { assessment?: CreatorAssessment | null }) {
     return <p className="text-sm text-charcoal-2">No submitted answers were captured for this assessment.</p>;
   }
 
-  const answerRows = [
+  const standardRows = [
     ['Full name', responses.full_name],
     ['Email', responses.email],
     ['OnlyFans handle', responses.onlyfans_handle],
@@ -54,6 +61,10 @@ function AnswerList({ assessment }: { assessment?: CreatorAssessment | null }) {
     ['Future improvements', responses.future_improvements],
     ['Future improvements other', responses.future_improvements_other],
   ] as const;
+  const snapshotRows = (assessment?.assessment_snapshot?.question_snapshot ?? [])
+    .map(question => [question.question_text, responses[question.response_key]] as const)
+    .filter(([, value]) => value !== undefined);
+  const answerRows = snapshotRows.length > 0 ? snapshotRows : standardRows;
 
   return (
     <div className="grid grid-cols-1 gap-3 md:grid-cols-2">

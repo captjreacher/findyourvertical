@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from 'react';
 import type { Session } from '@supabase/supabase-js';
+import { useLocation } from 'react-router-dom';
 import { checkIsAgency, signInWithOtp, signOut, supabase } from '@/lib/supabase';
 import { claimCreatorProfile, getMyCreatorProfile } from '@/lib/creators-api';
 import type { CreatorProfile } from '@/types/creator';
@@ -33,8 +34,6 @@ export function useCreatorSession(): CreatorSessionValue {
 
 type Phase = 'loading' | 'unauthenticated' | 'agency' | 'creator' | 'error';
 
-const DESTINATION = '/my';
-
 function FullScreen({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-surface-2 px-4 py-6 text-charcoal">
@@ -46,6 +45,7 @@ function FullScreen({ children }: { children: ReactNode }) {
 }
 
 export function CreatorGate({ children }: { children: ReactNode }) {
+  const location = useLocation();
   const [phase, setPhase] = useState<Phase>('loading');
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<CreatorProfile | null>(null);
@@ -134,7 +134,10 @@ export function CreatorGate({ children }: { children: ReactNode }) {
     setSending(true);
     setLoginMessage(null);
     setLoginError(null);
-    const { error } = await signInWithOtp(email, DESTINATION);
+    const requestedPath = location.pathname.startsWith('/my')
+      ? `${location.pathname}${location.search}`
+      : '/my';
+    const { error } = await signInWithOtp(email, requestedPath);
     if (error) {
       setLoginError('Unable to send a magic link. Check the email address or contact us for access.');
     } else {

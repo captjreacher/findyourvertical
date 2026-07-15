@@ -587,12 +587,18 @@ export async function submitAssessment(
   // — the events outbox insert policy is anon-only. Force the anonymous client
   // so a logged-in creator's retake behaves exactly like a public submission.
   const supabase = publicSupabase;
+  const scoringResponses = Object.fromEntries(Object.entries(responses).map(([key, value]) => {
+    if (value && typeof value === 'object' && !Array.isArray(value) && Array.isArray((value as { selectedOptionIds?: unknown }).selectedOptionIds)) {
+      return [key, (value as { selectedOptionIds: unknown[] }).selectedOptionIds.map(String)];
+    }
+    return [key, value];
+  })) as AssessmentResponses;
   // 1. Score the assessment
   if (responses.audience_target === null) {
     throw new Error('Audience target is required');
   }
 
-  const baselineResult = scoreAssessment(responses);
+  const baselineResult = scoreAssessment(scoringResponses);
   const slug = generateReportSlug(responses.full_name);
   const runtimeTemplate = template ?? await getDefaultAssessmentTemplate();
   const includedQuestions = (runtimeTemplate?.questions ?? []).filter(q => q.is_included);
@@ -650,7 +656,7 @@ export async function submitAssessment(
       p_invite_link_id: uuidOrNull(invite?.id),
       p_invite_code: invite?.invite_code ?? null,
       p_creator_name: invite?.creator_name ?? null,
-      p_responses: responses,
+      p_responses: scoringResponses,
       p_answers: responses,
       p_respondent: respondent,
       p_assessment_snapshot: assessmentSnapshot,
@@ -667,7 +673,7 @@ export async function submitAssessment(
   const intelligence = createCreatorIntelligenceResult({
     creatorProfileId: profileId,
     assessmentId: assessment.id,
-    responses,
+    responses: scoringResponses,
     questions: includedQuestions,
     reportTier: options.reportTier ?? 'free',
   });
@@ -808,15 +814,12 @@ export async function submitAssessment(
     creatorNextAction,
   });
 
-const { error: outboxError } = await (supabase as any).from('events').insert({
-  source_system: 'findyourvertical',
-  event_type: 'creator.assessment.completed',
-  entity_type: 'creator_profile',
-  entity_id: profileId,
-  entity_ref: `creator_profile:${profileId}`,
-  status: 'pending',
-  payload: completionPayload,
-});
+  const { error: outboxError } = await (supabase as any).rpc('fyv_emit_event', {
+    p_event_type: 'creator.assessment.completed',
+    p_entity_type: 'creator_profile',
+    p_entity_id: profileId,
+    p_payload: completionPayload,
+  });
 
   if (outboxError) throw new Error(`Failed to write FYV completion outbox event: ${outboxError.message}`);
 

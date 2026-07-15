@@ -32,9 +32,9 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
 }
 
 export function CreatorShell({ children }: { children: ReactNode }) {
-  const { profile } = useCreatorSession();
+  const { profile, session } = useCreatorSession();
   const [open, setOpen] = useState(false);
-  const displayName = profile.model_name || profile.first_name || profile.full_name || 'Creator';
+  const displayName = profile.model_name || profile.full_name || session.user.email || 'Creator';
 
   return (
     <div className="min-h-screen bg-surface-2 text-charcoal">

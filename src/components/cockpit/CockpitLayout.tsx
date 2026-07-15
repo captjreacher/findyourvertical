@@ -1,5 +1,6 @@
+import { useEffect, useState } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
-import { signOut } from '@/lib/supabase';
+import { signOut, supabase } from '@/lib/supabase';
 import brandLogo from '@/assets/fyv-brand-logo.png';
 
 const NAV_ITEMS = [
@@ -12,6 +13,15 @@ const NAV_ITEMS = [
 
 export function CockpitLayout() {
   const navigate = useNavigate();
+  const [identity, setIdentity] = useState('Agency operator');
+
+  useEffect(() => {
+    void supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return;
+      const metadata = user.user_metadata ?? {};
+      setIdentity(String(metadata.full_name || metadata.name || user.email || 'Agency operator'));
+    });
+  }, []);
 
   const handleSignOut = async () => {
     await signOut();
@@ -61,6 +71,8 @@ export function CockpitLayout() {
           ))}
         </nav>
         <div className="hidden border-t border-white/10 p-4 lg:block">
+          <p className="px-3 text-xs uppercase tracking-wide text-charcoal-2">Agency account</p>
+          <p className="mb-2 truncate px-3 text-sm font-semibold text-charcoal" title={identity}>{identity}</p>
           <button
             onClick={handleSignOut}
             className="w-full rounded-lg border border-white/10 px-3 py-2.5 text-left text-sm font-medium text-charcoal transition-colors hover:bg-surface-3/70 hover:text-charcoal"
