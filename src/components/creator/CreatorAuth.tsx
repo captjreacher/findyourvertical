@@ -1,6 +1,5 @@
 import { useMemo, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import brandLogo from '@/assets/fyv-brand-logo.png';
 import {
   sendPasswordResetEmail,
   signInWithGoogle,
@@ -8,7 +7,7 @@ import {
   signInWithPassword,
 } from '@/lib/supabase';
 import { normalizeRedirectPath } from '@/lib/redirect';
-import { PublicLegalFooter } from '@/components/public/PublicSiteShell';
+import { PublicSiteShell } from '@/components/public/PublicSiteShell';
 
 type Mode = 'gate' | 'page';
 
@@ -89,18 +88,7 @@ export function CreatorAuth({ mode }: { mode: Mode }) {
   };
 
   return (
-    <div className="fyv-public-shell min-h-screen px-4 py-6 text-charcoal sm:px-6 lg:px-8">
-      <main className="mx-auto flex min-h-[calc(100vh-8rem)] w-full max-w-5xl items-center">
-        <section className="grid w-full gap-5 rounded-3xl border border-white/10 bg-surface/92 p-5 shadow-2xl shadow-black/25 backdrop-blur lg:grid-cols-[0.95fr_1.05fr] lg:p-6">
-          <div className="flex flex-col justify-center">
-            <img src={brandLogo} alt="Find Your Vertical" className="h-20 w-auto object-contain" />
-            <h1 className="mt-5 max-w-xl text-3xl font-bold leading-tight text-charcoal">Welcome back</h1>
-            <p className="mt-3 max-w-xl text-sm leading-6 text-charcoal-2">
-              Sign in with Google, email and password, or a magic link. If you were invited before passwords were enabled,
-              you can set one after you sign in.
-            </p>
-          </div>
-
+    <PublicSiteShell eyebrow="Creator access" title="Sign in to your account" description="Choose the secure sign-in option that works best for you." heroTitle="Welcome back" heroDescription="Sign in to continue your creator journey. Access your assessments, reports, and personalised insights.">
           <div className="grid gap-3">
             <button type="button" onClick={() => void handleGoogleSignIn()} disabled={busy === 'google'} className="btn-primary w-full">
               {busy === 'google' ? 'Redirecting…' : 'Continue with Google'}
@@ -178,9 +166,6 @@ export function CreatorAuth({ mode }: { mode: Mode }) {
               </Link>
             )}
           </div>
-        </section>
-      </main>
-      <PublicLegalFooter compact />
-    </div>
+    </PublicSiteShell>
   );
 }

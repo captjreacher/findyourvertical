@@ -5,7 +5,7 @@ import {
   acceptCreatorAccessInvite,
 } from '@/lib/creators-api';
 import { INVITATION_MESSAGES, type InvitationCode } from '@/lib/creator-relationship';
-import { PublicLegalFooter } from '@/components/public/PublicSiteShell';
+import { PublicSiteShell } from '@/components/public/PublicSiteShell';
 
 /**
  * Public FYV access-invite acceptance screen (unauthenticated).
@@ -82,12 +82,8 @@ export function AcceptInvite() {
   };
 
   return (
-    <div className="fyv-public-shell min-h-screen px-6 py-8 text-charcoal">
-      <main className="flex min-h-[calc(100vh-9rem)] items-center justify-center">
-      <div className="fyv-public-card w-full max-w-md rounded-3xl p-8">
-        <p className="text-xs font-semibold uppercase tracking-widest text-accent">Find Your Vertical</p>
-        <h1 className="mt-2 text-2xl font-semibold text-white">Access your creator account</h1>
-
+    <PublicSiteShell eyebrow="Creator invitation" title="Access your creator account" description="Accept your invitation to unlock your personalised FYV experience." heroTitle="Your creator journey starts here" heroDescription="Turn your strengths into clearer positioning, personalised insight, and confident next steps.">
+      <div>
         {phase === 'validating' && (
           <p className="mt-4 text-sm text-charcoal-2" role="status">Checking your invitation…</p>
         )}
@@ -127,8 +123,6 @@ export function AcceptInvite() {
           <p className="mt-4 text-sm text-pink" role="alert">{message}</p>
         )}
       </div>
-      </main>
-      <PublicLegalFooter compact />
-    </div>
+    </PublicSiteShell>
   );
 }

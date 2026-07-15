@@ -3,8 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useCreatorSession } from './CreatorGate';
 import { redeemOnboardingInvitation } from '@/lib/creators-api';
 import { describeRedemption, redemptionRedirect } from '@/lib/onboarding';
-import brandLogo from '@/assets/fyv-brand-logo.png';
-import { PublicLegalFooter } from '@/components/public/PublicSiteShell';
+import { PublicSiteShell } from '@/components/public/PublicSiteShell';
 
 /**
  * Invitation landing screen. Rendered under CreatorGate, so the creator is
@@ -46,11 +45,8 @@ export function OnboardingAccept() {
   }, [token, navigate]);
 
   return (
-    <div className="fyv-public-shell min-h-screen px-4 py-6 text-charcoal">
-      <main className="flex min-h-[calc(100vh-8rem)] items-center justify-center">
-        <div className="w-full max-w-md rounded-3xl border border-white/10 bg-surface p-6 text-center shadow-2xl shadow-black/25">
-          <img src={brandLogo} alt="Find Your Vertical" className="mx-auto mb-5 h-14 w-auto object-contain" />
-
+    <PublicSiteShell eyebrow="Creator onboarding" title="Opening your onboarding" description="We’re preparing your personalised creator workspace." heroTitle="Your next chapter starts here" heroDescription="Move from insight to action with an onboarding experience shaped around your creator goals.">
+        <div className="text-center">
           {!failed ? (
             <p className="animate-pulse text-sm text-charcoal-2" role="status">{message}</p>
           ) : (
@@ -61,8 +57,6 @@ export function OnboardingAccept() {
             </>
           )}
         </div>
-      </main>
-      <PublicLegalFooter compact />
-    </div>
+    </PublicSiteShell>
   );
 }
