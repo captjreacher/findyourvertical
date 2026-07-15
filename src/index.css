@@ -54,8 +54,38 @@ body {
 }
 
 .fyv-public-shell {
-  background-color: #000000;
+  background:
+    radial-gradient(circle at top left, rgba(227, 31, 82, 0.14), transparent 34rem),
+    linear-gradient(180deg, #121212 0%, #000000 100%);
   color: #f5f2ef;
+}
+
+.fyv-public-card {
+  border: 1px solid rgba(255, 45, 116, 0.22);
+  background-color: rgba(30, 30, 30, 0.94);
+  color: #e6e6e6;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.34);
+}
+
+.fyv-public-card-muted {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background-color: rgba(31, 29, 29, 0.82);
+  color: #e6e6e6;
+}
+
+.fyv-public-prose p,
+.fyv-public-prose li {
+  color: #e6e6e6;
+  line-height: 1.75;
+}
+
+.fyv-public-prose a {
+  color: #ff2d74;
+  font-weight: 600;
+}
+
+.fyv-public-prose a:hover {
+  color: #ffffff;
 }
 
 button,

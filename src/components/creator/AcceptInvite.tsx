@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   validateCreatorAccessInvite,
   acceptCreatorAccessInvite,
 } from '@/lib/creators-api';
 import { INVITATION_MESSAGES, type InvitationCode } from '@/lib/creator-relationship';
+import { PublicLegalFooter } from '@/components/public/PublicSiteShell';
 
 /**
  * Public FYV access-invite acceptance screen (unauthenticated).
@@ -81,10 +82,11 @@ export function AcceptInvite() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-surface-2 px-6 py-12 text-charcoal">
-      <div className="fyv-report-card w-full max-w-md p-8">
-        <p className="text-xs uppercase tracking-widest text-charcoal-2">FindYourVertical</p>
-        <h1 className="mt-2 text-2xl font-semibold">Access your creator account</h1>
+    <div className="fyv-public-shell min-h-screen px-6 py-8 text-charcoal">
+      <main className="flex min-h-[calc(100vh-9rem)] items-center justify-center">
+      <div className="fyv-public-card w-full max-w-md rounded-3xl p-8">
+        <p className="text-xs font-semibold uppercase tracking-widest text-accent">Find Your Vertical</p>
+        <h1 className="mt-2 text-2xl font-semibold text-white">Access your creator account</h1>
 
         {phase === 'validating' && (
           <p className="mt-4 text-sm text-charcoal-2" role="status">Checking your invitation…</p>
@@ -117,7 +119,7 @@ export function AcceptInvite() {
               Your account is ready. Sign in with your email
               {email ? <> (<span className="font-medium text-charcoal">{email}</span>)</> : null} to continue.
             </p>
-            <a href="/#/my" className="btn-primary mt-6 inline-block w-full text-center">Go to sign in</a>
+            <Link to="/my" className="btn-primary mt-6 inline-block w-full text-center">Go to sign in</Link>
           </>
         )}
 
@@ -125,6 +127,8 @@ export function AcceptInvite() {
           <p className="mt-4 text-sm text-pink" role="alert">{message}</p>
         )}
       </div>
+      </main>
+      <PublicLegalFooter compact />
     </div>
   );
 }

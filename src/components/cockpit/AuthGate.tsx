@@ -12,6 +12,7 @@ import { deliverAssessmentInvitation } from '@/lib/email/deliverAssessmentInvita
 import { checkIsAgency, signInWithOtp, signOut, supabase } from '@/lib/supabase';
 import brandLogo from '@/assets/fyv-brand-logo.png';
 import type { Session } from '@supabase/supabase-js';
+import { PublicLegalFooter } from '@/components/public/PublicSiteShell';
 
 type AuthMessageKind = 'success' | 'error';
 const MAGIC_LINK_SUCCESS_MESSAGE = 'Magic link sent. Check your inbox.';
@@ -201,8 +202,8 @@ export function AuthGate({ children }: { children: ReactNode }) {
     const copy = inviteSuccess ? successCopyForDelivery(inviteSuccess.delivery) : null;
 
     return (
-      <div className="min-h-screen bg-surface-2 px-4 py-4 text-charcoal sm:px-6 lg:px-8">
-        <main className="mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-5xl items-center">
+      <div className="fyv-public-shell min-h-screen px-4 py-4 text-charcoal sm:px-6 lg:px-8">
+        <main className="mx-auto flex min-h-[calc(100vh-7rem)] w-full max-w-5xl items-center">
           <section className="grid w-full gap-5 rounded-3xl border border-white/10 bg-surface/92 p-4 shadow-2xl shadow-black/25 backdrop-blur sm:p-5 lg:grid-cols-[0.92fr_1.08fr] lg:p-6">
             <div className="flex flex-col justify-center">
               <div className="flex items-center gap-3">
@@ -408,6 +409,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
             </div>
           </section>
         </main>
+        <PublicLegalFooter compact />
       </div>
     );
   }
@@ -429,7 +431,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
             Your account doesn't have cockpit access. If you're a creator, head to your own area.
           </p>
           <div className="mt-4 flex flex-col gap-2">
-            <a href="#/my" className="btn-primary w-full">Go to My Vertical</a>
+            <Link to="/my" className="btn-primary w-full">Go to My Vertical</Link>
             <button onClick={() => void signOut()} className="btn-secondary w-full">Sign out</button>
           </div>
         </div>

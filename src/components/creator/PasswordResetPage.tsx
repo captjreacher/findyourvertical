@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase, updatePassword } from '@/lib/supabase';
+import { PublicLegalFooter } from '@/components/public/PublicSiteShell';
 
 export function PasswordResetPage() {
   const navigate = useNavigate();
@@ -56,7 +57,8 @@ export function PasswordResetPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-surface-2 px-4 text-charcoal">
+    <div className="fyv-public-shell min-h-screen px-4 py-6 text-charcoal">
+      <main className="flex min-h-[calc(100vh-8rem)] items-center justify-center">
       <div className="w-full max-w-md rounded-3xl border border-white/10 bg-surface/92 p-6 shadow-2xl shadow-black/25">
         <h1 className="text-2xl font-bold">Set a new password</h1>
         <p className="mt-2 text-sm text-charcoal-2">
@@ -102,6 +104,8 @@ export function PasswordResetPage() {
         {message && <p className="mt-3 text-sm text-success" role="status">{message}</p>}
         {error && <p className="mt-3 text-sm text-pink" role="alert">{error}</p>}
       </div>
+      </main>
+      <PublicLegalFooter compact />
     </div>
   );
 }

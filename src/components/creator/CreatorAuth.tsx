@@ -8,6 +8,7 @@ import {
   signInWithPassword,
 } from '@/lib/supabase';
 import { normalizeRedirectPath } from '@/lib/redirect';
+import { PublicLegalFooter } from '@/components/public/PublicSiteShell';
 
 type Mode = 'gate' | 'page';
 
@@ -88,8 +89,8 @@ export function CreatorAuth({ mode }: { mode: Mode }) {
   };
 
   return (
-    <div className="min-h-screen bg-surface-2 px-4 py-6 text-charcoal sm:px-6 lg:px-8">
-      <main className="mx-auto flex min-h-[calc(100vh-3rem)] w-full max-w-5xl items-center">
+    <div className="fyv-public-shell min-h-screen px-4 py-6 text-charcoal sm:px-6 lg:px-8">
+      <main className="mx-auto flex min-h-[calc(100vh-8rem)] w-full max-w-5xl items-center">
         <section className="grid w-full gap-5 rounded-3xl border border-white/10 bg-surface/92 p-5 shadow-2xl shadow-black/25 backdrop-blur lg:grid-cols-[0.95fr_1.05fr] lg:p-6">
           <div className="flex flex-col justify-center">
             <img src={brandLogo} alt="Find Your Vertical" className="h-20 w-auto object-contain" />
@@ -179,6 +180,7 @@ export function CreatorAuth({ mode }: { mode: Mode }) {
           </div>
         </section>
       </main>
+      <PublicLegalFooter compact />
     </div>
   );
 }
