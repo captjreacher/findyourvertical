@@ -120,6 +120,8 @@ export default function App() {
               flow (kills the old ?profileId= identity path). */}
           <Route path="/creator-services/onboarding" element={<Navigate to="/my/onboarding" replace />} />
 
+          <Route path="/auth/login" element={<CreatorGate><Navigate to="/my" replace /></CreatorGate>} />
+
           {/* Creator Home ("My Vertical") — authenticated creator self-service. */}
           <Route path="/my" element={<CreatorGate><CreatorHome /></CreatorGate>} />
           {/* Build Your Character Possibilities — archetype variation selection (FYV-PERSONA-1A). */}

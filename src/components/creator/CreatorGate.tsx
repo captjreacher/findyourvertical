@@ -9,15 +9,17 @@ import {
   type ReactNode,
 } from 'react';
 import type { Session } from '@supabase/supabase-js';
-import { useLocation } from 'react-router-dom';
-import { checkIsAgency, signInWithOtp, signOut, supabase } from '@/lib/supabase';
+import {
+  authCallbackUrl,
+  checkIsAgency,
+  signOut,
+  storeAuthRedirectPath,
+  supabase,
+} from '@/lib/supabase';
 import { claimCreatorProfile, getMyCreatorProfile } from '@/lib/creators-api';
 import type { CreatorProfile } from '@/types/creator';
 import brandLogo from '@/assets/fyv-brand-logo.png';
 
-// ── Creator session context ─────────────────────────────────────────────────
-// Provided by CreatorGate once an authenticated creator's identity is resolved
-// to exactly one linked creator profile. Consumed by Creator Home (/my).
 export interface CreatorSessionValue {
   session: Session;
   profile: CreatorProfile;
@@ -33,45 +35,97 @@ export function useCreatorSession(): CreatorSessionValue {
 }
 
 type Phase = 'loading' | 'unauthenticated' | 'agency' | 'creator' | 'error';
+type AuthMessageKind = 'success' | 'error';
+
+const DESTINATION = '/my';
+const RESET_DESTINATION = '/auth/login';
+const BENEFITS = ['Creator Access', 'Invitation-only workspace', 'Private vertical intelligence'];
+const FOOTER_LINKS = ['About', 'Privacy', 'Terms'];
 
 function FullScreen({ children }: { children: ReactNode }) {
+  const isLoginRoute = window.location.hash.replace(/^#/, '').startsWith('/auth/login');
+
   return (
-    <div className="min-h-screen bg-surface-2 px-4 py-6 text-charcoal">
-      <div className="mx-auto flex min-h-[calc(100vh-3rem)] w-full max-w-md items-center">
-        <div className="w-full">{children}</div>
-      </div>
+    <div className="min-h-screen bg-surface-2 text-charcoal">
+      <header className="border-b border-white/10 bg-black/88 px-4 py-3 backdrop-blur sm:px-6">
+        <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4">
+          <a href="#/auth/login" aria-label="Find Your Vertical creator login" className="shrink-0">
+            <img src={brandLogo} alt="Find Your Vertical" className="fyv-logo-mark h-20 w-auto object-contain sm:h-24" />
+          </a>
+          {isLoginRoute ? (
+            <button type="button" aria-current="page" className="btn-primary min-h-11 cursor-default px-5">
+              Creator Sign In
+            </button>
+          ) : (
+            <a href="#/auth/login" className="btn-primary min-h-11 px-5">
+              Creator Sign In
+            </a>
+          )}
+        </div>
+      </header>
+
+      <main className="px-4 py-5 sm:px-6 lg:py-6">
+        <div className="mx-auto min-h-[calc(100vh-10.5rem)] w-full max-w-6xl">{children}</div>
+      </main>
+
+      <footer className="border-t border-white/10 px-4 py-4 sm:px-6">
+        <div className="mx-auto flex w-full max-w-6xl flex-col gap-3 text-xs text-charcoal-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <img src="/fyv-favicon.png" alt="" className="h-7 w-7 object-contain" />
+            <span>Powered by MaximisedAI</span>
+          </div>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 sm:justify-end">
+            {FOOTER_LINKS.map(link => (
+              <a key={link} href={`#/${link.toLowerCase()}`} className="transition-colors hover:text-charcoal">
+                {link}
+              </a>
+            ))}
+            <a
+              href="https://mgrnz.com"
+              className="transition-colors hover:text-charcoal"
+              target="_blank"
+              rel="noreferrer"
+            >
+              An MGRNZ.com component
+            </a>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
 
 export function CreatorGate({ children }: { children: ReactNode }) {
-  const location = useLocation();
   const [phase, setPhase] = useState<Phase>('loading');
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<CreatorProfile | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [sending, setSending] = useState(false);
-  const [loginMessage, setLoginMessage] = useState<string | null>(null);
-  const [loginError, setLoginError] = useState<string | null>(null);
+  const [resetting, setResetting] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [messageKind, setMessageKind] = useState<AuthMessageKind | null>(null);
   const resolvingFor = useRef<string | null>(null);
 
+  const setAuthMessage = (kind: AuthMessageKind, copy: string) => {
+    setMessageKind(kind);
+    setMessage(copy);
+  };
+
+  const clearAuthMessage = () => {
+    setMessage(null);
+    setMessageKind(null);
+  };
+
   const resolveCreator = useCallback(async (activeSession: Session) => {
-    setPhase('loading');
-    // Agency operators must never be silently linked to a creator profile.
-    let agency = false;
-    try {
-      agency = await checkIsAgency();
-    } catch {
-      setErrorMessage('We could not verify your account. Please try again.');
-      setPhase('error');
-      return;
-    }
+    setErrorMessage('');
+    const agency = await checkIsAgency().catch(() => false);
     if (agency) {
       setPhase('agency');
       return;
     }
-    // Resolve (or link) the creator's own profile — server-controlled by email.
+
     try {
       let ownProfile = await getMyCreatorProfile(activeSession.user.id);
       if (!ownProfile) {
@@ -108,7 +162,6 @@ export function CreatorGate({ children }: { children: ReactNode }) {
         setPhase('unauthenticated');
         return;
       }
-      // Avoid re-resolving on token refresh for the same user.
       if (resolvingFor.current === next.user.id && (phase === 'creator' || phase === 'agency')) {
         setSession(next);
         return;
@@ -129,27 +182,66 @@ export function CreatorGate({ children }: { children: ReactNode }) {
     if (session) await resolveCreator(session);
   }, [session, resolveCreator]);
 
-  const handleLogin = async (event: FormEvent) => {
+  const handleGoogleLogin = async () => {
+    setSending(true);
+    clearAuthMessage();
+    storeAuthRedirectPath(DESTINATION);
+
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: authCallbackUrl(DESTINATION) },
+    });
+
+    if (error) {
+      setAuthMessage('error', 'Unable to start Google sign-in. Please try again.');
+      setSending(false);
+    }
+  };
+
+  const handlePasswordLogin = async (event: FormEvent) => {
     event.preventDefault();
     setSending(true);
-    setLoginMessage(null);
-    setLoginError(null);
-    const requestedPath = location.pathname.startsWith('/my')
-      ? `${location.pathname}${location.search}`
-      : '/my';
-    const { error } = await signInWithOtp(email, requestedPath);
+    clearAuthMessage();
+
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
-      setLoginError('Unable to send a magic link. Check the email address or contact us for access.');
-    } else {
-      setLoginMessage('Magic link sent. Check your inbox to sign in.');
+      setAuthMessage('error', 'Unable to sign in with those details.');
+      setSending(false);
+      return;
     }
+
+    setPassword('');
     setSending(false);
+  };
+
+  const handlePasswordReset = async () => {
+    if (!email) {
+      setAuthMessage('error', 'Enter your email address first.');
+      return;
+    }
+
+    setResetting(true);
+    clearAuthMessage();
+    storeAuthRedirectPath(RESET_DESTINATION);
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: authCallbackUrl(RESET_DESTINATION),
+    });
+
+    if (error) {
+      setAuthMessage('error', 'Unable to send password reset instructions.');
+    } else {
+      setAuthMessage('success', 'Password reset instructions sent. Check your inbox.');
+    }
+    setResetting(false);
   };
 
   if (phase === 'loading') {
     return (
       <FullScreen>
-        <div className="animate-pulse text-center text-sm text-charcoal-2">Loading your vertical…</div>
+        <div className="flex min-h-[45vh] items-center justify-center text-sm text-charcoal-2" role="status">
+          Loading your vertical...
+        </div>
       </FullScreen>
     );
   }
@@ -157,38 +249,123 @@ export function CreatorGate({ children }: { children: ReactNode }) {
   if (phase === 'unauthenticated') {
     return (
       <FullScreen>
-        <div className="grid gap-5 rounded-3xl border border-white/10 bg-surface/92 p-6 shadow-2xl shadow-black/25">
-          <img src={brandLogo} alt="Find Your Vertical" className="h-20 w-auto object-contain" />
-          <div>
-            <h1 className="text-2xl font-bold text-charcoal">Welcome back</h1>
-            <p className="mt-2 text-sm text-charcoal-2">
-              Sign in with the email you used for your assessment. We'll send you a secure magic link — no password needed.
-            </p>
-          </div>
-          <form onSubmit={handleLogin} className="grid gap-3">
-            <input
-              type="email"
-              name="email"
-              autoComplete="email"
-              value={email}
-              onChange={event => {
-                setEmail(event.target.value);
-                setLoginMessage(null);
-                setLoginError(null);
-              }}
-              placeholder="Email address"
-              required
-              className="field-control w-full"
-            />
-            <button type="submit" disabled={sending} className="btn-primary min-h-12 w-full text-base">
-              {sending ? 'Sending…' : loginMessage ? 'Send again' : 'Send magic link'}
-            </button>
-          </form>
-          {loginMessage && <p className="text-sm text-success" role="status">{loginMessage}</p>}
-          {loginError && <p className="text-sm text-pink" role="alert">{loginError}</p>}
-          <p className="text-xs text-charcoal-2">
-            Access is invitation-only. If you don't have an account yet, ask us for an assessment invite.
-          </p>
+        <div className="grid min-h-[calc(100vh-10.5rem)] items-center gap-6 lg:grid-cols-[0.95fr_1.05fr]">
+          <section className="order-2 flex min-h-0 flex-col justify-center lg:order-1">
+            <div className="mx-auto w-full max-w-xl py-2 lg:py-4">
+              <div className="text-center">
+                <img
+                  src={brandLogo}
+                  alt="Find Your Vertical"
+                  className="fyv-logo-mark mx-auto h-36 w-auto object-contain sm:h-40 lg:h-44"
+                />
+                <p className="mt-3 font-display text-2xl font-bold text-charcoal sm:text-3xl">
+                  Find the Creator in You
+                </p>
+              </div>
+
+              <div className="mt-7 space-y-4 rounded-2xl border border-white/10 bg-surface/75 p-5 shadow-xl shadow-black/20 lg:mt-8">
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-accent">Creator Access</p>
+                <div>
+                  <h1 className="text-3xl font-bold leading-tight tracking-normal text-charcoal">Welcome back</h1>
+                  <p className="mt-3 max-w-lg text-sm leading-6 text-charcoal-2">
+                    Sign in to return to your private creator workspace, vertical intelligence, reports, and next steps.
+                  </p>
+                </div>
+                <div className="grid gap-2">
+                  {BENEFITS.map(item => (
+                    <div key={item} className="flex items-center gap-3 text-sm text-charcoal-2">
+                      <span className="h-1.5 w-1.5 rounded-full bg-accent" aria-hidden="true" />
+                      <span>{item}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section className="order-1 lg:order-2">
+            <div className="mx-auto w-full max-w-md rounded-2xl border border-white/10 bg-surface/92 p-5 shadow-2xl shadow-black/25 sm:p-6">
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-charcoal-2">Creator sign in</p>
+                <h2 className="text-2xl font-bold tracking-normal text-charcoal">Continue to FYV</h2>
+              </div>
+
+              <div className="mt-6 grid gap-3">
+                <button
+                  type="button"
+                  onClick={() => void handleGoogleLogin()}
+                  disabled={sending}
+                  className="inline-flex min-h-13 w-full items-center justify-center gap-3 rounded-xl bg-white px-4 py-3 text-base font-semibold text-black shadow-lg shadow-black/25 transition-colors hover:bg-charcoal disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <span className="grid h-5 w-5 place-items-center rounded-full border border-black/10 text-sm font-bold">G</span>
+                  Continue with Google
+                </button>
+                <div className="grid gap-2 rounded-xl border border-dashed border-white/10 bg-white/[0.03] p-3">
+                  <p className="text-xs font-medium uppercase tracking-[0.18em] text-charcoal-2">Future providers</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button type="button" disabled className="btn-secondary min-h-10 opacity-55">Apple</button>
+                    <button type="button" disabled className="btn-secondary min-h-10 opacity-55">Microsoft</button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="my-5 flex items-center gap-3 text-xs uppercase tracking-[0.16em] text-charcoal-2">
+                <span className="h-px flex-1 bg-white/10" />
+                Email
+                <span className="h-px flex-1 bg-white/10" />
+              </div>
+
+              <form onSubmit={handlePasswordLogin} className="grid gap-3">
+                <input
+                  type="email"
+                  name="email"
+                  autoComplete="email"
+                  value={email}
+                  onChange={event => {
+                    setEmail(event.target.value);
+                    clearAuthMessage();
+                  }}
+                  placeholder="Email address"
+                  required
+                  className="field-control w-full"
+                />
+                <input
+                  type="password"
+                  name="password"
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={event => {
+                    setPassword(event.target.value);
+                    clearAuthMessage();
+                  }}
+                  placeholder="Password"
+                  required
+                  className="field-control w-full"
+                />
+                <button type="submit" disabled={sending} className="btn-secondary min-h-11 w-full">
+                  Sign in with email
+                </button>
+              </form>
+
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-charcoal-2">
+                <span>Access is invitation-only.</span>
+                <button
+                  type="button"
+                  onClick={() => void handlePasswordReset()}
+                  disabled={resetting}
+                  className="font-semibold text-charcoal underline-offset-4 hover:underline disabled:opacity-50"
+                >
+                  {resetting ? 'Sending reset...' : 'Forgot password?'}
+                </button>
+              </div>
+
+              {message && (
+                <p className={messageKind === 'success' ? 'mt-4 text-sm text-success' : 'mt-4 text-sm text-pink'} role={messageKind === 'success' ? 'status' : 'alert'}>
+                  {message}
+                </p>
+              )}
+            </div>
+          </section>
         </div>
       </FullScreen>
     );
@@ -197,14 +374,16 @@ export function CreatorGate({ children }: { children: ReactNode }) {
   if (phase === 'agency') {
     return (
       <FullScreen>
-        <div className="grid gap-4 rounded-3xl border border-white/10 bg-surface/92 p-6 text-center shadow-2xl shadow-black/25">
-          <h1 className="text-xl font-bold text-charcoal">You're signed in as an agency operator</h1>
-          <p className="text-sm text-charcoal-2">
-            My Vertical is the creator area. Head to the agency cockpit to manage creators.
-          </p>
-          <div className="flex flex-col gap-2">
-            <a href="#/cockpit" className="btn-primary w-full">Go to Cockpit</a>
-            <button onClick={() => void signOut()} className="btn-secondary w-full">Sign out</button>
+        <div className="flex min-h-[calc(100vh-10.5rem)] items-center justify-center">
+          <div className="grid w-full max-w-md gap-4 rounded-2xl border border-white/10 bg-surface/92 p-6 text-center shadow-2xl shadow-black/25">
+            <h1 className="text-xl font-bold text-charcoal">You're signed in as an agency operator</h1>
+            <p className="text-sm text-charcoal-2">
+              My Vertical is the creator area. Head to the agency cockpit to manage creators.
+            </p>
+            <div className="flex flex-col gap-2">
+              <a href="#/cockpit" className="btn-primary w-full">Go to Cockpit</a>
+              <button onClick={() => void signOut()} className="btn-secondary w-full">Sign out</button>
+            </div>
           </div>
         </div>
       </FullScreen>
@@ -214,23 +393,26 @@ export function CreatorGate({ children }: { children: ReactNode }) {
   if (phase === 'error') {
     return (
       <FullScreen>
-        <div className="grid gap-4 rounded-3xl border border-pink/30 bg-surface/92 p-6 text-center shadow-2xl shadow-black/25">
-          <h1 className="text-xl font-bold text-charcoal">We couldn't open your vertical</h1>
-          <p className="text-sm text-charcoal-2">{errorMessage}</p>
-          <div className="flex flex-col gap-2">
-            <button onClick={() => void reload()} className="btn-primary w-full">Try again</button>
-            <button onClick={() => void signOut()} className="btn-secondary w-full">Sign out</button>
+        <div className="flex min-h-[calc(100vh-10.5rem)] items-center justify-center">
+          <div className="grid w-full max-w-md gap-4 rounded-2xl border border-pink/30 bg-surface/92 p-6 text-center shadow-2xl shadow-black/25">
+            <h1 className="text-xl font-bold text-charcoal">We couldn't open your vertical</h1>
+            <p className="text-sm text-charcoal-2">{errorMessage}</p>
+            <div className="flex flex-col gap-2">
+              <button onClick={() => void reload()} className="btn-primary w-full">Try again</button>
+              <button onClick={() => void signOut()} className="btn-secondary w-full">Sign out</button>
+            </div>
           </div>
         </div>
       </FullScreen>
     );
   }
 
-  // phase === 'creator'
   if (!session || !profile) {
     return (
       <FullScreen>
-        <div className="animate-pulse text-center text-sm text-charcoal-2">Loading your vertical…</div>
+        <div className="flex min-h-[45vh] items-center justify-center text-sm text-charcoal-2" role="status">
+          Loading your vertical...
+        </div>
       </FullScreen>
     );
   }

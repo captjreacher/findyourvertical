@@ -8,7 +8,7 @@
 // Kept side-effect free (no window, no Supabase client) so it is trivially
 // unit-testable — see redirect.test.ts.
 
-export const ALLOWED_REDIRECT_PREFIXES = ['/cockpit', '/my'] as const;
+export const ALLOWED_REDIRECT_PREFIXES = ['/auth', '/cockpit', '/my'] as const;
 export const DEFAULT_REDIRECT = '/cockpit';
 
 export function normalizeRedirectPath(
