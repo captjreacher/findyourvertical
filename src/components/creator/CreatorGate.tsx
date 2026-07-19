@@ -42,7 +42,11 @@ type AuthMessageKind = 'success' | 'error';
 const DESTINATION = '/my';
 const RESET_DESTINATION = '/auth/login';
 const BENEFITS = ['Creator Access', 'Invitation-only workspace', 'Private vertical intelligence'];
-const FOOTER_LINKS = ['About', 'Privacy', 'Terms'];
+const FOOTER_LINKS = [
+  { label: 'About', href: '/#/about' },
+  { label: 'Privacy', href: '/#/privacy' },
+  { label: 'Terms', href: '/#/terms' },
+];
 
 function FullScreen({ children }: { children: ReactNode }) {
   const isLoginRoute = window.location.hash.replace(/^#/, '').startsWith('/auth/login');
@@ -72,18 +76,24 @@ function FullScreen({ children }: { children: ReactNode }) {
 
       <footer className="border-t border-white/10 px-4 py-4 sm:px-6">
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-3 text-xs text-charcoal-2 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3">
+          <a
+            href="https://www.maximisedai.com/"
+            target="_blank"
+            rel="noreferrer"
+            aria-label="Visit MaximisedAI"
+            className="flex items-center gap-3 transition-opacity hover:opacity-80"
+          >
             <img src={maximisedAiExplode} alt="" className="h-8 w-8 object-contain" />
             <span>Powered by MaximisedAI</span>
-          </div>
+          </a>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 sm:justify-end">
             {FOOTER_LINKS.map(link => (
-              <a key={link} href={`#/${link.toLowerCase()}`} className="transition-colors hover:text-charcoal">
-                {link}
+              <a key={link.label} href={link.href} className="transition-colors hover:text-charcoal">
+                {link.label}
               </a>
             ))}
             <a
-              href="https://mgrnz.com"
+              href="https://mgrnz.com/"
               className="inline-flex items-center gap-2 transition-colors hover:text-charcoal"
               target="_blank"
               rel="noreferrer"
