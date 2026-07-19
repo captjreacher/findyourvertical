@@ -19,6 +19,8 @@ import {
 import { claimCreatorProfile, getMyCreatorProfile } from '@/lib/creators-api';
 import type { CreatorProfile } from '@/types/creator';
 import brandLogo from '@/assets/fyv-brand-logo.png';
+import maximisedAiExplode from '@/assets/maximisedai-explode.png';
+import mgrnzLogoBadge from '@/assets/mgrnz-logo-badge.png';
 
 export interface CreatorSessionValue {
   session: Session;
@@ -71,7 +73,7 @@ function FullScreen({ children }: { children: ReactNode }) {
       <footer className="border-t border-white/10 px-4 py-4 sm:px-6">
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-3 text-xs text-charcoal-2 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
-            <img src="/fyv-favicon.png" alt="" className="h-7 w-7 object-contain" />
+            <img src={maximisedAiExplode} alt="" className="h-8 w-8 object-contain" />
             <span>Powered by MaximisedAI</span>
           </div>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 sm:justify-end">
@@ -82,11 +84,12 @@ function FullScreen({ children }: { children: ReactNode }) {
             ))}
             <a
               href="https://mgrnz.com"
-              className="transition-colors hover:text-charcoal"
+              className="inline-flex items-center gap-2 transition-colors hover:text-charcoal"
               target="_blank"
               rel="noreferrer"
             >
-              An MGRNZ.com component
+              <span>A component of</span>
+              <img src={mgrnzLogoBadge} alt="MGRNZ.com" className="h-7 w-20 object-contain" />
             </a>
           </div>
         </div>
