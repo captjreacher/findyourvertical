@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Link } from 'react-router-dom';
 import { createPublicAssessmentInvite } from '@/lib/creators-api';
 import {
   buildPublicAssessmentInviteUrl,
@@ -11,6 +10,7 @@ import {
 import { deliverAssessmentInvitation } from '@/lib/email/deliverAssessmentInvitation';
 import { checkIsAgency, signInWithOtp, signOut, supabase } from '@/lib/supabase';
 import brandLogo from '@/assets/fyv-brand-logo.png';
+import maximisedAiExplode from '@/assets/maximisedai-explode.png';
 import type { Session } from '@supabase/supabase-js';
 
 type AuthMessageKind = 'success' | 'error';
@@ -22,7 +22,25 @@ const INVITE_BENEFITS = [
   'Understand your growth potential',
   'Receive a personalised creator report',
 ];
-const CAPABILITY_CHIPS = ['Find Your Content Niche', 'Business Mentoring', 'Scale & Systems'];
+const HOMEPAGE_LINKS = [
+  { label: 'How it works', section: 'how-it-works' },
+  { label: 'What you’ll discover', section: 'what-youll-discover' },
+  { label: 'For existing creators', section: 'existing-creators' },
+];
+const HOW_IT_WORKS = [
+  {
+    title: 'Complete your assessment',
+    description: 'Share your interests, strengths and creative preferences.',
+  },
+  {
+    title: 'Discover your strongest verticals',
+    description: 'See the creator directions most strongly supported by your responses.',
+  },
+  {
+    title: 'Shape your creator profiles',
+    description: 'Review, edit and refine the profiles generated from your results.',
+  },
+];
 
 // FYV-ONBOARD-2 — success-state shape returned by the public-assessment-invite
 // flow. Kept minimal: the RPC result + the delivery state + the assembled URL.
@@ -81,6 +99,19 @@ export function AuthGate({ children }: { children: ReactNode }) {
       .catch(() => { if (active) setAgencyStatus('error'); });
     return () => { active = false; };
   }, [session]);
+
+  useEffect(() => {
+    if (loading || session) return;
+
+    const section = new URLSearchParams(location.search).get('section');
+    if (!HOMEPAGE_LINKS.some(link => link.section === section)) return;
+
+    const frame = window.requestAnimationFrame(() => {
+      document.getElementById(section!)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [loading, location.search, session]);
 
   const handleLogin = async (e: FormEvent) => {
     e.preventDefault();
@@ -201,44 +232,47 @@ export function AuthGate({ children }: { children: ReactNode }) {
     const copy = inviteSuccess ? successCopyForDelivery(inviteSuccess.delivery) : null;
 
     return (
-      <div className="min-h-screen bg-surface-2 px-4 py-4 text-charcoal sm:px-6 lg:px-8">
-        <main className="mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-5xl items-center">
-          <section className="grid w-full gap-5 rounded-3xl border border-white/10 bg-surface/92 p-4 shadow-2xl shadow-black/25 backdrop-blur sm:p-5 lg:grid-cols-[0.92fr_1.08fr] lg:p-6">
+      <div className="flex min-h-screen flex-col bg-surface-2 text-charcoal">
+        <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-5 sm:px-6 sm:py-7 lg:px-8">
+          <section className="grid w-full gap-6 rounded-3xl border border-white/10 bg-surface/92 p-4 shadow-2xl shadow-black/25 backdrop-blur sm:p-6 lg:grid-cols-[0.92fr_1.08fr] lg:p-7">
             <div className="flex flex-col justify-center">
-              <div className="flex items-center gap-3">
+              <div className="flex flex-col items-start">
                 <img
                   src={brandLogo}
                   alt="Find Your Vertical"
-                  className="fyv-logo-mark h-32 w-72 object-contain"
+                  className="fyv-logo-mark h-auto w-[min(100%,19rem)] object-contain sm:w-80"
                 />
-                <div className="sr-only">
-                  <p className="text-lg font-bold leading-tight text-charcoal">Find Your Vertical</p>
-                  <p className="text-sm text-charcoal-2">Creator Growth Framework</p>
-                </div>
+                <p className="mt-2 font-display text-lg font-semibold tracking-[0.08em] text-charcoal/80 sm:text-xl">
+                  Find the Creator in You
+                </p>
               </div>
 
               <h1 className="mt-5 max-w-xl text-2xl font-bold leading-tight tracking-normal text-charcoal sm:text-3xl">
                 Find the creator niche you're most likely to succeed in.
               </h1>
-              <div className="mt-4 max-w-xl space-y-3 text-sm leading-6 text-charcoal-2">
-                <p>
+              <div className="mt-4 max-w-[35rem] space-y-3 text-sm leading-7 sm:text-[0.9375rem]">
+                <p className="font-medium text-success">
                   Find Your Vertical helps creators identify their strongest content opportunities, business readiness, growth potential, and monetisation pathways.
                 </p>
-                <p>
+                <p className="text-charcoal/70">
                   Complete an assessment, receive a personalised report, and discover opportunities to grow faster.
                 </p>
               </div>
 
-              <div className="mt-5 flex flex-wrap gap-2">
-                {CAPABILITY_CHIPS.map(item => (
-                  <span key={item} className="rounded-full border border-white/10 bg-surface-3 px-3 py-1.5 text-xs font-semibold text-charcoal">
-                    {item}
-                  </span>
+              <nav className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-sm" aria-label="Homepage sections">
+                {HOMEPAGE_LINKS.map(link => (
+                  <a
+                    key={link.section}
+                    href={`#/cockpit?section=${link.section}`}
+                    className="font-semibold text-charcoal/75 underline decoration-accent/70 underline-offset-4 transition-colors hover:text-charcoal"
+                  >
+                    {link.label}
+                  </a>
                 ))}
-              </div>
+              </nav>
             </div>
 
-            <div className="grid gap-3">
+            <div id="what-youll-discover" role="region" aria-label="What you’ll discover" className="grid scroll-mt-6 gap-3">
               {inviteSuccess && copy ? (
                 // FYV-ONBOARD-2 — success state. Landing page layout unchanged;
                 // only the section under "Get Your Assessment Invite" swaps to
@@ -354,10 +388,10 @@ export function AuthGate({ children }: { children: ReactNode }) {
                 </form>
               )}
 
-              <div ref={loginSectionRef} className="rounded-2xl border border-white/10 bg-surface-3/70 p-3.5">
+              <div id="existing-creators" ref={loginSectionRef} role="region" aria-labelledby="existing-creators-heading" className="scroll-mt-6 rounded-2xl border border-white/10 bg-surface-3/70 p-3.5">
                 <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
                   <div>
-                    <h2 className="text-base font-bold text-charcoal">Already Invited?</h2>
+                    <h2 id="existing-creators-heading" className="text-base font-bold text-charcoal">Already Invited?</h2>
                     <p className="mt-1 text-sm text-charcoal-2">Enter the email address that received your invitation.</p>
                   </div>
                   <button
@@ -398,12 +432,58 @@ export function AuthGate({ children }: { children: ReactNode }) {
                   </p>
                 )}
               </div>
-              <Link to="/my" className="btn-secondary min-h-11 w-full text-center">
-                Existing creator? Sign in
-              </Link>
             </div>
           </section>
+
+          <section id="how-it-works" className="scroll-mt-6 px-1 pb-2 pt-9 sm:px-3 sm:pt-11" aria-labelledby="how-it-works-heading">
+            <div className="flex flex-col gap-2 border-b border-white/10 pb-5 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-success">Your route to clarity</p>
+                <h2 id="how-it-works-heading" className="mt-2 text-xl font-bold text-charcoal sm:text-2xl">How it works</h2>
+              </div>
+              <p className="max-w-md text-sm leading-6 text-charcoal/65">Three focused steps from self-assessment to creator direction.</p>
+            </div>
+
+            <ol className="grid gap-0 md:grid-cols-3">
+              {HOW_IT_WORKS.map((step, index) => (
+                <li key={step.title} className="flex gap-4 border-b border-white/10 py-5 last:border-b-0 md:border-b-0 md:border-r md:px-5 md:first:pl-0 md:last:border-r-0 md:last:pr-0">
+                  <span className="font-display text-2xl font-bold leading-none text-accent" aria-hidden="true">{index + 1}</span>
+                  <div>
+                    <h3 className="text-sm font-semibold leading-5 text-charcoal">{step.title}</h3>
+                    <p className="mt-1.5 text-sm leading-6 text-charcoal/65">{step.description}</p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </section>
         </main>
+
+        <footer className="border-t border-white/10 px-4 py-4 sm:px-6 lg:px-8">
+          <div className="mx-auto flex w-full max-w-5xl flex-col gap-3 text-xs text-charcoal/55 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-2.5">
+              <img src={maximisedAiExplode} alt="" className="h-9 w-9 shrink-0 rounded-full object-contain" />
+              <span>
+                Powered by{' '}
+                <a
+                  href="https://www.maximisedai.com/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-semibold text-charcoal/75 underline-offset-4 transition-colors hover:text-charcoal hover:underline"
+                >
+                  MaximisedAI
+                </a>
+              </span>
+            </div>
+            <a
+              href="https://mgrnz.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-fit underline-offset-4 transition-colors hover:text-charcoal/75 hover:underline"
+            >
+              A MGRNZ.com component
+            </a>
+          </div>
+        </footer>
       </div>
     );
   }
