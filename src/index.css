@@ -36,6 +36,119 @@ body {
   image-rendering: auto;
 }
 
+.fyv-homepage-background {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.fyv-homepage-background::before,
+.fyv-homepage-background::after,
+.fyv-homepage-watermark {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.fyv-homepage-background::before {
+  z-index: -3;
+  content: '';
+  background:
+    radial-gradient(ellipse 58% 42% at -5% 13%, rgba(227, 31, 82, 0.27), transparent 72%),
+    radial-gradient(ellipse 45% 36% at 103% 17%, rgba(59, 169, 156, 0.17), transparent 74%),
+    radial-gradient(ellipse 52% 28% at 48% 48%, rgba(227, 31, 82, 0.055), transparent 78%),
+    #000000;
+}
+
+.fyv-homepage-background::after {
+  z-index: -2;
+  content: '';
+  opacity: 0.25;
+  background-image: radial-gradient(circle, rgba(245, 242, 239, 0.2) 0 0.75px, transparent 0.9px);
+  background-position: calc(50% - 25rem) 8.5rem;
+  background-size: 18px 18px;
+  mask-image: radial-gradient(ellipse 29rem 23rem at calc(50% - 18rem) 18rem, black, transparent 78%);
+}
+
+.fyv-homepage-watermark {
+  z-index: -1;
+  overflow: hidden;
+}
+
+.fyv-homepage-watermark::before {
+  position: absolute;
+  top: 7.5rem;
+  left: max(-12rem, calc(50% - 45rem));
+  width: 37rem;
+  height: 37rem;
+  border: 1px solid rgba(245, 242, 239, 0.055);
+  border-radius: 50%;
+  color: rgba(245, 242, 239, 0.045);
+  content: 'V';
+  font-family: var(--font-display);
+  font-size: 25rem;
+  font-weight: 700;
+  line-height: 34rem;
+  text-align: center;
+  transform: rotate(-7deg);
+  box-shadow: 0 0 5rem rgba(227, 31, 82, 0.035) inset;
+}
+
+.fyv-homepage-watermark::after {
+  position: absolute;
+  top: 30rem;
+  right: -10%;
+  bottom: 3rem;
+  left: -10%;
+  content: '';
+  opacity: 0.23;
+  background-image: repeating-radial-gradient(
+    ellipse 72% 62% at 50% 112%,
+    transparent 0 25px,
+    rgba(59, 169, 156, 0.14) 26px,
+    transparent 27px 42px,
+    rgba(227, 31, 82, 0.11) 43px,
+    transparent 44px 62px
+  );
+  mask-image: linear-gradient(to bottom, transparent, black 24%, black 72%, transparent);
+}
+
+.fyv-homepage-background > main,
+.fyv-homepage-background > footer {
+  position: relative;
+  z-index: 1;
+}
+
+@media (max-width: 640px) {
+  .fyv-homepage-background::before {
+    background:
+      radial-gradient(ellipse 82% 28% at -16% 7%, rgba(227, 31, 82, 0.2), transparent 74%),
+      radial-gradient(ellipse 70% 22% at 116% 13%, rgba(59, 169, 156, 0.12), transparent 76%),
+      #000000;
+  }
+
+  .fyv-homepage-background::after {
+    opacity: 0.15;
+    background-position: -8rem 6rem;
+    mask-image: radial-gradient(ellipse 18rem 19rem at 2rem 14rem, black, transparent 76%);
+  }
+
+  .fyv-homepage-watermark::before {
+    top: 10rem;
+    left: -12rem;
+    width: 28rem;
+    height: 28rem;
+    font-size: 18rem;
+    line-height: 26rem;
+    opacity: 0.7;
+  }
+
+  .fyv-homepage-watermark::after {
+    top: 38rem;
+    opacity: 0.14;
+  }
+}
+
 .fyv-report-card {
   border: 1px solid rgba(107, 104, 104, 0.28);
   background-color: rgba(245, 242, 239, 0.92);

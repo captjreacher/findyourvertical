@@ -11,6 +11,7 @@ import { deliverAssessmentInvitation } from '@/lib/email/deliverAssessmentInvita
 import { checkIsAgency, signInWithOtp, signOut, supabase } from '@/lib/supabase';
 import brandLogo from '@/assets/fyv-brand-logo.png';
 import maximisedAiExplode from '@/assets/maximisedai-explode.png';
+import mgrnzLogo from '@/assets/mgrnz-logo-small.png';
 import type { Session } from '@supabase/supabase-js';
 
 type AuthMessageKind = 'success' | 'error';
@@ -232,7 +233,8 @@ export function AuthGate({ children }: { children: ReactNode }) {
     const copy = inviteSuccess ? successCopyForDelivery(inviteSuccess.delivery) : null;
 
     return (
-      <div className="flex min-h-screen flex-col bg-surface-2 text-charcoal">
+      <div className="fyv-homepage-background flex min-h-screen flex-col bg-surface-2 text-charcoal">
+        <div className="fyv-homepage-watermark" aria-hidden="true" />
         <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-5 sm:px-6 sm:py-7 lg:px-8">
           <section className="grid w-full gap-6 rounded-3xl border border-white/10 bg-surface/92 p-4 shadow-2xl shadow-black/25 backdrop-blur sm:p-6 lg:grid-cols-[0.92fr_1.08fr] lg:p-7">
             <div className="flex flex-col justify-center">
@@ -478,9 +480,14 @@ export function AuthGate({ children }: { children: ReactNode }) {
               href="https://mgrnz.com"
               target="_blank"
               rel="noopener noreferrer"
-              className="w-fit underline-offset-4 transition-colors hover:text-charcoal/75 hover:underline"
+              className="flex w-fit max-w-full items-center gap-2.5 rounded-lg text-charcoal/55 transition-colors hover:text-charcoal/75"
             >
-              A MGRNZ.com component
+              <span className="whitespace-nowrap">A component of</span>
+              <img
+                src={mgrnzLogo}
+                alt="MGRNZ"
+                className="h-auto w-[6.5rem] shrink-0 rounded-[0.55rem] object-contain sm:w-[7rem]"
+              />
             </a>
           </div>
         </footer>
