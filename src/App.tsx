@@ -29,6 +29,10 @@ const AcceptInvite = lazy(() => import('./components/creator/AcceptInvite').then
 const MyReportRedirect = lazy(() => import('./components/creator/MyReportRedirect').then(module => ({ default: module.MyReportRedirect })));
 const CreatorAssessments = lazy(() => import('./components/creator/CreatorAssessments').then(module => ({ default: module.CreatorAssessments })));
 const CreatorAccount = lazy(() => import('./components/creator/CreatorAccount').then(module => ({ default: module.CreatorAccount })));
+const PublicHomePage = lazy(() => import('./pages/PublicHomePage').then(module => ({ default: module.PublicHomePage })));
+const AboutPage = lazy(() => import('./pages/AboutPage').then(module => ({ default: module.AboutPage })));
+const PrivacyPage = lazy(() => import('./pages/PrivacyPage').then(module => ({ default: module.PrivacyPage })));
+const TermsPage = lazy(() => import('./pages/TermsPage').then(module => ({ default: module.TermsPage })));
 
 function LoadingScreen({ label = 'Loading…' }: { label?: string }) {
   return (
@@ -110,7 +114,7 @@ export default function App() {
       <ScrollToTop />
       <Suspense fallback={<LoadingScreen />}>
         <Routes>
-          <Route path="/" element={<Navigate to="/cockpit" replace />} />
+          <Route path="/" element={<PublicHomePage />} />
           <Route path="/a/:templateSlug" element={<AssessmentWizard />} />
           <Route path="/report/:slug" element={<ReportPage />} />
           <Route path="/creator-services" element={<CreatorServicesPage />} />
@@ -119,6 +123,12 @@ export default function App() {
           {/* Legacy public placeholder now routes into the authenticated onboarding
               flow (kills the old ?profileId= identity path). */}
           <Route path="/creator-services/onboarding" element={<Navigate to="/my/onboarding" replace />} />
+
+          {/* Public information and legal pages. Keep these explicit so the
+              catch-all route cannot redirect footer traffic to the cockpit. */}
+          <Route path="/about" element={<AboutPage />} />
+          <Route path="/privacy" element={<PrivacyPage />} />
+          <Route path="/terms" element={<TermsPage />} />
 
           <Route path="/auth/login" element={<CreatorGate><Navigate to="/my" replace /></CreatorGate>} />
 
