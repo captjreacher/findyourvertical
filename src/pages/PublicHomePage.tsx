@@ -5,12 +5,19 @@ import { PublicLegalFooter } from '@/components/public/PublicSiteShell';
 
 const PAGE_TITLE = 'Find Your Vertical | Creator Assessment and Vertical Discovery';
 const PAGE_DESCRIPTION =
-  'Find Your Vertical is a creator assessment and planning application that helps invited creators understand their strengths, discover suitable content verticals and turn their results into practical next steps.';
+  'Find Your Vertical is a creator assessment and planning application. It helps creators identify their strengths, discover suitable content verticals, generate personalised reports and character possibilities, and prepare for optional creator services provided through FunkMyFans.';
 
 const HOW_IT_WORKS = [
   'Complete your creator assessment.',
   'Explore content verticals matched to your strengths and goals.',
   'Turn your results into creator profiles and practical next steps.',
+];
+
+const PUBLIC_LINKS = [
+  { to: '/about', label: 'About' },
+  { to: '/privacy', label: 'Privacy Policy' },
+  { to: '/terms', label: 'Terms of Service' },
+  { to: '/auth/login', label: 'Creator Sign In' },
 ];
 
 function setMetaByName(name: string, content: string) {
@@ -77,7 +84,10 @@ export function PublicHomePage() {
                 Creator assessment and vertical discovery
               </h2>
               <p className="mt-3 text-sm leading-7 text-charcoal-2 sm:text-base">
-                Find Your Vertical is a creator assessment and planning application for invited creators. It helps creators understand their strengths, discover content verticals suited to their interests and goals, and turn their assessment results into character profiles, reports and practical next steps.
+                Find Your Vertical is a creator assessment and planning application. It helps creators identify their strengths, discover suitable content verticals, generate personalised reports and character possibilities, and prepare for optional creator services provided through FunkMyFans.
+              </p>
+              <p className="mt-3 text-sm leading-7 text-charcoal-2 sm:text-base">
+                Creators can use Google Sign-In or email authentication to securely access their assessments, reports, onboarding progress and Persona Portfolio.
               </p>
               <div className="mt-5 border-t border-white/10 pt-5">
                 <h3 className="text-base font-bold text-charcoal">How Find Your Vertical works</h3>
@@ -90,6 +100,13 @@ export function PublicHomePage() {
                   ))}
                 </ol>
               </div>
+              <nav className="mt-5 flex flex-wrap gap-2 border-t border-white/10 pt-5" aria-label="Public homepage links">
+                {PUBLIC_LINKS.map(link => (
+                  <Link key={link.to} to={link.to} className="rounded-full border border-white/10 px-3 py-1.5 text-xs font-semibold text-charcoal transition-colors hover:border-accent/50 hover:text-accent">
+                    {link.label}
+                  </Link>
+                ))}
+              </nav>
             </section>
 
             <div className="mt-6 flex flex-col gap-3 sm:flex-row">
