@@ -68,7 +68,7 @@ export function PublicHomePage() {
       </header>
 
       <main aria-labelledby="public-home-title" className="flex-1 px-4 py-6 sm:px-6 lg:py-8">
-        <section className="mx-auto grid w-full max-w-6xl gap-6 lg:grid-cols-[1.06fr_0.94fr] lg:items-center">
+        <section className="mx-auto w-full max-w-6xl">
           <div className="py-3 sm:py-6">
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-accent">Creator Assessment</p>
             <h1 id="public-home-title" className="mt-4 max-w-3xl font-display text-4xl font-bold leading-tight text-charcoal sm:text-5xl lg:text-6xl">
@@ -77,8 +77,10 @@ export function PublicHomePage() {
             <p className="mt-3 font-display text-2xl font-bold text-charcoal sm:text-3xl">
               Find the Creator in You
             </p>
+          </div>
 
-            <section className="mt-5 max-w-3xl rounded-2xl border border-white/10 bg-surface/80 p-5 shadow-xl shadow-black/20" aria-labelledby="homepage-purpose-title">
+          <div className="grid gap-6 lg:grid-cols-2 lg:items-stretch">
+            <section className="flex h-full flex-col rounded-2xl border border-white/10 bg-surface/80 p-5 shadow-xl shadow-black/20 sm:p-6" aria-labelledby="homepage-purpose-title">
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-success">Purpose</p>
               <h2 id="homepage-purpose-title" className="mt-2 text-xl font-bold text-charcoal">
                 Creator assessment and vertical discovery
@@ -89,18 +91,13 @@ export function PublicHomePage() {
               <p className="mt-3 text-sm leading-7 text-charcoal-2 sm:text-base">
                 Creators can use Google Sign-In or email authentication to securely access their assessments, reports, onboarding progress and Persona Portfolio.
               </p>
-              <div className="mt-5 border-t border-white/10 pt-5">
-                <h3 className="text-base font-bold text-charcoal">How Find Your Vertical works</h3>
-                <ol className="mt-3 grid gap-3">
-                  {HOW_IT_WORKS.map((step, index) => (
-                    <li key={step} className="flex gap-3 text-sm font-semibold leading-6 text-charcoal">
-                      <span className="font-display text-xl font-bold leading-6 text-accent" aria-hidden="true">{index + 1}.</span>
-                      <span>{step}</span>
-                    </li>
-                  ))}
-                </ol>
+
+              <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+                <Link to="/auth/login" className="btn-primary min-h-12 px-6 text-base">Creator Sign In</Link>
+                <Link to="/about" className="btn-secondary min-h-12 px-6 text-base">Learn About FYV</Link>
               </div>
-              <nav className="mt-5 flex flex-wrap gap-2 border-t border-white/10 pt-5" aria-label="Public homepage links">
+
+              <nav className="mt-5 flex flex-wrap gap-2 border-t border-white/10 pt-5 lg:mt-auto" aria-label="Public homepage links">
                 {PUBLIC_LINKS.map(link => (
                   <Link key={link.to} to={link.to} className="rounded-full border border-white/10 px-3 py-1.5 text-xs font-semibold text-charcoal transition-colors hover:border-accent/50 hover:text-accent">
                     {link.label}
@@ -109,21 +106,20 @@ export function PublicHomePage() {
               </nav>
             </section>
 
-            <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-              <Link to="/auth/login" className="btn-primary min-h-12 px-6 text-base">Creator Sign In</Link>
-              <Link to="/about" className="btn-secondary min-h-12 px-6 text-base">Learn About FYV</Link>
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-white/10 bg-surface/92 p-5 shadow-2xl shadow-black/25 sm:p-6">
-            <img src={brandLogo} alt="Find Your Vertical" className="fyv-logo-mark mx-auto h-28 w-auto object-contain sm:h-36" />
-            <div className="mt-6 grid gap-3">
-              {['Strength discovery', 'Vertical matching', 'Reports and next steps'].map(item => (
-                <div key={item} className="rounded-xl border border-white/10 bg-surface-3/80 px-4 py-3 text-sm font-semibold text-charcoal">
-                  {item}
-                </div>
-              ))}
-            </div>
+            <section className="flex h-full flex-col justify-center rounded-2xl border border-white/10 bg-surface/92 p-5 shadow-2xl shadow-black/25 sm:p-6" aria-labelledby="homepage-process-title">
+              <img src={brandLogo} alt="Find Your Vertical" className="fyv-logo-mark mx-auto h-28 w-auto object-contain sm:h-36" />
+              <h2 id="homepage-process-title" className="mt-6 text-xl font-bold text-charcoal">
+                How Find Your Vertical works
+              </h2>
+              <ol className="mt-4 grid gap-4">
+                {HOW_IT_WORKS.map((step, index) => (
+                  <li key={step} className="flex gap-3 text-sm font-semibold leading-6 text-charcoal sm:text-base">
+                    <span className="font-display text-xl font-bold leading-6 text-accent" aria-hidden="true">{index + 1}.</span>
+                    <span>{step}</span>
+                  </li>
+                ))}
+              </ol>
+            </section>
           </div>
         </section>
 
