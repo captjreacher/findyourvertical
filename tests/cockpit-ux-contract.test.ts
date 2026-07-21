@@ -29,3 +29,11 @@ test('creator authentication returns to the requested creator route', () => {
   assert.match(creatorGate, /signInWithOtp\(email, requestedPath\)/);
   assert.match(creatorGate, /setPhase\('agency'\)/);
 });
+
+test('google sign-in button is disabled with coming-soon copy', () => {
+  assert.match(creatorGate, /disabled/);
+  assert.match(creatorGate, /Google sign-in is not available yet/);
+  assert.match(creatorGate, /Google sign-in coming soon/);
+  assert.match(creatorGate, /cursor-not-allowed/);
+  assert.match(creatorGate, /title="Google sign-in coming soon"/);
+});
