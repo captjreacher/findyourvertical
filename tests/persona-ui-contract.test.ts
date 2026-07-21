@@ -30,18 +30,18 @@ test('creators-api calls the Worker endpoint with a bearer token', () => {
   assert.match(api, /export async function recordPersonaPortfolioViewed/);
 });
 
-test('CharacterPossibilities shows the Create My Character Portfolio CTA', () => {
+test('CharacterPossibilities shows the Build My Character Portfolio CTA', () => {
   const cp = read('src/components/creator/CharacterPossibilities.tsx');
-  assert.match(cp, /Create My Character Portfolio/);
-  assert.match(cp, /handleCreatePortfolio/);
+  assert.match(cp, /Build my character portfolio/);
+  assert.match(cp, /handleGenerate/);
   assert.match(cp, /navigate\('\/my\/personas'\)/);
 });
 
-test('CreatorHome derives the build → create → view progression', () => {
+test('CreatorHome incorporates character onboarding into its next-step hero', () => {
   const home = read('src/components/creator/CreatorHome.tsx');
-  assert.match(home, /Build your character possibilities/);
-  assert.match(home, /Create your character portfolio/i);
-  assert.match(home, /View Your Character Portfolio/);
+  assert.match(home, /deriveOnboardingHero/);
+  assert.match(home, /characterComplete: characterState\.complete/);
+  assert.doesNotMatch(home, /Build your character possibilities/);
 });
 
 test('PersonaWorkspace communicates draft-only, no-platform framing', () => {

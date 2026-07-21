@@ -13,59 +13,47 @@ import {
   ONBOARDING_STATUSES,
 } from '../src/lib/onboarding.ts';
 
-test('hero: null/not_started prioritises starting onboarding', () => {
-  for (const status of [null, 'not_started'] as const) {
-    const h = deriveOnboardingHero(status, { hasReport: true });
-    assert.equal(h.kind, 'onboarding');
-    assert.equal(h.heading, 'Complete your creator setup');
-    assert.equal(h.actions[0].label, 'Start Creator Onboarding');
-    assert.equal(h.actions[0].to, '/my/onboarding');
-    assert.equal(h.actions[0].variant, 'primary');
-    assert.ok(h.actions.some(a => a.label === 'View My Latest Report'));
+test('hero: incomplete character choices are the next onboarding step', () => {
+  const h = deriveOnboardingHero({ characterComplete: false, portfolio: 'none' });
+  assert.equal(h.heading, 'Complete your onboarding');
+  assert.equal(h.body, 'Choose the character possibilities that feel right for you and continue building your Persona Portfolio.');
+  assert.equal(h.supportingMessage, 'This helps shape how FunkMyFans can support your content, audience growth and creator operations.');
+  assert.deepEqual(h.actions, [
+    { label: 'Continue onboarding', to: '/my/characters', variant: 'primary' },
+    { label: 'Explore FunkMyFans services', to: '/creator-services', variant: 'secondary' },
+  ]);
+  assert.doesNotMatch(JSON.stringify(h), /awaiting|review|approval/i);
+});
+
+test('hero: completed choices advance to Persona Portfolio setup', () => {
+  const h = deriveOnboardingHero({ characterComplete: true, portfolio: 'none' });
+  assert.equal(h.heading, 'Set up your Persona Portfolio');
+  assert.equal(h.actions[0].to, '/my/characters');
+});
+
+test('hero: active generation advances to portfolio progress', () => {
+  for (const portfolio of ['pending', 'generating'] as const) {
+    const h = deriveOnboardingHero({ characterComplete: true, portfolio });
+    assert.equal(h.heading, 'Your Persona Portfolio is being created');
+    assert.equal(h.actions[0].to, '/my/personas');
   }
 });
 
-test('hero: in_progress says Continue', () => {
-  const h = deriveOnboardingHero('in_progress');
-  assert.equal(h.actions[0].label, 'Continue Creator Onboarding');
-  assert.equal(h.actions[0].to, '/my/onboarding');
-});
-
-test('hero: submitted shows review messaging, no onboarding CTA', () => {
-  const h = deriveOnboardingHero('submitted', { hasReport: true });
-  assert.equal(h.heading, 'Onboarding submitted');
-  assert.ok(h.note && h.note.length > 0);
-  assert.ok(!h.actions.some(a => a.to === '/my/onboarding'));
-});
-
-test('hero: review_required routes back into onboarding and surfaces notes', () => {
-  const h = deriveOnboardingHero('review_required', { reviewNotes: 'Please add a headshot.' });
-  assert.equal(h.heading, 'Action required');
-  assert.equal(h.actions[0].label, 'Continue Creator Onboarding');
-  assert.equal(h.actions[0].to, '/my/onboarding');
-  assert.equal(h.note, 'Please add a headshot.');
-});
-
-test('hero: complete becomes the workspace hero with three actions', () => {
-  const h = deriveOnboardingHero('complete');
-  assert.equal(h.kind, 'workspace');
-  assert.equal(h.heading, 'Your creator workspace is ready');
-  const labels = h.actions.map(a => a.label);
-  assert.deepEqual(labels, ['View Persona Portfolio', 'Manage Creator Services', 'View Latest Report']);
-  assert.equal(h.actions[0].to, '/my/personas');
+test('hero: completed portfolio advances to service activation without claiming activation', () => {
+  const h = deriveOnboardingHero({ characterComplete: true, portfolio: 'completed' });
+  assert.equal(h.heading, 'Explore service activation');
+  assert.equal(h.actions[0].to, '/creator-services');
+  assert.doesNotMatch(JSON.stringify(h), /workspace is ready|services are active/i);
 });
 
 test('progress reflects real signals', () => {
-  const fresh = deriveProgress({ hasAssessment: true, onboardingStatus: null, hasCompletedPortfolio: false });
+  const fresh = deriveProgress({ hasAssessment: true, onboardingComplete: false, hasCompletedPortfolio: false });
   assert.deepEqual(fresh.map(s => s.state), ['done', 'current', 'upcoming', 'upcoming']);
 
-  const onboarding = deriveProgress({ hasAssessment: true, onboardingStatus: 'in_progress', hasCompletedPortfolio: false });
-  assert.equal(onboarding[1].state, 'current');
-
-  const done = deriveProgress({ hasAssessment: true, onboardingStatus: 'complete', hasCompletedPortfolio: false });
+  const done = deriveProgress({ hasAssessment: true, onboardingComplete: true, hasCompletedPortfolio: false });
   assert.deepEqual(done.map(s => s.state), ['done', 'done', 'current', 'upcoming']);
 
-  const full = deriveProgress({ hasAssessment: true, onboardingStatus: 'complete', hasCompletedPortfolio: true });
+  const full = deriveProgress({ hasAssessment: true, onboardingComplete: true, hasCompletedPortfolio: true });
   assert.deepEqual(full.map(s => s.state), ['done', 'done', 'done', 'current']);
 });
 

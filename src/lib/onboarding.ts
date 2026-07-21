@@ -88,85 +88,57 @@ export interface HeroAction {
 }
 
 export interface OnboardingHero {
-  kind: 'onboarding' | 'workspace';
-  status: OnboardingStatus;
   heading: string;
   body: string;
-  /** Short status/reassurance line (e.g. review messaging). */
-  note?: string;
+  supportingMessage?: string;
   actions: HeroAction[];
 }
 
-const ONBOARDING_ROUTE = '/my/onboarding';
+export type PersonaPortfolioStatus = 'none' | 'pending' | 'generating' | 'completed' | 'failed';
 
 /**
- * Derive the /my hero. A null case (no onboarding started yet) is treated as
- * not_started. While onboarding is incomplete the hero prioritises onboarding;
- * once complete it becomes the creator-workspace hero.
+ * Derive the next incomplete creator-journey stage shown on /my. Assessment
+ * completion is deliberately not treated as a review state: character choices,
+ * portfolio creation, and service activation use their own persisted signals.
  */
-export function deriveOnboardingHero(
-  status: OnboardingStatus | null,
-  opts: { hasReport?: boolean; reviewNotes?: string | null } = {},
-): OnboardingHero {
-  const effective: OnboardingStatus = status ?? 'not_started';
-  const reportAction: HeroAction | null = opts.hasReport
-    ? { label: 'View My Latest Report', to: '/my/report', variant: 'secondary' }
-    : null;
-
-  if (effective === 'complete') {
+export function deriveOnboardingHero(input: {
+  characterComplete: boolean;
+  portfolio: PersonaPortfolioStatus;
+}): OnboardingHero {
+  if (!input.characterComplete) {
     return {
-      kind: 'workspace',
-      status: effective,
-      heading: 'Your creator workspace is ready',
-      body: 'Onboarding is complete. Explore your Persona Portfolio, manage your services, and revisit your report any time.',
+      heading: 'Complete your onboarding',
+      body: 'Choose the character possibilities that feel right for you and continue building your Persona Portfolio.',
+      supportingMessage: 'This helps shape how FunkMyFans can support your content, audience growth and creator operations.',
       actions: [
-        { label: 'View Persona Portfolio', to: '/my/personas', variant: 'primary' },
-        { label: 'Manage Creator Services', to: '/creator-services', variant: 'secondary' },
-        { label: 'View Latest Report', to: '/my/report', variant: 'secondary' },
+        { label: 'Continue onboarding', to: '/my/characters', variant: 'primary' },
+        { label: 'Explore FunkMyFans services', to: '/creator-services', variant: 'secondary' },
       ],
     };
   }
 
-  const base = {
-    kind: 'onboarding' as const,
-    status: effective,
-    heading: 'Complete your creator setup',
-    body: 'Your assessment is finished. Now complete onboarding so we can build your creator profile, service plan, and Persona Portfolio.',
-  };
-
-  if (effective === 'submitted') {
+  if (input.portfolio === 'pending' || input.portfolio === 'generating') {
     return {
-      ...base,
-      heading: 'Onboarding submitted',
-      body: 'Thanks — your onboarding is in with our team. We’ll review it and let you know the next step.',
-      note: 'Submitted and awaiting review. There’s nothing else you need to do right now.',
-      actions: [reportAction].filter(Boolean) as HeroAction[],
+      heading: 'Your Persona Portfolio is being created',
+      body: 'Your chosen character directions are being turned into a set of draft personas.',
+      actions: [{ label: 'View portfolio progress', to: '/my/personas', variant: 'primary' }],
     };
   }
 
-  if (effective === 'review_required') {
+  if (input.portfolio === 'completed') {
     return {
-      ...base,
-      heading: 'Action required',
-      body: 'We’ve reviewed your onboarding and need a few changes before we continue.',
-      note: opts.reviewNotes?.trim() ? opts.reviewNotes.trim() : 'Reopen onboarding to make the requested updates and resubmit.',
-      actions: [
-        { label: 'Continue Creator Onboarding', to: ONBOARDING_ROUTE, variant: 'primary' },
-        ...(reportAction ? [reportAction] : []),
-      ],
+      heading: 'Explore service activation',
+      body: 'Your Persona Portfolio is ready. Explore the FunkMyFans services that could support your next stage of growth.',
+      actions: [{ label: 'Explore FunkMyFans services', to: '/creator-services', variant: 'primary' }],
     };
   }
 
-  // not_started / in_progress
   return {
-    ...base,
+    heading: 'Set up your Persona Portfolio',
+    body: 'Turn your chosen character possibilities into six distinct draft personas.',
     actions: [
-      {
-        label: effective === 'in_progress' ? 'Continue Creator Onboarding' : 'Start Creator Onboarding',
-        to: ONBOARDING_ROUTE,
-        variant: 'primary',
-      },
-      ...(reportAction ? [reportAction] : []),
+      { label: 'Create Persona Portfolio', to: '/my/characters', variant: 'primary' },
+      { label: 'Explore FunkMyFans services', to: '/creator-services', variant: 'secondary' },
     ],
   };
 }
@@ -187,28 +159,21 @@ export interface ProgressStep {
  */
 export function deriveProgress(input: {
   hasAssessment: boolean;
-  onboardingStatus: OnboardingStatus | null;
+  onboardingComplete: boolean;
   hasCompletedPortfolio: boolean;
 }): ProgressStep[] {
-  const onboardingComplete = input.onboardingStatus === 'complete';
-  const onboardingActive =
-    input.onboardingStatus != null && input.onboardingStatus !== 'complete';
-
   const assessment: ProgressState = input.hasAssessment ? 'done' : 'current';
 
   let onboarding: ProgressState = 'upcoming';
-  if (onboardingComplete) onboarding = 'done';
+  if (input.onboardingComplete) onboarding = 'done';
   else if (input.hasAssessment) onboarding = 'current';
 
   let portfolio: ProgressState = 'upcoming';
   if (input.hasCompletedPortfolio) portfolio = 'done';
-  else if (onboardingComplete) portfolio = 'current';
+  else if (input.onboardingComplete) portfolio = 'current';
 
   let services: ProgressState = 'upcoming';
-  if (onboardingComplete && input.hasCompletedPortfolio) services = 'current';
-
-  // Keep unused flag meaningful for readers; onboardingActive documents intent.
-  void onboardingActive;
+  if (input.onboardingComplete && input.hasCompletedPortfolio) services = 'current';
 
   return [
     { key: 'assessment', label: 'Assessment complete', state: assessment },

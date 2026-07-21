@@ -33,19 +33,28 @@ test('nav library exposes the required items in order', () => {
   }
 });
 
-test('CreatorHome is onboarding-first, shelled, and drops the duplicate services button', () => {
+test('CreatorHome shows the state-derived next step and removes redundant dashboard cards', () => {
   const home = read('src/components/creator/CreatorHome.tsx');
   assert.match(home, /deriveOnboardingHero/);
   assert.match(home, /deriveProgress/);
   assert.match(home, /CreatorShell/);
-  // The report card must NOT contain the Explore Creator Services button.
-  const reportStart = home.indexOf('Your latest report');
-  const reportEnd = home.indexOf('Assessment history');
-  assert.ok(reportStart > -1 && reportEnd > reportStart, 'report + history sections present');
-  const reportSection = home.slice(reportStart, reportEnd);
-  assert.ok(!/Explore Creator Services/.test(reportSection), 'no Explore Creator Services in the report card');
-  // Report access is retained.
-  assert.match(reportSection, /View My Latest Report/);
+  assert.match(home, /Your next step/);
+  assert.match(home, /A FunkMyFans reminder/);
+  assert.match(home, /Services are not active yet/);
+  assert.match(home, /Loading your onboarding progress/);
+  assert.match(home, /could not load your onboarding progress/);
+  assert.doesNotMatch(home, /Latest assessment/);
+  assert.doesNotMatch(home, /Latest report/i);
+  assert.doesNotMatch(home, /Assessment history/);
+  assert.doesNotMatch(home, /Build your character possibilities/);
+  assert.doesNotMatch(home, /awaiting review|awaiting approval/i);
+});
+
+test('CreatorHome previews workspace activation truthfully', () => {
+  const home = read('src/components/creator/CreatorHome.tsx');
+  assert.match(home, /workspace will activate when onboarding is complete and the relevant services are connected/);
+  assert.match(home, /Workspace status:[\s\S]*Not active/);
+  assert.match(home, /OnlyFans integration:[\s\S]*Not connected/);
 });
 
 test('creators-api exposes the onboarding functions', () => {
@@ -66,9 +75,9 @@ test('cockpit invite action generates a link, runs the email boundary, and never
   const action = read('src/components/cockpit/OnboardingInviteAction.tsx');
   assert.match(action, /createOnboardingInvitation/);
   assert.match(action, /deliverOnboardingInvitation/);
-  assert.match(action, /Invitation link generated/);
+  assert.match(action, /Invitation generated/);
   assert.match(action, /manual delivery/i);
-  assert.match(action, /Nothing was emailed/i);
+  assert.match(action, /Email not sent/i);
 });
 
 test('creator services Start button routes into authenticated onboarding (no profileId)', () => {

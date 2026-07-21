@@ -690,3 +690,144 @@ export interface CreatorPersona {
   status: PersonaStatus;
   sort_order: number;
 }
+
+// ── FYV-PERSONA-1C — Editable Vertical + Variation Workset ───────────────────
+// Additive layer on top of PERSONA-1A/1B: the LOCKED, IMMUTABLE historical
+// evidence (public.creator_archetype_snapshots) stays as provenance. The
+// CURRENT editable state lives on these four tables; the persona generator's
+// 3-2-1 contract is re-anchored at request time via
+// public.materialise_vertical_workset_for_generation.
+
+/**
+ * Rank label for a workset position. Position 1..6 map to 'primary'..'sixth'.
+ * Note that rank labels are DERIVED from workset position at read time — the
+ * UX label is `RankLabel`; the BACKEND value used by the persona generator is
+ * `ArchetypeRank` ('primary' | 'secondary' | 'third'), which is what the
+ * materialise RPC assigns to the first three positions.
+ */
+export type RankLabel = 'Primary' | 'Secondary' | 'Third' | 'Fourth' | 'Fifth' | 'Sixth';
+
+/** What drew a vertical into the workset (shown as a creator-facing tag). */
+export type VerticalSourceLabel = 'recommended' | 'catalogue' | 'created';
+
+/** Status of a creator-owned vertical or variation. */
+export type ReviewStatus = 'none' | 'pending_review' | 'approved' | 'rejected';
+
+/**
+ * A creator-owned vertical — either freshly created or forked from a system
+ * archetype (in which case `system_archetype` stores the catalogue string).
+ * Private to the creator until `review_status = 'approved'` (future sprint
+ * will surface approved submissions to the catalogue; this sprint stops at
+ * pending_review queue only).
+ */
+export interface CreatorOwnedVertical {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  creator_profile_id: string;
+  name: string;
+  description: string;
+  source_kind: 'pure_creator' | 'forked_from_system';
+  system_archetype: string | null;
+  review_status: ReviewStatus;
+  submitted_at: string | null;
+  reviewed_at: string | null;
+  reviewed_by: string | null;
+  is_archived: boolean;
+}
+
+/**
+ * A creator-owned variation — either freshly created or forked from a system
+ * archetype_variations row. When forked, `catalog_variation_id` retains the
+ * ORIGINAL system row's identity (the system row is read-only globally).
+ */
+export interface CreatorOwnedVariation {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  creator_profile_id: string;
+  owned_vertical_id: string | null;
+  system_archetype: string | null;
+  catalog_variation_id: string | null;
+  name: string;
+  description: string;
+  source_kind: 'pure_creator' | 'forked_from_system';
+  review_status: ReviewStatus;
+  submitted_at: string | null;
+  reviewed_at: string | null;
+  reviewed_by: string | null;
+  is_archived: boolean;
+}
+
+/**
+ * One ACTIVE vertical in the creator's editable workset (1..6 per snapshot).
+ * Position drives the rank label; `vertical_kind` discriminates system vs.
+ * creator-owned. `source_label` powers the 'Recommended from assessment',
+ * 'Selected from catalogue', 'Created by you' surfacing.
+ */
+export interface CreatorVerticalWorksetEntry {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  creator_profile_id: string;
+  snapshot_id: string;
+  position: number;
+  vertical_label: string;
+  vertical_kind: 'system_reference' | 'creator_owned';
+  system_archetype: string | null;
+  owned_vertical_id: string | null;
+  source_label: VerticalSourceLabel;
+  status: 'active' | 'archived' | 'removed';
+}
+
+/**
+ * A selected variation in a workset row. Exactly one of `catalog_variation_id`
+ * or `owned_variation_id` is non-null (system vs creator-owned).
+ */
+export interface CreatorVerticalVariationEntry {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  creator_profile_id: string;
+  snapshot_id: string;
+  workset_id: string;
+  variation_kind: 'system_reference' | 'creator_owned';
+  catalog_variation_id: string | null;
+  owned_variation_id: string | null;
+  status: 'selected' | 'deselected' | 'removed';
+}
+
+/** The full, denormalised view the UI consumes per snapshot. */
+export interface CreatorVerticalWorksetView {
+  snapshotId: string;
+  creatorProfileId: string;
+  /** Position-ordered list of resulting ranks. */
+  verticals: CreatorVerticalWorksetViewEntry[];
+}
+
+export interface CreatorVerticalWorksetViewEntry {
+  position: number;
+  rankLabel: RankLabel;
+  worksetId: string;
+  verticalKind: 'system_reference' | 'creator_owned';
+  /** The display name (system archetype OR owned vertical name). */
+  verticalLabel: string;
+  /** Provenance tag for the source label. */
+  sourceLabel: VerticalSourceLabel;
+  systemArchetype: string | null;
+  ownedVerticalId: string | null;
+  selectedVariations: CreatorVerticalWorksetVariationView[];
+}
+
+export interface CreatorVerticalWorksetVariationView {
+  entryId: string;
+  variationKind: 'system_reference' | 'creator_owned';
+  /** System catalogue variation id (when variation_kind = 'system_reference'). */
+  catalogVariationId: string | null;
+  /** Creator-owned variation id. */
+  ownedVariationId: string | null;
+  /** Display name from whichever source owns the row. */
+  name: string;
+  description: string;
+  sourceLabel: VerticalSourceLabel;
+}

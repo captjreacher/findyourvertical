@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// FYV-PERSONA-1B — Shared persona-portfolio contract (pure, isomorphic)
+// FYV-PERSONA-1B/C — Shared persona-portfolio contract (pure, isomorphic)
 //
 // This module is the single source of truth shared by:
 //   * the Cloudflare Worker generation boundary (worker/index.ts, provider.ts)
@@ -10,6 +10,14 @@
 // value imports) so it can be bundled into the Worker AND executed directly by
 // Node's type-stripping test runner. All randomness/time is excluded so results
 // are deterministic and auditable.
+//
+// Persona-1C changes (additive):
+//   * The historical 3-2-1 contract (PORTFOLIO_WEIGHTS) is unchanged.
+//   * New helpers project an EDITABLE workset (1..6 verticals) onto the
+//     generator's 3-2-1 view by taking the first three workset rows in order.
+//   * Legacy fallback keeps existing snapshots working when a creator has not
+//     yet authored a workset (reads the snapshot's hard primary/secondary/
+//     third columns).
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** The three ranks of the locked archetype snapshot. */
@@ -71,6 +79,45 @@ export interface PortfolioSource {
   name: string;
   description: string;
   portfolio_position: number; // 1..6
+}
+
+// ── Persona-1C: Editable-workset projection (additive) ──────────────────────
+
+/**
+ * A single vertical slot in the EDITABLE workset, projected into the persona
+ * generator's vocabulary. Each slot carries an ordered list of selected
+ * variations (mixed system / creator-owned). Only system_reference variations
+ * contribute to the persona generator in this sprint; creator-owned variations
+ * contribute to creator-context and audit but are not yet consumed by the
+ * generation Worker (a known limitation; future sprint will extend the Worker
+ * to consume creator_owned_variations directly).
+ */
+export interface WorksetVerticalSlot {
+  position: number;
+  verticalLabel: string;
+  verticalKind: 'system_reference' | 'creator_owned';
+  systemArchetype: string | null;
+  ownedVerticalId: string | null;
+  selectedVariations: ReadonlyArray<{
+    variationKind: 'system_reference' | 'creator_owned';
+    /** Set when variationKind = 'system_reference'. */
+    catalogVariationId: string | null;
+    /** Set when variationKind = 'creator_owned'. */
+    ownedVariationId: string | null;
+    name: string;
+    description: string;
+    displayOrder: number;
+  }>;
+}
+
+/**
+ * Snapshot row used by the LEGACY fallback (creator_archetype_snapshots'
+ * hard columns). Kept exported so API/V1 readers without a workset continue
+ * to derive the persona generator's 3-2-1 set correctly.
+ */
+export interface LegacySnapshotSelection extends SelectedVariation {
+  /** Hard-coded rank from the snapshot's primary/secondary/third columns. */
+  rank: PersonaRank;
 }
 
 // ── Structured persona shape ─────────────────────────────────────────────────
@@ -251,6 +298,165 @@ export function choosePortfolioSources(selections: SelectedVariation[]): Portfol
       `Expected ${PORTFOLIO_SIZE} sources, built ${sources.length}.`,
     );
   }
+  return sources;
+}
+
+/** Per-position minimum for the editable workset (mirrors POSITION_MINIMUMS in
+ * src/lib/persona-verticals.ts). Kept inline so this module stays standalone. */
+const EDITABLE_POSITION_MINIMUMS: readonly number[] = [3, 2, 1, 1, 1, 1];
+
+/**
+ * Persona-1C: project an EDITABLE workset (1..6 verticals) onto the persona
+ * generator's 3-2-1 view. Only the first THREE workset rows contribute to the
+ * source set; remaining verticals are returned as `extraSources` for audit /
+ * UI preview but do not change the generator contract.
+ *
+ * Verticals 4..6 keep their source metadata but never enter the persona
+ * generator in this sprint (creator-owned variations are not yet consumed by
+ * the Worker). Filter out entries with no selected system_reference variations
+ * to keep the deterministic 3-2-1 minimums satisfiable.
+ */
+export function projectWorksetToPortfolioSources(slots: ReadonlyArray<WorksetVerticalSlot>): {
+  primary: SelectedVariation[];
+  secondary: SelectedVariation[];
+  third: SelectedVariation[];
+  extras: { position: number; archetype: string; variationCount: number }[];
+} {
+  const sorted = slots.slice().sort((a, b) => a.position - b.position);
+  const primary: SelectedVariation[] = [];
+  const secondary: SelectedVariation[] = [];
+  const third: SelectedVariation[] = [];
+  const extras: { position: number; archetype: string; variationCount: number }[] = [];
+
+  sorted.forEach((slot, index) => {
+    // Only system_reference variations feed the persona generator in this sprint.
+    const systemPicks = slot.selectedVariations
+      .filter(v => v.variationKind === 'system_reference' && v.catalogVariationId)
+      .sort((a, b) => a.displayOrder - b.displayOrder || a.name.localeCompare(b.name));
+    // If the slot is creator_owned with no system_archetype anchor (or has no
+    // system_reference picks at all), it contributes ZERO to the 3-2-1 set.
+    // Surface it in `extras` for UI / audit so callers can detect it.
+    const hasSystemAnchor = Boolean(slot.systemArchetype) && systemPicks.length > 0;
+    if (index === 0) {
+      if (hasSystemAnchor) {
+        for (const v of systemPicks.slice(0, EDITABLE_POSITION_MINIMUMS[0])) {
+          primary.push({
+            variation_id: v.catalogVariationId as string,
+            archetype: slot.systemArchetype as string,
+            rank: 'primary',
+            name: v.name,
+            description: v.description,
+            display_order: v.displayOrder,
+          });
+        }
+      } else {
+        extras.push({ position: slot.position, archetype: slot.verticalLabel, variationCount: slot.selectedVariations.length });
+      }
+    } else if (index === 1) {
+      if (hasSystemAnchor) {
+        for (const v of systemPicks.slice(0, EDITABLE_POSITION_MINIMUMS[1])) {
+          secondary.push({
+            variation_id: v.catalogVariationId as string,
+            archetype: slot.systemArchetype as string,
+            rank: 'secondary',
+            name: v.name,
+            description: v.description,
+            display_order: v.displayOrder,
+          });
+        }
+      } else {
+        extras.push({ position: slot.position, archetype: slot.verticalLabel, variationCount: slot.selectedVariations.length });
+      }
+    } else if (index === 2) {
+      if (hasSystemAnchor) {
+        for (const v of systemPicks.slice(0, EDITABLE_POSITION_MINIMUMS[2])) {
+          third.push({
+            variation_id: v.catalogVariationId as string,
+            archetype: slot.systemArchetype as string,
+            rank: 'third',
+            name: v.name,
+            description: v.description,
+            display_order: v.displayOrder,
+          });
+        }
+      } else {
+        extras.push({ position: slot.position, archetype: slot.verticalLabel, variationCount: slot.selectedVariations.length });
+      }
+    } else {
+      // 4..6: track for audit / preview only; do not affect persona output.
+      extras.push({
+        position: slot.position,
+        archetype: slot.verticalLabel,
+        variationCount: slot.selectedVariations.length,
+      });
+    }
+  });
+
+  return { primary, secondary, third, extras };
+}
+
+/**
+ * Legacy fallback for snapshots created BEFORE the editable workset migration.
+ * Reads the snapshot's hard primary/secondary/third archetype columns and
+ * returns the same shape choosePortfolioSources accepts.
+ */
+export function choosePortfolioSourcesFromSnapshot(input: {
+  snapshotId: string;
+  primaryArchetype: string;
+  secondaryArchetype: string;
+  thirdArchetype: string;
+  /** All ACTIVE variations for the three archetypes, joined with library. */
+  libraryVariations: SelectedVariation[];
+  /** Pre-existing SelectedVariation rows (creator picks). */
+  selectedLibraryIds: ReadonlyArray<string>;
+}): PortfolioSource[] {
+  const selectedByArchetype = new Map<string, SelectedVariation[]>();
+  for (const lib of input.libraryVariations) {
+    if (!input.selectedLibraryIds.includes(lib.variation_id)) continue;
+    const list = selectedByArchetype.get(lib.archetype) ?? [];
+    list.push(lib);
+    selectedByArchetype.set(lib.archetype, list);
+  }
+  const selections: SelectedVariation[] = [];
+  for (const archetype of [input.primaryArchetype, input.secondaryArchetype, input.thirdArchetype]) {
+    const picks = (selectedByArchetype.get(archetype) ?? []).slice().sort(compareSelected);
+    for (const pick of picks) {
+      selections.push({ ...pick, rank: archetype === input.primaryArchetype ? 'primary' : archetype === input.secondaryArchetype ? 'secondary' : 'third' });
+    }
+  }
+
+  // Take the first three per rank (also matches the legacy default if more
+  // than the minimum was selected).
+  const sources: PortfolioSource[] = [];
+  let position = 1;
+  for (const rank of RANK_ORDER) {
+    const ranked = selections
+      .filter(s => s.rank === rank)
+      .sort(compareSelected)
+      .slice(0, PORTFOLIO_WEIGHTS[rank]);
+    for (const s of ranked) {
+      sources.push({
+        variation_id: s.variation_id,
+        archetype: s.archetype,
+        rank: s.rank,
+        name: s.name,
+        description: s.description,
+        portfolio_position: position,
+      });
+      position += 1;
+    }
+  }
+  if (sources.length !== PORTFOLIO_SIZE) {
+    throw new PortfolioError(
+      'source_set_invalid',
+      `Legacy projection yielded ${sources.length} sources, expected ${PORTFOLIO_SIZE}.`,
+    );
+  }
+  if (!sources.length) return sources;
+  // Source set carries no snapshot link in the persona contract; keep rank
+  // mapping deterministic. The Worker reads source_variation_id back via
+  // creator_variation_selections; the snapshot's id is reused by callers.
+  void input.snapshotId;
   return sources;
 }
 
