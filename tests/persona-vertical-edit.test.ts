@@ -3,10 +3,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  CREATIVE_DIRECTION_BADGE,
+  CREATIVE_DIRECTION_LIMIT,
   MAX_WORKSET_SIZE,
   MIN_WORKSET_SIZE,
   POSITION_MINIMUMS,
   TOTAL_MINIMUM,
+  creativeDirectionBadge,
+  creativeDirectionLabel,
+  hasEnoughVariationsForPortfolio,
   isWorksetSizeValid,
   minimumForPosition,
   moveInOrder,
@@ -151,4 +156,46 @@ test('moveInOrder is stable and clamps out-of-range targets', () => {
   // Out-of-range targets fall back to a copy.
   assert.deepEqual(moveInOrder(xs, 0, 99), xs);
   assert.deepEqual(moveInOrder(xs, 0, -1), xs);
+});
+
+// ─── FYV-PERSONA-1D — creator-facing "Creative Direction" labelling helpers ───
+
+test('creativeDirectionLabel maps position 1..6 → Creative Direction N', () => {
+  assert.equal(creativeDirectionLabel(1), 'Creative Direction 1');
+  assert.equal(creativeDirectionLabel(2), 'Creative Direction 2');
+  assert.equal(creativeDirectionLabel(3), 'Creative Direction 3');
+  assert.equal(creativeDirectionLabel(4), 'Creative Direction 4');
+  assert.equal(creativeDirectionLabel(5), 'Creative Direction 5');
+  assert.equal(creativeDirectionLabel(6), 'Creative Direction 6');
+});
+
+test('creativeDirectionLabel is safe for out-of-range positions (no throw)', () => {
+  // Out-of-range inputs do not throw — they return a sensible fallback so
+  // UI bugs do not crash the wizard render path.
+  assert.equal(typeof creativeDirectionLabel(0), 'string');
+  assert.equal(typeof creativeDirectionLabel(7), 'string');
+  assert.equal(typeof creativeDirectionLabel(-1), 'string');
+});
+
+test('creativeDirectionBadge returns non-empty styling for every valid position', () => {
+  for (let pos = 1; pos <= CREATIVE_DIRECTION_LIMIT; pos++) {
+    const className = creativeDirectionBadge(pos);
+    assert.equal(typeof className, 'string');
+    assert.ok(className.length > 0, `position ${pos} should produce a non-empty class set`);
+  }
+  // CREATIVE_DIRECTION_BADGE table aligns with the limit so positions don't run out.
+  assert.equal(CREATIVE_DIRECTION_BADGE.length, CREATIVE_DIRECTION_LIMIT);
+});
+
+test('hasEnoughVariationsForPortfolio enforces the TOTAL_MINIMUM (>=6) gate', () => {
+  assert.equal(hasEnoughVariationsForPortfolio(0), false);
+  assert.equal(hasEnoughVariationsForPortfolio(5), false);
+  assert.equal(hasEnoughVariationsForPortfolio(6), true);
+  assert.equal(hasEnoughVariationsForPortfolio(7), true);
+});
+
+test('CREATIVE_DIRECTION_LIMIT matches MAX_WORKSET_SIZE', () => {
+  // The two constants must stay in lockstep so the wizard's "Creative
+  // Direction N" copy remains in sync with the persona generator's slot cap.
+  assert.equal(CREATIVE_DIRECTION_LIMIT, MAX_WORKSET_SIZE);
 });

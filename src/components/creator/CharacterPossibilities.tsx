@@ -2,20 +2,19 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCreatorSession } from './CreatorGate';
 import { supabase } from '@/lib/supabase';
-import {
-  snapshotToRankedArchetypes,
-} from '@/lib/persona-archetypes';
+import { snapshotToRankedArchetypes } from '@/lib/persona-archetypes';
 import {
   getActiveVariationsForArchetypes,
   generateMyPersonaPortfolio,
   getMyArchetypeSnapshot,
-  getMyVariationSelections,
 } from '@/lib/creators-api';
 import {
   MAX_WORKSET_SIZE,
   MIN_WORKSET_SIZE,
-  POSITION_MINIMUMS,
   TOTAL_MINIMUM,
+  creativeDirectionBadge,
+  creativeDirectionLabel,
+  hasEnoughVariationsForPortfolio,
   rankLabelFor,
   sourceLabelCopy,
   validateWorkset,
@@ -42,14 +41,12 @@ import type {
   CreatorOwnedVertical,
   CreatorVerticalWorksetView,
   CreatorVerticalWorksetViewEntry,
-  RankLabel,
   VerticalSourceLabel,
 } from '@/types/creator';
 import brandLogo from '@/assets/fyv-brand-logo.png';
 
-// ── Pure helpers (top-of-file so callbacks can close over them cleanly) ──────
+// Pure helpers
 
-/** Sort keys recursively so two structurally-equal views hash identically. */
 function stableStringify(value: unknown): string {
   if (value === null || typeof value !== 'object') return JSON.stringify(value);
   if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`;
@@ -83,16 +80,7 @@ async function loadOwnedVariations(profileId: string): Promise<CreatorOwnedVaria
   return (data ?? []) as CreatorOwnedVariation[];
 }
 
-// ── Display constants (pure; safe to colocate) ──────────────────────────────
-
-const RANK_BADGE: Record<RankLabel, string> = {
-  Primary: 'bg-accent/15 text-accent',
-  Secondary: 'bg-warn/10 text-warn',
-  Third: 'bg-success/15 text-success',
-  Fourth: 'bg-accent/15 text-accent',
-  Fifth: 'bg-warn/10 text-warn',
-  Sixth: 'bg-success/15 text-success',
-};
+// Display constants
 
 const TILE_BASE = 'w-full rounded-xl border p-4 text-left transition-colors shadow-lg shadow-black/10';
 const TILE_IDLE = 'border-white/10 bg-black/35 text-charcoal hover:border-accent/70 hover:bg-black/45';
@@ -106,9 +94,22 @@ interface CatalogueArchetype {
 }
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
+type WizardStep = 'reveal' | 'explain' | 'choose' | 'generate';
+
+const STEP_ORDER: readonly WizardStep[] = ['reveal', 'explain', 'choose', 'generate'];
+const STEP_LABELS: Record<WizardStep, string> = {
+  reveal: 'Assessment results',
+  explain: 'How this works',
+  choose: 'Choose your variations',
+  generate: 'Build your portfolio',
+};
 const AUTOSAVE_DEBOUNCE_MS = 900;
 
-// ── Component ────────────────────────────────────────────────────────────────
+function stepIndex(step: WizardStep): number {
+  return STEP_ORDER.indexOf(step);
+}
+
+// Main wizard component
 
 export function CharacterPossibilities() {
   const { profile } = useCreatorSession();
@@ -119,13 +120,15 @@ export function CharacterPossibilities() {
   const [snapshot, setSnapshot] = useState<CreatorArchetypeSnapshot | null>(null);
   const [view, setView] = useState<CreatorVerticalWorksetView | null>(null);
   const [snapshotId, setSnapshotId] = useState<string | null>(null);
-  const [legacySelectionIds, setLegacySelectionIds] = useState<Set<string>>(new Set());
   const [libraryByArchetype, setLibraryByArchetype] = useState<Map<string, CatalogueArchetype>>(new Map());
   const [ownedVerticals, setOwnedVerticals] = useState<CreatorOwnedVertical[]>([]);
   const [ownedVariations, setOwnedVariations] = useState<CreatorOwnedVariation[]>([]);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const [saveError, setSaveError] = useState<string | null>(null);
   const [busyMessage, setBusyMessage] = useState<string | null>(null);
+  const [wizardStep, setWizardStep] = useState<WizardStep>('reveal');
+  const [wizardBootstrapped, setWizardBootstrapped] = useState(false);
+  const [fastForwardedToEditor, setFastForwardedToEditor] = useState(false);
 
   const autosaveTimer = useRef<number | null>(null);
   const lastSavedRef = useRef<string>('');
@@ -148,30 +151,34 @@ export function CharacterPossibilities() {
         }
         const ranked = snapshotToRankedArchetypes(snap);
         const archetypes = ranked.map(r => r.archetype);
-        const [libRows, legacySelections, workset, ownedVerts, ownedVars] = await Promise.all([
+        const [libRows, workset, ownedVerts, ownedVars] = await Promise.all([
           getActiveVariationsForArchetypes(archetypes),
-          getMyVariationSelections(snap.id),
           getMyVerticalWorkset(snap.id),
           loadOwnedVerticals(profile.id),
           loadOwnedVariations(profile.id),
         ]);
         if (!mounted) return;
         setLibraryByArchetype(buildLibraryIndex(libRows));
-        setLegacySelectionIds(new Set(legacySelections.filter(s => s.status === 'selected').map(s => s.variation_id)));
         setOwnedVerticals(ownedVerts);
         setOwnedVariations(ownedVars);
         if (workset) {
           setView(workset);
         } else {
+          // No persisted workset yet — synthesise the 3-row legacy fallback
+          // (primary/secondary/third). selectedLibraryIds stays empty because
+          // the project moved per-selection state off creator_variation_selections
+          // and onto the editable workset; legacy creators re-pick inside the
+          // new wizard. This branch is for creators WITH NO persisted workset
+          // (the `if (workset)` branch above preserves every saved selection
+          // for everyone else, including legacy creators who already had a
+          // workset before this refactor).
           setView(deriveLegacyWorksetFromSnapshot({
             snapshotId: snap.id,
             creatorProfileId: profile.id,
             primaryArchetype: snap.primary_archetype,
             secondaryArchetype: snap.secondary_archetype,
             thirdArchetype: snap.third_archetype,
-            selectedLibraryIds: libRows
-              .filter(l => legacySelections.some(s => s.status === 'selected' && s.variation_id === l.id))
-              .map(l => ({ variationId: l.id, archetype: l.archetype })),
+            selectedLibraryIds: [],
             libraryVariations: libRows,
           }));
         }
@@ -184,12 +191,10 @@ export function CharacterPossibilities() {
     return () => { mounted = false; };
   }, [profile.id]);
 
-  // Cleanup pending timers on unmount.
   useEffect(() => {
     return () => { if (autosaveTimer.current) window.clearTimeout(autosaveTimer.current); };
   }, []);
 
-  // ── Validation: derived once, drives the navigation gate. ─────────────────
   const validation = useMemo(() => {
     if (!view) return null;
     const slots: VerticalSlot[] = view.verticals.map(v => ({
@@ -202,9 +207,40 @@ export function CharacterPossibilities() {
     return validateWorkset(slots);
   }, [view]);
 
-  const canGenerate = validation?.complete ?? false;
+  const totalSelected = validation?.totalSelected ?? 0;
+  const isPortfolioReady = hasEnoughVariationsForPortfolio(totalSelected);
 
-  // ── Autosave (debounced) ────────────────────────────────────────────────
+  // Bootstrap step once the data has loaded. A user who returns mid-flow
+  // (>=6 variations saved across the workset) lands on Step 3 — the editor —
+  // so their saved selections stay visible and they can click Continue to
+  // reach the Generate step. Landing directly on Generate would in the step
+  // indicator visually invert "reached" semantics (steps 1-3 unreached while
+  // step 4 active). New creators always land on the Reveal step first.
+  useEffect(() => {
+    if (wizardBootstrapped) return;
+    if (loading || !view || !snapshot) return;
+    if (isPortfolioReady) {
+      setWizardStep('choose');
+      setFastForwardedToEditor(true);
+    }
+    setWizardBootstrapped(true);
+  }, [loading, view, snapshot, isPortfolioReady, wizardBootstrapped]);
+
+  // Focus management: on every step change, move keyboard focus to the new
+  // step's heading so sighted keyboard users don't lose place. Each Step
+  // component renders a `<h2 tabIndex={-1}>` so it accepts programmatic focus
+  // without entering the tab order. The DOM query is cheap on every step
+  // change and tolerates re-renders / unmounts caused by `key={wizardStep}`.
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const heading = document.querySelector(
+      `[data-wizard-step="${wizardStep}"] h2`,
+    ) as HTMLElement | null;
+    if (heading) {
+      heading.focus({ preventScroll: true });
+    }
+  }, [wizardStep]);
+
   const runSave = useCallback(async () => {
     if (!snapshotId || !view) return;
     const serialised = stableStringify(view);
@@ -231,7 +267,6 @@ export function CharacterPossibilities() {
     autosaveTimer.current = window.setTimeout(() => { void runSave(); }, AUTOSAVE_DEBOUNCE_MS);
   }, [runSave]);
 
-  // ── Mutation helpers (all flow through setView + autosave). ──────────────
   const updateView = useCallback((updater: (prev: CreatorVerticalWorksetView) => CreatorVerticalWorksetView) => {
     setView(prev => (prev ? updater(prev) : prev));
     scheduleAutosave();
@@ -275,7 +310,7 @@ export function CharacterPossibilities() {
   }, [updateView]);
 
   const addCreatorVertical = useCallback(async (input: { name: string; description: string }) => {
-    setBusyMessage('Creating your vertical…');
+    setBusyMessage('Creating your creative direction…');
     try {
       const row = await createMyOwnedVertical({
         name: input.name,
@@ -453,7 +488,7 @@ export function CharacterPossibilities() {
   }, [updateView]);
 
   const renameOwnedVertical = useCallback(async (ownedVerticalId: string, input: { name: string; description: string }) => {
-    setBusyMessage('Saving your vertical…');
+    setBusyMessage('Saving your creative direction…');
     try {
       const updated = await updateMyOwnedVertical(ownedVerticalId, input);
       setOwnedVerticals(prev => prev.map(v => v.id === updated.id ? updated : v));
@@ -496,7 +531,7 @@ export function CharacterPossibilities() {
   }, []);
 
   const handleGenerate = useCallback(async () => {
-    if (!snapshotId || !canGenerate) return;
+    if (!snapshotId || !isPortfolioReady) return;
     setBusyMessage('Saving final selections…');
     try {
       if (autosaveTimer.current) {
@@ -508,25 +543,24 @@ export function CharacterPossibilities() {
       await generateMyPersonaPortfolio(snapshotId).catch(() => undefined);
       navigate('/my/personas');
     } finally { setBusyMessage(null); }
-  }, [snapshotId, canGenerate, runSave, navigate]);
+  }, [snapshotId, isPortfolioReady, runSave, navigate]);
 
-  // ── Loading / error UI ───────────────────────────────────────────────────
   if (loading) {
     return (
       <div className="min-h-screen bg-surface-2 text-charcoal">
-        <Header title="Build your character possibilities" />
+        <WizardHeader />
         <div className="mx-auto w-full max-w-4xl px-4 sm:px-6 lg:px-8">
           <div className="animate-pulse rounded-2xl border border-white/10 bg-surface p-6 text-sm text-charcoal-2">
-            Loading your character possibilities…
+            Preparing your character possibilities…
           </div>
         </div>
       </div>
     );
   }
-  if (loadError || !view) {
+  if (loadError || !view || !snapshot) {
     return (
       <div className="min-h-screen bg-surface-2 text-charcoal">
-        <Header title="Build your character possibilities" />
+        <WizardHeader />
         <div className="mx-auto w-full max-w-4xl px-4 sm:px-6 lg:px-8">
           <div className="rounded-2xl border border-pink/30 bg-pink/10 p-5 text-sm text-pink" role="alert">
             {loadError || 'We could not load your character possibilities.'}
@@ -539,121 +573,85 @@ export function CharacterPossibilities() {
 
   return (
     <div className="min-h-screen bg-surface-2 text-charcoal">
-      <Header title="Build your character possibilities" />
-      <div className="mx-auto w-full max-w-4xl px-4 py-6 sm:px-6 lg:px-8">
-        <p className="mb-4 max-w-2xl text-sm leading-6 text-charcoal-2">
-          Your assessment identified three creative directions. Edit the list — swap a vertical from the
-          catalogue, add a fresh direction, or remove one you do not want — then pick the versions of
-          each that feel authentically you. You can keep editing until you are ready to build your
-          portfolio. Your original assessment recommendations are preserved as provenance.
-        </p>
-
-        <SaveStatusPill status={saveStatus} error={saveError} />
-        {busyMessage && (
-          <p className="mt-2 text-xs text-charcoal-2" aria-live="polite">{busyMessage}</p>
-        )}
-
-        {/* Validation banner */}
-        <section className="mb-5 rounded-2xl border border-accent/30 bg-surface p-5">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-base font-semibold text-charcoal">Your progress</h2>
-            <span className={`rounded-full px-3 py-1 text-xs font-semibold ${canGenerate ? 'bg-success/15 text-success' : 'bg-white/5 text-charcoal-2'}`}>
-              {canGenerate ? 'Ready to build portfolio' : 'Keep exploring'}
-            </span>
-          </div>
-          {validation && (
-            <div className="mt-3 grid gap-2 sm:grid-cols-3">
-              {validation.perSlot.map(s => (
-                <div key={s.position} className="rounded-xl border border-white/10 bg-surface-3/60 px-3 py-2">
-                  <div className="text-xs uppercase tracking-wide text-charcoal-2">{s.rankLabel}</div>
-                  <div className={`mt-0.5 text-sm font-medium ${s.met ? 'text-success' : 'text-charcoal-2'}`}>
-                    {s.met ? '✓ ' : ''}{s.selectedCount} of {s.minimum} chosen
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-          {validation?.firstIssue && (
-            <p className={`mt-3 text-xs ${validation.complete ? 'text-success' : 'text-warn'}`}>
-              {validation.complete
-                ? `${validation.totalSelected} variations chosen across ${validation.perSlot.length} ${validation.perSlot.length === 1 ? 'vertical' : 'verticals'}.`
-                : validation.firstIssue.message}
+      <WizardHeader />
+      <StepIndicator step={wizardStep} />
+      {/* Stable live region — its textContent only mounts once data has
+          loaded, so SR users do not hear a step label for a skeleton.
+          role="status" implicitly sets aria-live="polite"; the explicit
+          attribute is dropped to avoid the redundancy. */}
+      <p
+        role="status"
+        className="sr-only"
+      >
+        {!loading ? `Step ${stepIndex(wizardStep) + 1} of ${STEP_ORDER.length}: ${STEP_LABELS[wizardStep]}` : ''}
+      </p>
+      <div
+        key={wizardStep}
+        className="mx-auto w-full max-w-4xl px-4 py-6 sm:px-6 lg:px-8 transition-opacity duration-200"
+      >
+        {wizardStep === 'choose' && fastForwardedToEditor && (
+          <div className="mb-4 rounded-2xl border border-accent/30 bg-accent/5 p-4 text-sm text-charcoal">
+            <p className="font-semibold text-charcoal">Welcome back.</p>
+            <p className="mt-1 text-charcoal-2">
+              Your saved variations are below. Continue when you&rsquo;re ready, or hit Back to revisit the introduction steps.
             </p>
-          )}
-        </section>
-
-        {/* Per-vertical cards */}
-        <div className="space-y-5">
-          {view.verticals.map(entry => (
-            <VerticalCard
-              key={entry.worksetId}
-              entry={entry}
-              totalVerticals={view.verticals.length}
-              libraryByArchetype={libraryByArchetype}
-              ownedVariations={ownedVariations}
-              ownedVerticals={ownedVerticals}
-              onReplace={async archetypeKey => { await replaceVertical(entry.position, { archetypeKey, source: 'catalogue' }); }}
-              onAddFromCatalogue={addVerticalFromCatalogue}
-              onAddCreatorVertical={addCreatorVertical}
-              onRemove={() => removeVertical(entry.worksetId)}
-              onMove={dir => moveVertical(entry.worksetId, dir)}
-              onToggleLibrary={variation => toggleLibraryVariation(entry.position, variation)}
-              onToggleOwned={variation => toggleOwnedVariation(entry.position, variation)}
-              onCustomiseLibrary={async (variation, edit) => { await customiseLibraryVariation(entry.position, variation, edit); }}
-              onCreateOwnedVariation={async edit => { await createOwnedVariationInVertical(entry.position, edit); }}
-              onRenameOwnedVariation={async (id, edit) => { await renameOwnedVariation(id, edit); }}
-              onArchiveOwnedVariation={async id => { await archiveVariation(id, entry.worksetId); }}
-              onRenameOwnedVertical={entry.ownedVerticalId ? async (id, edit) => { await renameOwnedVertical(id, edit); } : null}
-              onArchiveOwnedVertical={entry.ownedVerticalId ? async () => { await archiveOwnedVertical(entry.ownedVerticalId as string); } : null}
-              onSubmitOwnedVerticalForReview={entry.ownedVerticalId && ownedVerticals.find(v => v.id === entry.ownedVerticalId)?.review_status === 'none'
-                ? async () => { await submitOwnedVerticalForReview(entry.ownedVerticalId as string); }
-                : null}
-              onSubmitOwnedVariationForReview={async id => { await submitOwnedVariationForReview(id); }}
-            />
-          ))}
-        </div>
-
-        {/* Add another vertical */}
-        {view.verticals.length < MAX_WORKSET_SIZE && (
-          <AddVerticalCard
+          </div>
+        )}
+        {wizardStep === 'reveal' && (
+          <StepReveal snapshot={snapshot} onContinue={() => setWizardStep('explain')} />
+        )}
+        {wizardStep === 'explain' && (
+          <StepExplain onContinue={() => setWizardStep('choose')} onBack={() => setWizardStep('reveal')} />
+        )}
+        {wizardStep === 'choose' && view && (
+          <StepChoose
+            view={view}
             libraryByArchetype={libraryByArchetype}
-            onPickCatalogue={addVerticalFromCatalogue}
-            onCreateCreator={addCreatorVertical}
-            alreadyUsedArchetypes={view.verticals.filter(v => v.systemArchetype).map(v => v.systemArchetype as string)}
+            ownedVariations={ownedVariations}
+            ownedVerticals={ownedVerticals}
+            saveStatus={saveStatus}
+            saveError={saveError}
+            busyMessage={busyMessage}
+            totalSelected={totalSelected}
+            isPortfolioReady={isPortfolioReady}
+            onReplaceVertical={replaceVertical}
+            onAddVerticalFromCatalogue={addVerticalFromCatalogue}
+            onAddCreatorVertical={addCreatorVertical}
+            onRemoveVertical={removeVertical}
+            onMoveVertical={moveVertical}
+            onToggleLibraryVariation={toggleLibraryVariation}
+            onToggleOwnedVariation={toggleOwnedVariation}
+            onCustomiseLibraryVariation={customiseLibraryVariation}
+            onCreateOwnedVariation={createOwnedVariationInVertical}
+            onRenameOwnedVariation={renameOwnedVariation}
+            onArchiveOwnedVariation={archiveVariation}
+            onRenameOwnedVertical={renameOwnedVertical}
+            onArchiveOwnedVertical={archiveOwnedVertical}
+            onSubmitOwnedVerticalForReview={submitOwnedVerticalForReview}
+            onSubmitOwnedVariationForReview={submitOwnedVariationForReview}
+            onContinue={() => setWizardStep('generate')}
+            onBack={() => setWizardStep('explain')}
           />
         )}
-
-        {/* Final navigation gate */}
-        <section className="mt-6 rounded-2xl border border-white/10 bg-surface p-5">
-          <h2 className="text-base font-semibold text-charcoal">Ready when you are</h2>
-          <p className="mt-1 text-sm text-charcoal-2">
-            Once your verticals meet the minimum requirements, you can turn them into six draft
-            characters. We rebuild your portfolio each time you start a new generation.
-          </p>
-          <div className="mt-3 flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              onClick={() => { void handleGenerate(); }}
-              disabled={!canGenerate || Boolean(busyMessage)}
-              className="btn-primary text-sm disabled:opacity-50"
-            >
-              Build my character portfolio
-            </button>
-            {!canGenerate && (
-              <span className="text-xs text-charcoal-2">
-                You need at least one vertical and the per-position variation minimums (3, 2, 1, …) with {TOTAL_MINIMUM}+ selected total.
-              </span>
-            )}
-          </div>
-        </section>
+        {wizardStep === 'generate' && view && (
+          <StepGenerate
+            view={view}
+            totalSelected={totalSelected}
+            isPortfolioReady={isPortfolioReady}
+            busyMessage={busyMessage}
+            onBack={() => setWizardStep('choose')}
+            onGenerate={handleGenerate}
+            onEdit={() => setWizardStep('choose')}
+          />
+        )}
       </div>
     </div>
   );
 }
 
-// ── Subcomponents ───────────────────────────────────────────────────────────
+// Wizard chrome
 
-function Header({ title }: { title: string }) {
+function WizardHeader() {
   return (
     <header className="border-b border-white/10 bg-surface px-4 py-4">
       <div className="mx-auto flex w-full max-w-4xl flex-wrap items-center justify-between gap-4 px-0 sm:px-6 lg:px-8">
@@ -661,12 +659,48 @@ function Header({ title }: { title: string }) {
           <img src={brandLogo} alt="Find Your Vertical" className="h-12 w-auto object-contain" />
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-accent">Build Your Character Possibilities</p>
-            <h1 className="text-xl font-bold leading-tight text-charcoal sm:text-2xl">{title}</h1>
+            <h1 className="text-xl font-bold leading-tight text-charcoal sm:text-2xl">Your character portfolio</h1>
           </div>
         </div>
         <a href="#/my" className="btn-secondary text-xs">Back to My Vertical</a>
       </div>
     </header>
+  );
+}
+
+function StepIndicator({ step }: { step: WizardStep }) {
+  return (
+    <nav
+      aria-label="Wizard progress"
+      className="border-b border-white/10 bg-surface px-4 py-3"
+    >
+      <ol className="mx-auto flex w-full max-w-4xl flex-wrap items-center gap-2 px-0 text-xs text-charcoal-2 sm:px-6 lg:px-8">
+        {STEP_ORDER.map((s, idx) => {
+          const active = step === s;
+          const reached = stepIndex(step) >= idx;
+          return (
+            <li key={s} className="flex items-center gap-2">
+              <span
+                aria-hidden="true"
+                className={`flex h-6 w-6 items-center justify-center rounded-full border text-[11px] font-semibold ${
+                  active
+                    ? 'border-accent bg-accent text-white'
+                    : reached
+                      ? creativeDirectionBadge(idx + 1)
+                      : 'border-white/10 bg-surface-2 text-charcoal-2'
+                }`}
+              >
+                {idx + 1}
+              </span>
+              <span className={active ? 'font-semibold text-charcoal' : ''}>{STEP_LABELS[s]}</span>
+              {idx < STEP_ORDER.length - 1 && (
+                <span aria-hidden="true" className="mx-1 hidden text-charcoal-2 sm:inline">→</span>
+              )}
+            </li>
+          );
+        })}
+      </ol>
+    </nav>
   );
 }
 
@@ -688,7 +722,470 @@ function SaveStatusPill({ status, error }: { status: SaveStatus; error: string |
   );
 }
 
-interface VerticalCardProps {
+// Step 1 — Reveal
+
+interface StepRevealProps {
+  snapshot: CreatorArchetypeSnapshot;
+  onContinue: () => void;
+}
+
+// Static companion copy for the archetypes we see most often in assessments.
+// Step 1 uses this so the heading and the description line are DIFFERENT.
+// Unknown archetypes fall through to the generic fallback so the reveal
+// never shows the archetype name twice.
+const ARCHETYPE_DESCRIPTIONS: Record<string, string> = {
+  'Alternative / Tattooed': 'Authentic, expressive and creatively independent.',
+  'College Girl': 'Relatable, approachable and naturally engaging.',
+  'Dominatrix': 'Confident, structured and premium.',
+  'MILF / Mom': 'Mature, nurturing and confidently experienced.',
+  'Goth': 'Moody, artistic and introspective.',
+  'Fitness': 'Energetic, disciplined and aspirational.',
+  'Cosplay': 'Playful, imaginative and high-production.',
+  'Brunette Beauty': 'Classic, refined and naturally magnetic.',
+  'Blonde Bombshell': 'Vibrant, confident and photogenic.',
+  'Petite Playful': 'Cute, approachable and energetic.',
+  'Girl-Next-Door': 'Friendly, sincere and easy to connect with.',
+  'Girl-Next-Door / Sweet': 'Warm, trustworthy and naturally familiar.',
+  'Party Girl': 'Outgoing, spontaneous and fun-loving.',
+  'E-Girl': 'Internet-native, alternative and meme-fluent.',
+};
+const GENERIC_ARCHETYPE_DESCRIPTION = 'A creative direction you can develop across multiple characters.';
+
+function descriptionForArchetype(name: string): string {
+  const trimmed = name?.trim() ?? '';
+  if (!trimmed) return GENERIC_ARCHETYPE_DESCRIPTION;
+  return ARCHETYPE_DESCRIPTIONS[trimmed] ?? GENERIC_ARCHETYPE_DESCRIPTION;
+}
+
+function StepReveal({ snapshot, onContinue }: StepRevealProps) {
+  const ranked = snapshotToRankedArchetypes(snapshot);
+  const archetypes = ranked.map((r, idx) => ({
+    rankIdx: idx,
+    archetype: r.archetype,
+    description: descriptionForArchetype(r.archetype),
+  }));
+  return (
+    <section data-wizard-step="reveal" className="space-y-6">
+      <header>
+        <p className="text-xs font-semibold uppercase tracking-wide text-accent">Your Assessment Results</p>
+        <h2 className="mt-2 text-3xl font-bold text-charcoal" tabIndex={-1}>Three creative directions that fit you best</h2>
+        <p className="mt-3 max-w-3xl text-base leading-7 text-charcoal-2">
+          We&rsquo;ve analysed your assessment and identified the creative directions that best
+          match your personality, interests and long-term creator potential.
+          {' '}
+          These aren&rsquo;t characters. They&rsquo;re the creative directions our AI believes
+          you&rsquo;ll enjoy creating and sustaining over time.
+        </p>
+      </header>
+      <ol className="grid gap-4 sm:grid-cols-3">
+        {archetypes.map(({ rankIdx, archetype, description }) => (
+          <li
+            key={archetype}
+            className="flex flex-col gap-3 rounded-2xl border border-accent/30 bg-surface p-5"
+          >
+            <div className="flex items-center justify-between">
+              <span aria-hidden="true" className="text-2xl">
+                {rankIdx === 0 ? '🥇' : rankIdx === 1 ? '🥈' : '🥉'}
+              </span>
+              <span className="rounded-full bg-accent/15 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-accent">
+                {rankIdx === 0 ? 'Top match' : rankIdx === 1 ? 'Strong match' : 'Worth exploring'}
+              </span>
+            </div>
+            <h3 className="text-xl font-bold text-charcoal">{archetype}</h3>
+            <p className="text-sm leading-6 text-charcoal-2">{description}</p>
+            <p className="mt-auto text-[11px] uppercase tracking-wide text-charcoal-2">Recommended from your assessment</p>
+          </li>
+        ))}
+      </ol>
+      <WizardFooter
+        primaryLabel="Continue \u2192"
+        onPrimary={onContinue}
+        secondary={null}
+      />
+    </section>
+  );
+}
+
+// Step 2 — Explain
+
+interface StepExplainProps {
+  onContinue: () => void;
+  onBack: () => void;
+}
+
+function StepExplain({ onContinue, onBack }: StepExplainProps) {
+  const examples = [
+    { direction: 'Alternative / Tattooed', variation: 'Goth Girlfriend', character: 'Your Style Guide' },
+    { direction: 'College Girl', variation: 'Sorority Sweetheart', character: 'The Relatable Best Friend' },
+    { direction: 'Dominatrix', variation: 'Confident Power Player', character: 'The Premium Experience' },
+  ];
+  return (
+    <section data-wizard-step="explain" className="space-y-6">
+      <header>
+        <p className="text-xs font-semibold uppercase tracking-wide text-accent">How This Works</p>
+        <h2 className="mt-2 text-3xl font-bold text-charcoal" tabIndex={-1}>Build your character portfolio</h2>
+        <p className="mt-3 max-w-3xl text-base leading-7 text-charcoal-2">
+          Successful creators rarely rely on a single character. Instead, they create multiple
+          authentic variations of themselves that appeal to different audiences while staying
+          true to who they are.
+          {' '}
+          We&rsquo;ll now help you build your first creator portfolio.
+        </p>
+      </header>
+      <div className="rounded-2xl border border-white/10 bg-surface p-6">
+        <p className="text-xs font-semibold uppercase tracking-wide text-accent">From direction to character</p>
+        <ol className="mt-4 grid gap-4 sm:grid-cols-3">
+          {examples.map(example => (
+            <li key={example.direction} className="rounded-xl border border-white/10 bg-surface-2 p-4">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-accent">Creative Direction</p>
+              <p className="mt-1 text-base font-semibold text-charcoal">{example.direction}</p>
+              <div className="my-3 flex flex-col items-center text-charcoal-2">
+                <span aria-hidden="true">↓</span>
+                <span aria-hidden="true">↓</span>
+              </div>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-accent">Variation</p>
+              <p className="mt-1 text-base font-semibold text-charcoal">{example.variation}</p>
+              <div className="my-3 flex flex-col items-center text-charcoal-2">
+                <span aria-hidden="true">↓</span>
+                <span aria-hidden="true">↓</span>
+              </div>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-accent">Character</p>
+              <p className="mt-1 text-base font-semibold text-charcoal">{example.character}</p>
+            </li>
+          ))}
+        </ol>
+      </div>
+      <div className="rounded-2xl border border-accent/30 bg-surface p-6">
+        <p className="text-xs font-semibold uppercase tracking-wide text-accent">Your selection rules</p>
+        <p className="mt-2 text-base leading-7 text-charcoal-2">
+          Choose at least six variations that genuinely feel like something you&rsquo;d enjoy
+          creating. You can:
+        </p>
+        <ul className="mt-3 grid gap-2 sm:grid-cols-2">
+          <PermittedAction text="Keep the suggested creative directions" />
+          <PermittedAction text="Replace a direction with another from the catalogue" />
+          <PermittedAction text="Add new directions from the catalogue" />
+          <PermittedAction text="Create your own directions entirely" />
+        </ul>
+      </div>
+      <WizardFooter
+        primaryLabel="Start Building →"
+        onPrimary={onContinue}
+        secondary={{ label: '← Back', onClick: onBack }}
+      />
+    </section>
+  );
+}
+
+function PermittedAction({ text }: { text: string }) {
+  return (
+    <li className="flex items-start gap-2 rounded-xl border border-white/10 bg-surface-2 px-3 py-2 text-sm text-charcoal-2">
+      <span aria-hidden="true" className="mt-0.5 text-accent">✓</span>
+      <span>{text}</span>
+    </li>
+  );
+}
+
+// Step 3 — Choose
+
+interface StepChooseProps {
+  view: CreatorVerticalWorksetView;
+  libraryByArchetype: Map<string, CatalogueArchetype>;
+  ownedVariations: CreatorOwnedVariation[];
+  ownedVerticals: CreatorOwnedVertical[];
+  saveStatus: SaveStatus;
+  saveError: string | null;
+  busyMessage: string | null;
+  totalSelected: number;
+  isPortfolioReady: boolean;
+  onReplaceVertical: (position: number, replacement: { archetypeKey: string; source: VerticalSourceLabel }) => Promise<void>;
+  onAddVerticalFromCatalogue: (archetype: string) => void;
+  onAddCreatorVertical: (input: { name: string; description: string }) => Promise<void>;
+  onRemoveVertical: (worksetId: string) => void;
+  onMoveVertical: (worksetId: string, direction: 'up' | 'down') => void;
+  onToggleLibraryVariation: (position: number, variation: ArchetypeVariation) => void;
+  onToggleOwnedVariation: (position: number, variation: CreatorOwnedVariation) => void;
+  onCustomiseLibraryVariation: (position: number, variation: ArchetypeVariation, edit: { name: string; description: string }) => Promise<void>;
+  onCreateOwnedVariation: (position: number, edit: { name: string; description: string }) => Promise<void>;
+  onRenameOwnedVariation: (ownedVariationId: string, edit: { name: string; description: string }) => Promise<void>;
+  onArchiveOwnedVariation: (ownedVariationId: string, worksetId: string) => Promise<void>;
+  onRenameOwnedVertical: (ownedVerticalId: string, edit: { name: string; description: string }) => Promise<void>;
+  onArchiveOwnedVertical: (ownedVerticalId: string) => Promise<void>;
+  onSubmitOwnedVerticalForReview: (ownedVerticalId: string) => Promise<void>;
+  onSubmitOwnedVariationForReview: (ownedVariationId: string) => Promise<void>;
+  onContinue: () => void;
+  onBack: () => void;
+}
+
+function StepChoose(props: StepChooseProps) {
+  const {
+    view, libraryByArchetype, ownedVariations, ownedVerticals,
+    saveStatus, saveError, busyMessage, totalSelected, isPortfolioReady,
+    onReplaceVertical, onAddVerticalFromCatalogue, onAddCreatorVertical,
+    onRemoveVertical, onMoveVertical,
+    onToggleLibraryVariation, onToggleOwnedVariation,
+    onCustomiseLibraryVariation, onCreateOwnedVariation,
+    onRenameOwnedVariation, onArchiveOwnedVariation,
+    onRenameOwnedVertical, onArchiveOwnedVertical,
+    onSubmitOwnedVerticalForReview, onSubmitOwnedVariationForReview,
+    onContinue, onBack,
+  } = props;
+  return (
+    <section data-wizard-step="choose" className="space-y-5">
+      <header>
+        <p className="text-xs font-semibold uppercase tracking-wide text-accent">Choose Your Variations</p>
+        <h2 className="mt-2 text-2xl font-bold text-charcoal" tabIndex={-1}>Edit the directions, pick the variations</h2>
+        <p className="mt-2 max-w-3xl text-sm leading-6 text-charcoal-2">
+          Keep the suggested directions, swap any of them for a different one, add new ones, or
+          create your own. Tap the variations that feel like something you&rsquo;d enjoy creating
+          {' '}— at least six in total. You can keep editing until you&rsquo;re ready to build.
+        </p>
+      </header>
+
+      <SaveStatusPill status={saveStatus} error={saveError} />
+      {busyMessage && (
+        <p className="text-xs text-charcoal-2" aria-live="polite">{busyMessage}</p>
+      )}
+
+      <ProgressCard totalSelected={totalSelected} ready={isPortfolioReady} />
+
+      <div className="space-y-5">
+        {view.verticals.map(entry => (
+          <DirectionCard
+            key={entry.worksetId}
+            entry={entry}
+            totalVerticals={view.verticals.length}
+            libraryByArchetype={libraryByArchetype}
+            ownedVariations={ownedVariations}
+            ownedVerticals={ownedVerticals}
+            onReplace={async archetypeKey => { await onReplaceVertical(entry.position, { archetypeKey, source: 'catalogue' }); }}
+            onAddFromCatalogue={onAddVerticalFromCatalogue}
+            onAddCreatorVertical={onAddCreatorVertical}
+            onRemove={() => onRemoveVertical(entry.worksetId)}
+            onMove={dir => onMoveVertical(entry.worksetId, dir)}
+            onToggleLibrary={variation => onToggleLibraryVariation(entry.position, variation)}
+            onToggleOwned={variation => onToggleOwnedVariation(entry.position, variation)}
+            onCustomiseLibrary={async (variation, edit) => { await onCustomiseLibraryVariation(entry.position, variation, edit); }}
+            onCreateOwnedVariation={async edit => { await onCreateOwnedVariation(entry.position, edit); }}
+            onRenameOwnedVariation={async (id, edit) => { await onRenameOwnedVariation(id, edit); }}
+            onArchiveOwnedVariation={async id => { await onArchiveOwnedVariation(id, entry.worksetId); }}
+            onRenameOwnedVertical={entry.ownedVerticalId ? async (id, edit) => { await onRenameOwnedVertical(id, edit); } : null}
+            onArchiveOwnedVertical={entry.ownedVerticalId ? async () => { await onArchiveOwnedVertical(entry.ownedVerticalId as string); } : null}
+            onSubmitOwnedVerticalForReview={entry.ownedVerticalId && ownedVerticals.find(v => v.id === entry.ownedVerticalId)?.review_status === 'none'
+              ? async () => { await onSubmitOwnedVerticalForReview(entry.ownedVerticalId as string); }
+              : null}
+            onSubmitOwnedVariationForReview={async id => { await onSubmitOwnedVariationForReview(id); }}
+          />
+        ))}
+      </div>
+
+      {view.verticals.length < MAX_WORKSET_SIZE && (
+        <AddDirectionCard
+          libraryByArchetype={libraryByArchetype}
+          onPickCatalogue={onAddVerticalFromCatalogue}
+          onCreateCreator={onAddCreatorVertical}
+          alreadyUsedArchetypes={view.verticals.filter(v => v.systemArchetype).map(v => v.systemArchetype as string)}
+        />
+      )}
+
+      <FooterCopy totalSelected={totalSelected} ready={isPortfolioReady} />
+
+      <WizardFooter
+        primaryLabel="Continue →"
+        primaryDisabled={!isPortfolioReady}
+        onPrimary={onContinue}
+        secondary={{ label: '← Back', onClick: onBack }}
+      />
+    </section>
+  );
+}
+
+function ProgressCard({ totalSelected, ready }: { totalSelected: number; ready: boolean }) {
+  const needed = Math.max(0, TOTAL_MINIMUM - totalSelected);
+  return (
+    <section
+      aria-label="Progress"
+      className="rounded-2xl border border-accent/30 bg-surface p-5"
+    >
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-charcoal-2">Your progress</p>
+          <p className="mt-1 text-lg font-bold text-charcoal">
+            <span data-testid="total-selected">{totalSelected}</span> of {TOTAL_MINIMUM} variations selected
+          </p>
+        </div>
+        <span className={`rounded-full px-3 py-1 text-xs font-semibold ${ready ? 'bg-success/15 text-success' : 'bg-white/5 text-charcoal-2'}`}>
+          {ready ? '✓ Ready to build your portfolio' : 'Keep exploring'}
+        </span>
+      </div>
+      <ProgressBar value={Math.min(totalSelected, TOTAL_MINIMUM)} max={TOTAL_MINIMUM} />
+      <p className={`mt-3 text-sm ${ready ? 'text-success' : 'text-charcoal-2'}`}>
+        {ready
+          ? 'You\u2019ve selected enough variations. Head to the next step to build your portfolio.'
+          : needed === 1
+            ? 'Choose 1 more variation to continue.'
+            : `Choose ${needed} more variations to continue.`}
+      </p>
+    </section>
+  );
+}
+
+function ProgressBar({ value, max }: { value: number; max: number }) {
+  const pct = Math.max(0, Math.min(100, Math.round((value / max) * 100)));
+  return (
+    <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-surface-3" aria-hidden="true">
+      <div
+        className={`h-full ${pct >= 100 ? 'bg-success' : 'bg-accent'}`}
+        style={{ width: `${pct}%` }}
+      />
+    </div>
+  );
+}
+
+function FooterCopy({ totalSelected, ready }: { totalSelected: number; ready: boolean }) {
+  return (
+    <div className="rounded-xl border border-white/10 bg-surface-3 px-4 py-3 text-sm text-charcoal-2">
+      <p>
+        Select at least six variations from any combination of your creative directions.{' '}
+        You can continue editing your directions at any time.
+      </p>
+      {!ready && (
+        <p className="mt-1 text-xs text-charcoal-2">
+          You&rsquo;ve chosen {totalSelected} so far.
+        </p>
+      )}
+    </div>
+  );
+}
+
+// Step 4 — Generate
+
+interface StepGenerateProps {
+  view: CreatorVerticalWorksetView;
+  totalSelected: number;
+  isPortfolioReady: boolean;
+  busyMessage: string | null;
+  onBack: () => void;
+  onGenerate: () => Promise<void>;
+  onEdit: () => void;
+}
+
+function StepGenerate({ view, totalSelected, isPortfolioReady, busyMessage, onBack, onGenerate, onEdit }: StepGenerateProps) {
+  // Step 4 is reachable only via Step 3's `primaryDisabled={!isPortfolioReady}`
+  // gate, so `isPortfolioReady` is always true here and we always generate six
+  // characters. `totalSelected` is consumed by the SummaryCard below.
+  return (
+    <section data-wizard-step="generate" className="space-y-6">
+      <header>
+        <p className="text-xs font-semibold uppercase tracking-wide text-accent">Generate Portfolio</p>
+        <h2 className="mt-2 text-3xl font-bold text-charcoal" tabIndex={-1}>Ready to build your character portfolio</h2>
+        <p className="mt-3 max-w-3xl text-base leading-7 text-charcoal-2">
+          We&rsquo;ll now generate six draft creator characters. Each character will
+          include:
+        </p>
+      </header>
+      <ul className="grid gap-2 sm:grid-cols-2">
+        <PortfolioItem text="Positioning" />
+        <PortfolioItem text="Personality" />
+        <PortfolioItem text="Audience" />
+        <PortfolioItem text="Tone of voice" />
+        <PortfolioItem text="Content themes" />
+        <PortfolioItem text="Visual direction" />
+        <PortfolioItem text="Monetisation opportunities" />
+        <PortfolioItem text="AI profile" />
+      </ul>
+      <SummaryCard view={view} totalSelected={totalSelected} />
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          onClick={() => { void onGenerate(); }}
+          disabled={!isPortfolioReady || Boolean(busyMessage)}
+          className="btn-primary text-sm disabled:opacity-50"
+        >
+          {busyMessage ?? 'Generate My Character Portfolio'}
+        </button>
+        <button
+          type="button"
+          onClick={onEdit}
+          className="btn-secondary text-sm"
+        >
+          Edit variations
+        </button>
+        <button
+          type="button"
+          onClick={onBack}
+          className="btn-secondary text-sm"
+        >
+          ← Back
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function PortfolioItem({ text }: { text: string }) {
+  return (
+    <li className="flex items-center gap-2 rounded-xl border border-white/10 bg-surface px-3 py-2 text-sm text-charcoal">
+      <span aria-hidden="true" className="text-accent">✓</span>
+      <span>{text}</span>
+    </li>
+  );
+}
+
+function SummaryCard({ view, totalSelected }: { view: CreatorVerticalWorksetView; totalSelected: number }) {
+  return (
+    <section className="rounded-2xl border border-white/10 bg-surface p-5">
+      <p className="text-xs font-semibold uppercase tracking-wide text-charcoal-2">Your selection summary</p>
+      <p className="mt-1 text-base text-charcoal">
+        You&rsquo;ve chosen {totalSelected} variations across {view.verticals.length}{' '}
+        {view.verticals.length === 1 ? 'creative direction' : 'creative directions'}.
+      </p>
+      <ul className="mt-3 space-y-1 text-sm text-charcoal-2">
+        {view.verticals.map(v => (
+          <li key={v.worksetId} className="flex items-baseline justify-between gap-2">
+            <span className="font-medium text-charcoal">{v.verticalLabel}</span>
+            <span className="text-charcoal-2">{v.selectedVariations.length} variation{v.selectedVariations.length === 1 ? '' : 's'}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+// Wizard footer
+
+interface WizardFooterProps {
+  primaryLabel: string;
+  onPrimary: () => void;
+  primaryDisabled?: boolean;
+  secondary: { label: string; onClick: () => void } | null;
+}
+
+function WizardFooter({ primaryLabel, onPrimary, primaryDisabled, secondary }: WizardFooterProps) {
+  return (
+    <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+      <div>
+        {secondary && (
+          <button type="button" className="btn-secondary text-sm" onClick={secondary.onClick}>
+            {secondary.label}
+          </button>
+        )}
+      </div>
+      <button
+        type="button"
+        onClick={onPrimary}
+        disabled={primaryDisabled}
+        className="btn-primary text-base disabled:opacity-50"
+      >
+        {primaryLabel}
+      </button>
+    </div>
+  );
+}
+
+// Direction card (Step 3)
+
+interface DirectionCardProps {
   entry: CreatorVerticalWorksetViewEntry;
   totalVerticals: number;
   libraryByArchetype: Map<string, CatalogueArchetype>;
@@ -711,7 +1208,7 @@ interface VerticalCardProps {
   onSubmitOwnedVariationForReview: (id: string) => Promise<void>;
 }
 
-function VerticalCard(props: VerticalCardProps) {
+function DirectionCard(props: DirectionCardProps) {
   const { entry, libraryByArchetype, ownedVariations, onReplace, onRemove, onMove, onToggleLibrary, onToggleOwned, onCustomiseLibrary, onCreateOwnedVariation, onRenameOwnedVariation, onArchiveOwnedVariation, onRenameOwnedVertical, onArchiveOwnedVertical, onSubmitOwnedVerticalForReview, onSubmitOwnedVariationForReview, totalVerticals } = props;
 
   const catalogueArchetype = entry.systemArchetype ? libraryByArchetype.get(entry.systemArchetype) : undefined;
@@ -722,13 +1219,13 @@ function VerticalCard(props: VerticalCardProps) {
   );
   const isFirst = entry.position === 1;
   const isLast = entry.position === totalVerticals;
-  const slotMinimum = POSITION_MINIMUMS[entry.position - 1] ?? 1;
 
   return (
-    <section className="rounded-2xl border border-white/10 bg-surface p-5">
-      {/* Header row */}
+    <section
+      className="rounded-2xl border border-white/10 bg-surface p-5"
+      aria-label={creativeDirectionLabel(entry.position)}
+    >
       <div className="flex flex-wrap items-center gap-2">
-        <span className={`rounded-full px-3 py-1 text-xs font-semibold ${RANK_BADGE[entry.rankLabel]}`}>{entry.rankLabel}</span>
         <h3 className="text-xl font-bold text-charcoal">{entry.verticalLabel}</h3>
         <span className="ml-1 rounded-full bg-white/5 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-charcoal-2">
           {sourceLabelCopy(entry.sourceLabel)}
@@ -740,7 +1237,6 @@ function VerticalCard(props: VerticalCardProps) {
         )}
       </div>
 
-      {/* Actions row */}
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <button type="button" className="btn-secondary text-xs" onClick={() => onMove('up')} disabled={isFirst} aria-label="Move up">
           Move up
@@ -748,7 +1244,7 @@ function VerticalCard(props: VerticalCardProps) {
         <button type="button" className="btn-secondary text-xs" onClick={() => onMove('down')} disabled={isLast} aria-label="Move down">
           Move down
         </button>
-        <ReplaceVerticalMenu currentArchetype={entry.systemArchetype} libraryByArchetype={libraryByArchetype} onPick={onReplace} />
+        <ReplaceDirectionMenu currentArchetype={entry.systemArchetype} libraryByArchetype={libraryByArchetype} onPick={onReplace} />
         {onRenameOwnedVertical && entry.ownedVerticalId && (
           <RenameOwnedVerticalButton
             onSubmit={edit => onRenameOwnedVertical(entry.ownedVerticalId as string, edit)}
@@ -758,7 +1254,7 @@ function VerticalCard(props: VerticalCardProps) {
         )}
         {onArchiveOwnedVertical && (
           <button type="button" className="btn-secondary text-xs text-pink" onClick={() => { void onArchiveOwnedVertical(); }}>
-            Archive vertical
+            Archive direction
           </button>
         )}
         {onSubmitOwnedVerticalForReview && (
@@ -767,14 +1263,13 @@ function VerticalCard(props: VerticalCardProps) {
           </button>
         )}
         <button type="button" className="btn-secondary text-xs text-pink ml-auto" onClick={() => onRemove()} disabled={totalVerticals === MIN_WORKSET_SIZE}>
-          Remove vertical
+          Remove direction
         </button>
       </div>
 
-      {/* Variation selection */}
       <p className="mt-4 text-sm font-semibold text-charcoal">Which versions of this direction feel like you?</p>
       <p className="mt-1 text-xs text-charcoal-2">
-        Pick at least {slotMinimum} for this slot.
+        Tap any variation you&rsquo;d enjoy creating &mdash; there&rsquo;s no per-direction quota.
       </p>
 
       <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -935,7 +1430,7 @@ function RenameOwnedVerticalButton(props: {
   if (!open) {
     return (
       <button type="button" className="btn-secondary text-xs" onClick={() => setOpen(true)}>
-        Rename vertical
+        Rename direction
       </button>
     );
   }
@@ -944,7 +1439,7 @@ function RenameOwnedVerticalButton(props: {
       <InlineEditor
         initialName={props.initialName}
         initialDescription={props.initialDescription}
-        submitLabel="Save vertical"
+        submitLabel="Save direction"
         onCancel={() => setOpen(false)}
         onSubmit={async values => { await props.onSubmit(values); setOpen(false); }}
       />
@@ -974,7 +1469,7 @@ function CreateVariationButton(props: {
   );
 }
 
-function ReplaceVerticalMenu(props: {
+function ReplaceDirectionMenu(props: {
   currentArchetype: string | null;
   libraryByArchetype: Map<string, CatalogueArchetype>;
   onPick: (archetypeKey: string) => void;
@@ -991,7 +1486,7 @@ function ReplaceVerticalMenu(props: {
       <input
         value={query}
         onChange={e => setQuery(e.target.value)}
-        placeholder="Search catalogue verticals"
+        placeholder="Search catalogue directions"
         className="w-full rounded-lg border border-white/10 bg-surface px-3 py-2 text-sm text-charcoal"
       />
       <ul className="mt-2 max-h-48 overflow-auto text-sm">
@@ -1015,7 +1510,7 @@ function ReplaceVerticalMenu(props: {
   );
 }
 
-function AddVerticalCard(props: {
+function AddDirectionCard(props: {
   libraryByArchetype: Map<string, CatalogueArchetype>;
   onPickCatalogue: (archetype: string) => void;
   onCreateCreator: (input: { name: string; description: string }) => Promise<void>;
@@ -1028,7 +1523,7 @@ function AddVerticalCard(props: {
         <InlineEditor
           initialName=""
           initialDescription=""
-          submitLabel="Create vertical"
+          submitLabel="Create direction"
           onCancel={() => setMode(null)}
           onSubmit={async values => { await props.onCreateCreator(values); setMode(null); }}
         />
@@ -1038,7 +1533,7 @@ function AddVerticalCard(props: {
   if (mode === 'catalogue') {
     return (
       <section className="mt-5 rounded-2xl border border-dashed border-accent/50 bg-surface p-5">
-        <h3 className="text-base font-semibold text-charcoal">Add a vertical from the catalogue</h3>
+        <h3 className="text-base font-semibold text-charcoal">Add a direction from the catalogue</h3>
         <p className="mt-1 text-xs text-charcoal-2">Pick up to {MAX_WORKSET_SIZE - props.alreadyUsedArchetypes.length} more. Already-selected ones are dimmed.</p>
         <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
           {[...props.libraryByArchetype.keys()].map(a => {
@@ -1065,12 +1560,12 @@ function AddVerticalCard(props: {
     <section className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
       <button type="button" className="rounded-2xl border border-dashed border-accent/40 bg-surface p-5 text-left" onClick={() => setMode('catalogue')}>
         <span className="text-xs font-semibold uppercase tracking-wide text-accent">From the catalogue</span>
-        <p className="mt-1 text-sm font-semibold text-charcoal">Add another vertical</p>
+        <p className="mt-1 text-sm font-semibold text-charcoal">Add another direction</p>
         <p className="mt-1 text-xs text-charcoal-2">Pick any archetype the FYV team has already curated.</p>
       </button>
       <button type="button" className="rounded-2xl border border-dashed border-accent/40 bg-surface p-5 text-left" onClick={() => setMode('custom')}>
         <span className="text-xs font-semibold uppercase tracking-wide text-accent">Created by you</span>
-        <p className="mt-1 text-sm font-semibold text-charcoal">Create a new vertical</p>
+        <p className="mt-1 text-sm font-semibold text-charcoal">Create a new direction</p>
         <p className="mt-1 text-xs text-charcoal-2">Name and describe a direction that is entirely yours.</p>
       </button>
     </section>
@@ -1120,7 +1615,7 @@ function InlineEditor(props: {
   );
 }
 
-// ── Pure helpers (module-scope; do NOT reference component state) ────────────
+// Pure helpers (module-scope)
 
 function replaceVariationInVertical(prev: CreatorVerticalWorksetView, position: number, next: {
   entryId: string;

@@ -30,9 +30,9 @@ test('creators-api calls the Worker endpoint with a bearer token', () => {
   assert.match(api, /export async function recordPersonaPortfolioViewed/);
 });
 
-test('CharacterPossibilities shows the Build My Character Portfolio CTA', () => {
+test('CharacterPossibilities shows the Generate My Character Portfolio CTA', () => {
   const cp = read('src/components/creator/CharacterPossibilities.tsx');
-  assert.match(cp, /Build my character portfolio/);
+  assert.match(cp, /Generate My Character Portfolio/);
   assert.match(cp, /handleGenerate/);
   assert.match(cp, /navigate\('\/my\/personas'\)/);
 });

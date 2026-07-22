@@ -235,3 +235,59 @@ export function moveInOrder<T>(items: ReadonlyArray<T>, fromIndex: number, toInd
 export function sourceLabelCopy(label: VerticalSourceLabel): string {
   return SOURCE_LABEL_COPY[label];
 }
+
+// ─── FYV-PERSONA-1D — Creator-facing "Creative Direction" labelling ───────────
+//
+// The wizard redesign removes "Archetype / Primary / Secondary / Third" from
+// creator-facing copy in favour of "Creative Direction". The internal rank
+// labels stay intact (rankLabelFor / RANK_ORDER) so the projector and the
+// existing tests still see consistent data; this just exposes a creator-friendly
+// label and styling per 1-based position.
+
+/** Number of Creative Directions we support in the workset (alias of MAX_WORKSET_SIZE
+ * documented for creator-facing copy — same intent, friendlier vocabulary). */
+export const CREATIVE_DIRECTION_LIMIT = MAX_WORKSET_SIZE;
+
+/**
+ * Maps a 1-based position to its creator-friendly label, e.g.
+ * position 1 → "Creative Direction 1". The wizard displays these in place of
+ * "Primary / Secondary / Third / …". Rank-label data is preserved on the
+ * view model (rankLabelFor) for downstream persona-generator consumers.
+ */
+export function creativeDirectionLabel(position: number): string {
+  if (!Number.isInteger(position) || position < 1 || position > CREATIVE_DIRECTION_LIMIT) {
+    return position > CREATIVE_DIRECTION_LIMIT ? `Creative Direction ${position}` : 'Creative Direction';
+  }
+  return `Creative Direction ${position}`;
+}
+
+/**
+ * Creator-facing badge styling for the Creative Direction position. Single
+ * accent stripe so the rank does not leak through colour. Returned string is
+ * Tailwind class-fragments only — colocate/neutral so the rank stays invisible.
+ */
+export const CREATIVE_DIRECTION_BADGE: readonly string[] = [
+  'bg-accent/15 text-accent border-accent/30',
+  'bg-accent/10 text-accent/90 border-accent/20',
+  'bg-accent/10 text-accent/90 border-accent/20',
+  'bg-accent/10 text-accent/90 border-accent/20',
+  'bg-accent/10 text-accent/90 border-accent/20',
+  'bg-accent/10 text-accent/90 border-accent/20',
+] as const;
+
+/** Convenience: pick the badge styling for a 1-based position. */
+export function creativeDirectionBadge(position: number): string {
+  if (!Number.isInteger(position) || position < 1) return CREATIVE_DIRECTION_BADGE[0];
+  const index = Math.min(position - 1, CREATIVE_DIRECTION_BADGE.length - 1);
+  return CREATIVE_DIRECTION_BADGE[index];
+}
+
+/**
+ * Wizard-facing readiness check: are there enough TOTAL selected variations to
+ * advance to the "Generate" step? This is what the Step 3 → Step 4 transition
+ * gates — independent of the per-slot rules (POSITION_MINIMUMS), which the
+ * simplified UI no longer surfaces.
+ */
+export function hasEnoughVariationsForPortfolio(totalSelected: number): boolean {
+  return totalSelected >= TOTAL_MINIMUM;
+}
