@@ -94,14 +94,21 @@ interface CatalogueArchetype {
 }
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
-type WizardStep = 'reveal' | 'explain' | 'choose' | 'generate';
+type WizardStep = 'reveal' | 'explain' | 'choose' | 'generate' | 'ready';
 
-const STEP_ORDER: readonly WizardStep[] = ['reveal', 'explain', 'choose', 'generate'];
+// 5-screen guided discovery flow (FYV-ONBOARDING-2).
+// 1. Your Assessment Results  -- reward completion; no editing controls.
+// 2. What These Results Mean   -- build understanding before decisions.
+// 3. Choose Your Variations   -- the editor.
+// 4. Generate Portfolio       -- explicit list of what will be created.
+// 5. Meet Your Six Characters -- celebration after generation.
+const STEP_ORDER: readonly WizardStep[] = ['reveal', 'explain', 'choose', 'generate', 'ready'];
 const STEP_LABELS: Record<WizardStep, string> = {
   reveal: 'Assessment results',
-  explain: 'How this works',
+  explain: 'What these results mean',
   choose: 'Choose your variations',
-  generate: 'Build your portfolio',
+  generate: 'Generate portfolio',
+  ready: 'Meet your characters',
 };
 const AUTOSAVE_DEBOUNCE_MS = 900;
 
@@ -541,9 +548,14 @@ export function CharacterPossibilities() {
       await runSave();
       await materialiseAndGeneratePortfolio(snapshotId);
       await generateMyPersonaPortfolio(snapshotId).catch(() => undefined);
-      navigate('/my/personas');
+      // FYV-ONBOARDING-2: transition into the celebration step (step 5,
+      // "Meet Your Six Characters") rather than navigating immediately.
+      // Returning to the wizard later still drops into the editor step
+      // (see the `wizardBootstrapped` effect), so the celebration is
+      // intentional and one-time per generation.
+      setWizardStep('ready');
     } finally { setBusyMessage(null); }
-  }, [snapshotId, isPortfolioReady, runSave, navigate]);
+  }, [snapshotId, isPortfolioReady, runSave]);
 
   if (loading) {
     return (
@@ -642,6 +654,13 @@ export function CharacterPossibilities() {
             onBack={() => setWizardStep('choose')}
             onGenerate={handleGenerate}
             onEdit={() => setWizardStep('choose')}
+          />
+        )}
+        {wizardStep === 'ready' && view && (
+          <StepReady
+            view={view}
+            onEdit={() => setWizardStep('choose')}
+            onView={() => navigate('/my/personas')}
           />
         )}
       </div>
@@ -822,12 +841,13 @@ function StepExplain({ onContinue, onBack }: StepExplainProps) {
   return (
     <section data-wizard-step="explain" className="space-y-6">
       <header>
-        <p className="text-xs font-semibold uppercase tracking-wide text-accent">How This Works</p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-accent">What These Results Mean</p>
         <h2 className="mt-2 text-3xl font-bold text-charcoal" tabIndex={-1}>Build your character portfolio</h2>
         <p className="mt-3 max-w-3xl text-base leading-7 text-charcoal-2">
-          Successful creators rarely rely on a single character. Instead, they create multiple
-          authentic variations of themselves that appeal to different audiences while staying
-          true to who they are.
+          Creative directions are not characters. They represent broad themes or genres
+          your audience may connect with. Most successful creators build several distinct
+          characters from these directions, so each one can grow into a stable, recognisable
+          brand.
           {' '}
           We&rsquo;ll now help you build your first creator portfolio.
         </p>
@@ -869,7 +889,7 @@ function StepExplain({ onContinue, onBack }: StepExplainProps) {
         </ul>
       </div>
       <WizardFooter
-        primaryLabel="Start Building →"
+        primaryLabel="Let's Build Your Portfolio"
         onPrimary={onContinue}
         secondary={{ label: '← Back', onClick: onBack }}
       />
@@ -1058,6 +1078,100 @@ function FooterCopy({ totalSelected, ready }: { totalSelected: number; ready: bo
   );
 }
 
+// Step 5 — Meet Your Characters (FYV-ONBOARDING-2)
+// Celebrates the moment the creator has finished their first portfolio.
+// Pure presentation over `view.verticals[].selectedVariations[]` — no
+// extra DB round-trip. handleGenerate is gated on `isPortfolioReady`, so
+// the slice of six is always populated.
+
+interface StepReadyProps {
+  view: CreatorVerticalWorksetView;
+  onEdit: () => void;
+  onView: () => void;
+}
+
+function StepReady({ view, onEdit, onView }: StepReadyProps) {
+  // Flatten all selected variations across all creative directions.
+  // handleGenerate is gated on `isPortfolioReady` (>=TOTAL_MINIMUM=6
+  // selected), so we always have at least 6 cards to render.
+  const characters = view.verticals.flatMap(vertical =>
+    vertical.selectedVariations.map(s => ({
+      verticalLabel: vertical.verticalLabel,
+      characterName: s.name,
+      characterDescription: s.description,
+      variationKind: s.variationKind,
+    })),
+  );
+  const charactersToShow = characters.slice(0, 6);
+
+  return (
+    <section data-wizard-step="ready" className="space-y-6">
+      <header className="text-center">
+        <p className="text-5xl" aria-hidden="true">🎉</p>
+        <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-accent">Portfolio Ready</p>
+        <h2 className="mt-2 text-3xl font-bold text-charcoal sm:text-4xl" tabIndex={-1}>
+          Congratulations &mdash; your first creator portfolio is ready.
+        </h2>
+        <p className="mx-auto mt-3 max-w-2xl text-base leading-7 text-charcoal-2">
+          Here are the six characters you've built. Each one has its own positioning,
+          personality, audience, tone of voice, content themes, visual direction, and
+          monetisation opportunities. Open your portfolio to start exploring them.
+        </p>
+      </header>
+
+      <ol
+        className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+        aria-label="Your six characters"
+      >
+        {charactersToShow.map((c, idx) => (
+          <li
+            key={`${c.verticalLabel}:${c.characterName}:${idx}`}
+            className="flex flex-col gap-2 rounded-2xl border border-accent/30 bg-surface p-5"
+          >
+            <div className="flex items-center justify-between">
+              <span className="rounded-full bg-accent/15 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-accent">
+                Character {idx + 1}
+              </span>
+              <span className="rounded-full bg-white/5 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-charcoal-2">
+                {sourceLabelCopy(c.variationKind === 'system_reference' ? 'catalogue' : 'created')}
+              </span>
+            </div>
+            <h3 className="text-xl font-bold text-charcoal">{c.characterName}</h3>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-charcoal-2">
+              From {c.verticalLabel}
+            </p>
+            {c.characterDescription && (
+              <p className="mt-1 text-sm leading-6 text-charcoal-2">{c.characterDescription}</p>
+            )}
+          </li>
+        ))}
+      </ol>
+
+      <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+        <button
+          type="button"
+          onClick={onView}
+          className="btn-primary text-base"
+          data-testid="view-my-personas"
+        >
+          View My Personas
+        </button>
+        <button
+          type="button"
+          onClick={onEdit}
+          className="btn-secondary text-sm"
+        >
+          Edit Your Portfolio
+        </button>
+      </div>
+
+      <p className="text-center text-xs text-charcoal-2">
+        You can always return to this step by regenerating your portfolio.
+      </p>
+    </section>
+  );
+}
+
 // Step 4 — Generate
 
 interface StepGenerateProps {
@@ -1102,7 +1216,7 @@ function StepGenerate({ view, totalSelected, isPortfolioReady, busyMessage, onBa
           disabled={!isPortfolioReady || Boolean(busyMessage)}
           className="btn-primary text-sm disabled:opacity-50"
         >
-          {busyMessage ?? 'Generate My Character Portfolio'}
+          {busyMessage ?? 'Generate My Portfolio'}
         </button>
         <button
           type="button"
