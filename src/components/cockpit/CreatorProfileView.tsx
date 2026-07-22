@@ -15,6 +15,7 @@ import {
 } from '@/lib/creators-api';
 import { OnboardingInviteAction } from './OnboardingInviteAction';
 import { CreatorAccessInviteAction } from './CreatorAccessInviteAction';
+import { CreatorProfileRecommendationPanel } from '../recommendations/CreatorProfileRecommendationPanel';
 import type {
   CreatorProfile,
   CreatorAssessment,
@@ -364,6 +365,13 @@ export function CreatorProfileView() {
           {/* FYV access invitation — maps FYV identity to a canonical FMF creator id
               and issues a magic link (draft → invited). Email boundary is manual/no-op. */}
           <CreatorAccessInviteAction profileId={profile.id} email={profile.email} />
+
+          {/* FYV Phase 1 — Recommendation Explainability & Validation */}
+          <CreatorProfileRecommendationPanel
+            creatorProfileId={profile.id}
+            primaryActionLabel="Compare Predicted Fit vs Validated Fit"
+            onCompareAction={undefined}
+          />
 
           {/* Scorecard */}
           <div className="cockpit-card-pad">

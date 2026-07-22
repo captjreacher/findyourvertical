@@ -16,6 +16,7 @@ import {
 import { getCreatorJourneyCtas } from '@/lib/fyv-completion';
 import { snapshotToRankedArchetypes, summariseSelectionCompleteness } from '@/lib/persona-archetypes';
 import { deriveOnboardingHero, deriveProgress, type ProgressState } from '@/lib/onboarding';
+import { CreatorHomeValidationSummary } from '@/components/recommendations/CreatorHomeValidationSummary';
 import type { CreatorAssessment, CreatorReport } from '@/types/creator';
 
 const PROGRESS_DOT: Record<ProgressState, string> = {
@@ -240,6 +241,18 @@ export function CreatorHome() {
 
         {actionError && (
           <p className="mb-4 rounded-lg border border-pink/30 bg-pink/10 p-3 text-sm text-pink" role="alert">{actionError}</p>
+        )}
+
+        {/* Phase 1 — Recommendation validation summary.
+            Visible only AFTER the portfolio has been generated (cohort that has
+            real recommendation evidence to validate). */}
+        {hasCompletedPortfolio && (
+          <div className="mb-5">
+            <CreatorHomeValidationSummary
+              creatorId={profile.id}
+              detailHref={`/cockpit/creators/${profile.id}`}
+            />
+          </div>
         )}
 
         {/* Engage */}
