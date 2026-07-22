@@ -8,6 +8,7 @@ import {
   generateMyPersonaPortfolio,
 } from '@/lib/creators-api';
 import { groupPersonasByRank, RANK_LABEL, type PersonaRank } from '@/lib/persona-portfolio';
+import { listMyCharacterProfiles, type CharacterLifecycleStatus } from '@/lib/character-service';
 import type { CreatorPersona, CreatorPersonaGeneration } from '@/types/creator';
 import brandLogo from '@/assets/fyv-brand-logo.png';
 
@@ -15,6 +16,18 @@ const RANK_BADGE: Record<PersonaRank, string> = {
   primary: 'bg-accent/15 text-accent',
   secondary: 'bg-warn/10 text-warn',
   third: 'bg-success/15 text-success',
+};
+
+const STATUS_STYLE: Record<CharacterLifecycleStatus, string> = {
+  draft: 'bg-white/5 text-charcoal-2',
+  active: 'bg-success/15 text-success',
+  archived: 'bg-surface-3 text-charcoal-2/70',
+};
+
+const STATUS_LABEL: Record<CharacterLifecycleStatus, string> = {
+  draft: 'Draft',
+  active: 'Active',
+  archived: 'Archived',
 };
 
 function formatDate(value?: string | null): string {
@@ -46,6 +59,7 @@ export function PersonaWorkspace() {
   const [error, setError] = useState('');
   const [generation, setGeneration] = useState<CreatorPersonaGeneration | null>(null);
   const [personas, setPersonas] = useState<CreatorPersona[]>([]);
+  const [characterStatusMap, setCharacterStatusMap] = useState<Map<string, CharacterLifecycleStatus>>(new Map());
   const [retrying, setRetrying] = useState(false);
   const [retryError, setRetryError] = useState<string | null>(null);
 
@@ -53,8 +67,17 @@ export function PersonaWorkspace() {
     setLoading(true);
     setError('');
     try {
-      const gen = await getActivePersonaGeneration(profile.id);
+      const [gen, cProfiles] = await Promise.all([
+        getActivePersonaGeneration(profile.id),
+        listMyCharacterProfiles(profile.id).catch(() => []),
+      ]);
       setGeneration(gen);
+      // Build status map: persona_id → lifecycle status
+      const statusMap = new Map<string, CharacterLifecycleStatus>();
+      for (const cp of cProfiles) {
+        statusMap.set(cp.persona_id, cp.status);
+      }
+      setCharacterStatusMap(statusMap);
       if (gen?.status === 'completed') {
         const rows = await getPersonasForGeneration(gen.id);
         setPersonas(rows);
@@ -76,6 +99,22 @@ export function PersonaWorkspace() {
 
   const variationNames = useMemo(() => sourceNameMap(generation), [generation]);
   const groups = useMemo(() => groupPersonasByRank(personas), [personas]);
+
+  // Derive portfolio counters from status map.
+  const portfolioSummary = useMemo(() => {
+    const counts = { draft: 0, active: 0, archived: 0 };
+    for (const persona of personas) {
+      const status = characterStatusMap.get(persona.id) ?? 'draft';
+      counts[status]++;
+    }
+    return counts;
+  }, [personas, characterStatusMap]);
+
+  const hasActiveCharacter = portfolioSummary.active > 0;
+  const statusForPersona = useCallback(
+    (personaId: string): CharacterLifecycleStatus => characterStatusMap.get(personaId) ?? 'draft',
+    [characterStatusMap],
+  );
 
   const handleRetry = async () => {
     if (!generation) return;
@@ -99,7 +138,9 @@ export function PersonaWorkspace() {
             <img src={brandLogo} alt="Find Your Vertical" className="h-14 w-auto object-contain" />
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-accent">Your Character Portfolio</p>
-              <h1 className="text-2xl font-bold leading-tight text-charcoal">Six draft characters, all you</h1>
+              <h1 className="text-2xl font-bold leading-tight text-charcoal">
+                {personas.length} Character{personas.length === 1 ? '' : 's'}
+              </h1>
             </div>
           </div>
           <a href="#/my" className="btn-secondary text-xs">Back to My Vertical</a>
@@ -163,10 +204,20 @@ export function PersonaWorkspace() {
           <>
             <div className="mb-5 flex flex-wrap items-center gap-3 rounded-2xl border border-white/10 bg-surface px-5 py-3">
               <span className="rounded-full bg-white/5 px-3 py-1 text-xs font-semibold text-charcoal-2">
-                Draft portfolio
+                Created {formatDate(generation.completed_at ?? generation.created_at)}
               </span>
-              <span className="text-xs text-charcoal-2">Created {formatDate(generation.completed_at ?? generation.created_at)}</span>
-              <span className="text-xs text-charcoal-2">· {personas.length} characters</span>
+              <span className="rounded-full bg-success/10 px-3 py-1 text-xs font-semibold text-success">
+                {portfolioSummary.active} Active
+              </span>
+              <span className="rounded-full bg-white/5 px-3 py-1 text-xs font-semibold text-charcoal-2">
+                {portfolioSummary.draft} Draft
+              </span>
+              {portfolioSummary.archived > 0 && (
+                <span className="rounded-full bg-surface-3 px-3 py-1 text-xs font-semibold text-charcoal-2/70">
+                  {portfolioSummary.archived} Archived
+                </span>
+              )}
+              <span className="text-xs text-charcoal-2">· {personas.length} total</span>
             </div>
 
             <div className="space-y-6">
@@ -194,7 +245,9 @@ export function PersonaWorkspace() {
                         <div className="flex flex-1 flex-col p-4">
                           <div className="flex items-start justify-between gap-2">
                             <h3 className="text-base font-bold leading-tight text-charcoal">{persona.display_name}</h3>
-                            <span className="shrink-0 rounded-full bg-white/5 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-charcoal-2">Draft</span>
+                            <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${STATUS_STYLE[statusForPersona(persona.id)]}`}>
+                              {STATUS_LABEL[statusForPersona(persona.id)]}
+                            </span>
                           </div>
                           <p className="mt-0.5 text-sm font-medium text-accent">{persona.persona_title}</p>
                           <p className="mt-2 text-xs text-charcoal-2">
@@ -217,8 +270,9 @@ export function PersonaWorkspace() {
             </div>
 
             <p className="mt-6 text-xs text-charcoal-2">
-              These are drafts, not active public profiles. Nothing here is connected to any platform. You'll review,
-              personalise and activate them in a later step.
+              {hasActiveCharacter
+                ? 'Active characters are ready to brief. You can continue editing, archiving completed directions, or activating more drafts.'
+                : 'These are drafts, not active public profiles. Nothing here is connected to any platform. Open a character to personalise and activate it.'}
             </p>
           </>
         )}

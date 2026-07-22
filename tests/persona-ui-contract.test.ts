@@ -136,8 +136,11 @@ test('PersonaWorkspace communicates draft-only, no-platform framing', () => {
   assert.match(ws, /Photo coming soon/);
 });
 
-test('PersonaDetail is a read-only view', () => {
+test('PersonaDetail is an editable character workspace with lifecycle actions', () => {
   const detail = read('src/components/creator/PersonaDetail.tsx');
-  assert.match(detail, /read-only draft/i);
   assert.match(detail, /getMyPersona/);
+  assert.match(detail, /Activate Character|Activate this character/);
+  assert.match(detail, /ensureCharacterProfile/);
+  assert.match(detail, /transitionCharacterStatus/);
+  assert.match(detail, /deleteCharacterProfile/);
 });
