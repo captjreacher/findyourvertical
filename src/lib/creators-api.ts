@@ -1100,6 +1100,21 @@ export async function createCreatorRetakeInvite(): Promise<{ invite_code: string
 // Authenticated creator-self-service + agency. The library is public-read of
 // active rows; snapshots and selections are creator-own via RLS.
 
+/**
+ * Load ALL active catalogue archetype variations (no archetype filter).
+ * Used by the catalogue picker to show every eligible creative direction.
+ */
+export async function getAllActiveArchetypeVariations(): Promise<ArchetypeVariation[]> {
+  const { data, error } = await supabase
+    .from('archetype_variations')
+    .select('*')
+    .eq('is_active', true)
+    .order('archetype', { ascending: true })
+    .order('display_order', { ascending: true });
+  if (error) throw new Error(`Failed to load catalogue: ${error.message}`);
+  return (data ?? []) as ArchetypeVariation[];
+}
+
 /** Active variations for the given archetypes, ordered for display. */
 export async function getActiveVariationsForArchetypes(
   archetypes: string[],

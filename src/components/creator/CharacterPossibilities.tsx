@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { snapshotToRankedArchetypes } from '@/lib/persona-archetypes';
 import {
   getActiveVariationsForArchetypes,
+  getAllActiveArchetypeVariations,
   generateMyPersonaPortfolio,
   getMyArchetypeSnapshot,
 } from '@/lib/creators-api';
@@ -43,6 +44,7 @@ import type {
   CreatorVerticalWorksetViewEntry,
   VerticalSourceLabel,
 } from '@/types/creator';
+import { useCataloguePicker, buildLibraryIndex as catalogueBuildIndex } from './CataloguePicker';
 import brandLogo from '@/assets/fyv-brand-logo.png';
 
 // Pure helpers
@@ -128,6 +130,7 @@ export function CharacterPossibilities() {
   const [view, setView] = useState<CreatorVerticalWorksetView | null>(null);
   const [snapshotId, setSnapshotId] = useState<string | null>(null);
   const [libraryByArchetype, setLibraryByArchetype] = useState<Map<string, CatalogueArchetype>>(new Map());
+  const [fullCatalogue, setFullCatalogue] = useState<Map<string, CatalogueArchetype>>(new Map());
   const [ownedVerticals, setOwnedVerticals] = useState<CreatorOwnedVertical[]>([]);
   const [ownedVariations, setOwnedVariations] = useState<CreatorOwnedVariation[]>([]);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
@@ -158,14 +161,16 @@ export function CharacterPossibilities() {
         }
         const ranked = snapshotToRankedArchetypes(snap);
         const archetypes = ranked.map(r => r.archetype);
-        const [libRows, workset, ownedVerts, ownedVars] = await Promise.all([
+        const [libRows, fullCatRows, workset, ownedVerts, ownedVars] = await Promise.all([
           getActiveVariationsForArchetypes(archetypes),
+          getAllActiveArchetypeVariations(),
           getMyVerticalWorkset(snap.id),
           loadOwnedVerticals(profile.id),
           loadOwnedVariations(profile.id),
         ]);
         if (!mounted) return;
-        setLibraryByArchetype(buildLibraryIndex(libRows));
+        setLibraryByArchetype(catalogueBuildIndex(libRows));
+        setFullCatalogue(catalogueBuildIndex(fullCatRows));
         setOwnedVerticals(ownedVerts);
         setOwnedVariations(ownedVars);
         if (workset) {
@@ -279,39 +284,41 @@ export function CharacterPossibilities() {
     scheduleAutosave();
   }, [scheduleAutosave]);
 
-  const replaceVertical = useCallback(async (position: number, replacement: { archetypeKey: string; source: VerticalSourceLabel }) => {
+  const replaceVerticalSingle = useCallback(async (position: number, archetypeKey: string) => {
     updateView(prev => renumberAndReplaceAt(prev, position, {
       worksetId: `tmp-${cryptoId()}`,
       position,
       verticalKind: 'system_reference',
-      verticalLabel: replacement.archetypeKey,
-      systemArchetype: replacement.archetypeKey,
+      verticalLabel: archetypeKey,
+      systemArchetype: archetypeKey,
       ownedVerticalId: null,
-      sourceLabel: replacement.source,
+      sourceLabel: 'catalogue',
       selectedVariations: [],
     }));
   }, [updateView]);
 
-  const addVerticalFromCatalogue = useCallback((archetypeKey: string) => {
+  const addMultiVerticalFromCatalogue = useCallback((archetypeKeys: string[]) => {
     updateView(prev => {
       if (prev.verticals.length >= MAX_WORKSET_SIZE) return prev;
-      const newPosition = prev.verticals.length + 1;
+      const maxToAdd = MAX_WORKSET_SIZE - prev.verticals.length;
+      const toAdd = archetypeKeys.slice(0, maxToAdd);
+      const newEntries = toAdd.map((key, idx) => {
+        const newPosition = prev.verticals.length + idx + 1;
+        return {
+          worksetId: `tmp-${cryptoId()}`,
+          position: newPosition,
+          rankLabel: rankLabelFor(newPosition),
+          verticalKind: 'system_reference' as const,
+          verticalLabel: key,
+          systemArchetype: key,
+          ownedVerticalId: null,
+          sourceLabel: 'catalogue' as const,
+          selectedVariations: [],
+        };
+      });
       return {
         ...prev,
-        verticals: [
-          ...prev.verticals,
-          {
-            worksetId: `tmp-${cryptoId()}`,
-            position: newPosition,
-            rankLabel: rankLabelFor(newPosition),
-            verticalKind: 'system_reference',
-            verticalLabel: archetypeKey,
-            systemArchetype: archetypeKey,
-            ownedVerticalId: null,
-            sourceLabel: 'catalogue',
-            selectedVariations: [],
-          },
-        ],
+        verticals: [...prev.verticals, ...newEntries],
       };
     });
   }, [updateView]);
@@ -619,6 +626,7 @@ export function CharacterPossibilities() {
           <StepChoose
             view={view}
             libraryByArchetype={libraryByArchetype}
+            fullCatalogue={fullCatalogue}
             ownedVariations={ownedVariations}
             ownedVerticals={ownedVerticals}
             saveStatus={saveStatus}
@@ -626,8 +634,8 @@ export function CharacterPossibilities() {
             busyMessage={busyMessage}
             totalSelected={totalSelected}
             isPortfolioReady={isPortfolioReady}
-            onReplaceVertical={replaceVertical}
-            onAddVerticalFromCatalogue={addVerticalFromCatalogue}
+            onReplaceVertical={replaceVerticalSingle}
+            onAddMultiVerticalFromCatalogue={addMultiVerticalFromCatalogue}
             onAddCreatorVertical={addCreatorVertical}
             onRemoveVertical={removeVertical}
             onMoveVertical={moveVertical}
@@ -817,7 +825,7 @@ function StepReveal({ snapshot, onContinue }: StepRevealProps) {
         ))}
       </ol>
       <WizardFooter
-        primaryLabel="Continue \u2192"
+        primaryLabel="Continue"
         onPrimary={onContinue}
         secondary={null}
       />
@@ -911,6 +919,7 @@ function PermittedAction({ text }: { text: string }) {
 interface StepChooseProps {
   view: CreatorVerticalWorksetView;
   libraryByArchetype: Map<string, CatalogueArchetype>;
+  fullCatalogue: Map<string, CatalogueArchetype>;
   ownedVariations: CreatorOwnedVariation[];
   ownedVerticals: CreatorOwnedVertical[];
   saveStatus: SaveStatus;
@@ -918,8 +927,8 @@ interface StepChooseProps {
   busyMessage: string | null;
   totalSelected: number;
   isPortfolioReady: boolean;
-  onReplaceVertical: (position: number, replacement: { archetypeKey: string; source: VerticalSourceLabel }) => Promise<void>;
-  onAddVerticalFromCatalogue: (archetype: string) => void;
+  onReplaceVertical: (position: number, archetypeKey: string) => void;
+  onAddMultiVerticalFromCatalogue: (archetypeKeys: string[]) => void;
   onAddCreatorVertical: (input: { name: string; description: string }) => Promise<void>;
   onRemoveVertical: (worksetId: string) => void;
   onMoveVertical: (worksetId: string, direction: 'up' | 'down') => void;
@@ -939,9 +948,9 @@ interface StepChooseProps {
 
 function StepChoose(props: StepChooseProps) {
   const {
-    view, libraryByArchetype, ownedVariations, ownedVerticals,
+    view, libraryByArchetype, fullCatalogue, ownedVariations, ownedVerticals,
     saveStatus, saveError, busyMessage, totalSelected, isPortfolioReady,
-    onReplaceVertical, onAddVerticalFromCatalogue, onAddCreatorVertical,
+    onReplaceVertical, onAddMultiVerticalFromCatalogue, onAddCreatorVertical,
     onRemoveVertical, onMoveVertical,
     onToggleLibraryVariation, onToggleOwnedVariation,
     onCustomiseLibraryVariation, onCreateOwnedVariation,
@@ -950,6 +959,12 @@ function StepChoose(props: StepChooseProps) {
     onSubmitOwnedVerticalForReview, onSubmitOwnedVariationForReview,
     onContinue, onBack,
   } = props;
+
+  const alreadyUsedArchetypes = view.verticals.filter(v => v.systemArchetype).map(v => v.systemArchetype as string);
+  const picker = useCataloguePicker({
+    alreadyUsedArchetypes: alreadyUsedArchetypes,
+  });
+
   return (
     <section data-wizard-step="choose" className="space-y-5">
       <header>
@@ -978,8 +993,7 @@ function StepChoose(props: StepChooseProps) {
             libraryByArchetype={libraryByArchetype}
             ownedVariations={ownedVariations}
             ownedVerticals={ownedVerticals}
-            onReplace={async archetypeKey => { await onReplaceVertical(entry.position, { archetypeKey, source: 'catalogue' }); }}
-            onAddFromCatalogue={onAddVerticalFromCatalogue}
+            onOpenReplacePicker={picker.openReplacePicker}
             onAddCreatorVertical={onAddCreatorVertical}
             onRemove={() => onRemoveVertical(entry.worksetId)}
             onMove={dir => onMoveVertical(entry.worksetId, dir)}
@@ -1002,9 +1016,9 @@ function StepChoose(props: StepChooseProps) {
       {view.verticals.length < MAX_WORKSET_SIZE && (
         <AddDirectionCard
           libraryByArchetype={libraryByArchetype}
-          onPickCatalogue={onAddVerticalFromCatalogue}
+          onOpenAddPicker={picker.openAddPicker}
           onCreateCreator={onAddCreatorVertical}
-          alreadyUsedArchetypes={view.verticals.filter(v => v.systemArchetype).map(v => v.systemArchetype as string)}
+          alreadyUsedArchetypes={alreadyUsedArchetypes}
         />
       )}
 
@@ -1016,6 +1030,21 @@ function StepChoose(props: StepChooseProps) {
         onPrimary={onContinue}
         secondary={{ label: '← Back', onClick: onBack }}
       />
+
+      {/* Catalogue picker modal portal */}
+      {picker.renderPicker(
+        (selections) => {
+          if (picker.isOpen && picker.mode === 'add') {
+            onAddMultiVerticalFromCatalogue(selections);
+          } else if (picker.isOpen && picker.mode === 'replace') {
+            // Find the position of the entry whose systemArchetype matches
+            const entry = view.verticals.find(v => v.systemArchetype === picker.replacingArchetype);
+            if (entry && selections.length > 0) {
+              onReplaceVertical(entry.position, selections[0]);
+            }
+          }
+        },
+      )}
     </section>
   );
 }
@@ -1305,8 +1334,7 @@ interface DirectionCardProps {
   libraryByArchetype: Map<string, CatalogueArchetype>;
   ownedVariations: CreatorOwnedVariation[];
   ownedVerticals: CreatorOwnedVertical[];
-  onReplace: (archetype: string) => void;
-  onAddFromCatalogue: (archetype: string) => void;
+  onOpenReplacePicker: (archetype: string) => void;
   onAddCreatorVertical: (input: { name: string; description: string }) => Promise<void>;
   onRemove: () => void;
   onMove: (dir: 'up' | 'down') => void;
@@ -1323,7 +1351,7 @@ interface DirectionCardProps {
 }
 
 function DirectionCard(props: DirectionCardProps) {
-  const { entry, libraryByArchetype, ownedVariations, onReplace, onRemove, onMove, onToggleLibrary, onToggleOwned, onCustomiseLibrary, onCreateOwnedVariation, onRenameOwnedVariation, onArchiveOwnedVariation, onRenameOwnedVertical, onArchiveOwnedVertical, onSubmitOwnedVerticalForReview, onSubmitOwnedVariationForReview, totalVerticals } = props;
+  const { entry, libraryByArchetype, ownedVariations, onOpenReplacePicker, onRemove, onMove, onToggleLibrary, onToggleOwned, onCustomiseLibrary, onCreateOwnedVariation, onRenameOwnedVariation, onArchiveOwnedVariation, onRenameOwnedVertical, onArchiveOwnedVertical, onSubmitOwnedVerticalForReview, onSubmitOwnedVariationForReview, totalVerticals } = props;
 
   const catalogueArchetype = entry.systemArchetype ? libraryByArchetype.get(entry.systemArchetype) : undefined;
   const libraryVariations = catalogueArchetype?.variations ?? [];
@@ -1358,7 +1386,13 @@ function DirectionCard(props: DirectionCardProps) {
         <button type="button" className="btn-secondary text-xs" onClick={() => onMove('down')} disabled={isLast} aria-label="Move down">
           Move down
         </button>
-        <ReplaceDirectionMenu currentArchetype={entry.systemArchetype} libraryByArchetype={libraryByArchetype} onPick={onReplace} />
+        <button
+          type="button"
+          className="btn-secondary text-xs"
+          onClick={() => { if (entry.systemArchetype) onOpenReplacePicker(entry.systemArchetype); }}
+        >
+          Replace from catalogue
+        </button>
         {onRenameOwnedVertical && entry.ownedVerticalId && (
           <RenameOwnedVerticalButton
             onSubmit={edit => onRenameOwnedVertical(entry.ownedVerticalId as string, edit)}
@@ -1583,54 +1617,13 @@ function CreateVariationButton(props: {
   );
 }
 
-function ReplaceDirectionMenu(props: {
-  currentArchetype: string | null;
-  libraryByArchetype: Map<string, CatalogueArchetype>;
-  onPick: (archetypeKey: string) => void;
-}) {
-  const [query, setQuery] = useState('');
-  const [open, setOpen] = useState(false);
-  if (!open) {
-    return <button type="button" className="btn-secondary text-xs" onClick={() => setOpen(true)}>Replace from catalogue</button>;
-  }
-  const archetypes = [...props.libraryByArchetype.keys()];
-  const filtered = archetypes.filter(a => a.toLowerCase().includes(query.trim().toLowerCase()));
-  return (
-    <div className="w-full max-w-xs rounded-xl border border-white/10 bg-surface-2 p-3">
-      <input
-        value={query}
-        onChange={e => setQuery(e.target.value)}
-        placeholder="Search catalogue directions"
-        className="w-full rounded-lg border border-white/10 bg-surface px-3 py-2 text-sm text-charcoal"
-      />
-      <ul className="mt-2 max-h-48 overflow-auto text-sm">
-        {filtered.map(a => (
-          <li key={a}>
-            <button
-              type="button"
-              className={`w-full rounded-md px-2 py-1 text-left hover:bg-accent/15 ${props.currentArchetype === a ? 'font-semibold text-accent' : 'text-charcoal'}`}
-              onClick={() => { props.onPick(a); setOpen(false); setQuery(''); }}
-            >
-              {a}
-            </button>
-          </li>
-        ))}
-        {filtered.length === 0 && (
-          <li className="px-2 py-1 text-xs text-charcoal-2">No match — try a different keyword.</li>
-        )}
-      </ul>
-      <button type="button" className="btn-secondary mt-2 w-full text-xs" onClick={() => setOpen(false)}>Cancel</button>
-    </div>
-  );
-}
-
 function AddDirectionCard(props: {
   libraryByArchetype: Map<string, CatalogueArchetype>;
-  onPickCatalogue: (archetype: string) => void;
+  onOpenAddPicker: () => void;
   onCreateCreator: (input: { name: string; description: string }) => Promise<void>;
   alreadyUsedArchetypes: string[];
 }) {
-  const [mode, setMode] = useState<'catalogue' | 'custom' | null>(null);
+  const [mode, setMode] = useState<'custom' | null>(null);
   if (mode === 'custom') {
     return (
       <section className="mt-5 rounded-2xl border border-dashed border-accent/50 bg-surface p-5">
@@ -1644,35 +1637,9 @@ function AddDirectionCard(props: {
       </section>
     );
   }
-  if (mode === 'catalogue') {
-    return (
-      <section className="mt-5 rounded-2xl border border-dashed border-accent/50 bg-surface p-5">
-        <h3 className="text-base font-semibold text-charcoal">Add a direction from the catalogue</h3>
-        <p className="mt-1 text-xs text-charcoal-2">Pick up to {MAX_WORKSET_SIZE - props.alreadyUsedArchetypes.length} more. Already-selected ones are dimmed.</p>
-        <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
-          {[...props.libraryByArchetype.keys()].map(a => {
-            const already = props.alreadyUsedArchetypes.includes(a);
-            return (
-              <button
-                key={a}
-                type="button"
-                disabled={already}
-                className={`rounded-xl border p-3 text-left text-sm ${already ? 'border-white/5 bg-surface-2 text-charcoal-2' : 'border-white/10 bg-surface-2 hover:border-accent/70 hover:bg-accent/10'}`}
-                onClick={() => { props.onPickCatalogue(a); setMode(null); }}
-              >
-                <div className="font-semibold text-charcoal">{a}</div>
-                <div className="text-xs text-charcoal-2">{already ? 'Already in your list' : 'Add to your list'}</div>
-              </button>
-            );
-          })}
-        </div>
-        <button type="button" className="btn-secondary mt-3 text-xs" onClick={() => setMode(null)}>Cancel</button>
-      </section>
-    );
-  }
   return (
     <section className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
-      <button type="button" className="rounded-2xl border border-dashed border-accent/40 bg-surface p-5 text-left" onClick={() => setMode('catalogue')}>
+      <button type="button" className="rounded-2xl border border-dashed border-accent/40 bg-surface p-5 text-left" onClick={props.onOpenAddPicker}>
         <span className="text-xs font-semibold uppercase tracking-wide text-accent">From the catalogue</span>
         <p className="mt-1 text-sm font-semibold text-charcoal">Add another direction</p>
         <p className="mt-1 text-xs text-charcoal-2">Pick any archetype the FYV team has already curated.</p>
@@ -1696,34 +1663,55 @@ function InlineEditor(props: {
   const [name, setName] = useState(props.initialName);
   const [description, setDescription] = useState(props.initialDescription);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
   return (
     <form
-      className="w-full rounded-xl border border-white/10 bg-surface-2 p-3"
+      className="w-full rounded-xl border border-white/10 bg-surface-2 p-4"
       onSubmit={async e => {
         e.preventDefault();
-        if (!name.trim()) return;
+        if (!name.trim()) {
+          setError('Name is required.');
+          return;
+        }
+        if (busy) return;
+        setError('');
         setBusy(true);
-        try { await props.onSubmit({ name: name.trim(), description: description.trim() }); }
-        finally { setBusy(false); }
+        try {
+          await props.onSubmit({ name: name.trim(), description: description.trim() });
+        } catch (err) {
+          setError(err instanceof Error ? err.message : 'Save failed. Please try again.');
+          setBusy(false);
+        }
       }}
     >
+      {props.submitLabel && (
+        <label className="sr-only" htmlFor="inline-name">{props.submitLabel} — name</label>
+      )}
       <input
+        id="inline-name"
         value={name}
-        onChange={e => setName(e.target.value)}
+        onChange={e => { setName(e.target.value); setError(''); }}
         placeholder="Name"
         required
-        className="w-full rounded-md border border-white/10 bg-surface px-3 py-2 text-sm text-charcoal"
+        className="w-full rounded-md border border-white/10 bg-surface px-3 py-2.5 text-sm text-charcoal placeholder-charcoal-2"
       />
+      <label className="sr-only" htmlFor="inline-desc">Description (optional)</label>
       <textarea
+        id="inline-desc"
         value={description}
         onChange={e => setDescription(e.target.value)}
         placeholder="Description (optional)"
-        rows={2}
-        className="mt-2 w-full rounded-md border border-white/10 bg-surface px-3 py-2 text-sm text-charcoal"
+        rows={3}
+        className="mt-3 w-full rounded-md border border-white/10 bg-surface px-3 py-2.5 text-sm text-charcoal placeholder-charcoal-2"
       />
-      <div className="mt-2 flex flex-wrap gap-2">
-        <button type="submit" disabled={busy} className="btn-primary text-xs">{busy ? 'Saving…' : props.submitLabel}</button>
-        <button type="button" className="btn-secondary text-xs" onClick={props.onCancel} disabled={busy}>Cancel</button>
+      {error && (
+        <p className="mt-2 text-xs text-pink" role="alert">{error}</p>
+      )}
+      <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:gap-3">
+        <button type="button" className="btn-secondary w-full text-sm sm:w-auto" onClick={props.onCancel} disabled={busy}>Cancel</button>
+        <button type="submit" disabled={busy || !name.trim()} className="btn-primary w-full text-sm disabled:opacity-50 sm:w-auto">
+          {busy ? 'Saving…' : props.submitLabel}
+        </button>
       </div>
     </form>
   );
@@ -1781,16 +1769,4 @@ function renumberAndReplaceAt(prev: CreatorVerticalWorksetView, position: number
   return { ...prev, verticals: list };
 }
 
-function buildLibraryIndex(rows: ArchetypeVariation[]): Map<string, CatalogueArchetype> {
-  const map = new Map<string, CatalogueArchetype>();
-  for (const v of rows) {
-    const entry = map.get(v.archetype) ?? { archetype: v.archetype, description: '', variations: [] };
-    entry.variations.push(v);
-    map.set(v.archetype, entry);
-  }
-  for (const [, entry] of map) {
-    entry.variations.sort((a, b) => a.display_order - b.display_order || a.name.localeCompare(b.name));
-    entry.description = entry.variations[0]?.description ?? '';
-  }
-  return map;
-}
+
