@@ -5,7 +5,6 @@ import { supabase } from '@/lib/supabase';
 import { snapshotToRankedArchetypes } from '@/lib/persona-archetypes';
 import {
   getActiveVariationsForArchetypes,
-  getAllActiveArchetypeVariations,
   generateMyPersonaPortfolio,
   getMyArchetypeSnapshot,
 } from '@/lib/creators-api';
@@ -130,7 +129,6 @@ export function CharacterPossibilities() {
   const [view, setView] = useState<CreatorVerticalWorksetView | null>(null);
   const [snapshotId, setSnapshotId] = useState<string | null>(null);
   const [libraryByArchetype, setLibraryByArchetype] = useState<Map<string, CatalogueArchetype>>(new Map());
-  const [fullCatalogue, setFullCatalogue] = useState<Map<string, CatalogueArchetype>>(new Map());
   const [ownedVerticals, setOwnedVerticals] = useState<CreatorOwnedVertical[]>([]);
   const [ownedVariations, setOwnedVariations] = useState<CreatorOwnedVariation[]>([]);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
@@ -161,16 +159,14 @@ export function CharacterPossibilities() {
         }
         const ranked = snapshotToRankedArchetypes(snap);
         const archetypes = ranked.map(r => r.archetype);
-        const [libRows, fullCatRows, workset, ownedVerts, ownedVars] = await Promise.all([
+        const [libRows, workset, ownedVerts, ownedVars] = await Promise.all([
           getActiveVariationsForArchetypes(archetypes),
-          getAllActiveArchetypeVariations(),
           getMyVerticalWorkset(snap.id),
           loadOwnedVerticals(profile.id),
           loadOwnedVariations(profile.id),
         ]);
         if (!mounted) return;
         setLibraryByArchetype(catalogueBuildIndex(libRows));
-        setFullCatalogue(catalogueBuildIndex(fullCatRows));
         setOwnedVerticals(ownedVerts);
         setOwnedVariations(ownedVars);
         if (workset) {
@@ -626,7 +622,6 @@ export function CharacterPossibilities() {
           <StepChoose
             view={view}
             libraryByArchetype={libraryByArchetype}
-            fullCatalogue={fullCatalogue}
             ownedVariations={ownedVariations}
             ownedVerticals={ownedVerticals}
             saveStatus={saveStatus}
@@ -919,7 +914,6 @@ function PermittedAction({ text }: { text: string }) {
 interface StepChooseProps {
   view: CreatorVerticalWorksetView;
   libraryByArchetype: Map<string, CatalogueArchetype>;
-  fullCatalogue: Map<string, CatalogueArchetype>;
   ownedVariations: CreatorOwnedVariation[];
   ownedVerticals: CreatorOwnedVertical[];
   saveStatus: SaveStatus;
@@ -948,7 +942,7 @@ interface StepChooseProps {
 
 function StepChoose(props: StepChooseProps) {
   const {
-    view, libraryByArchetype, fullCatalogue, ownedVariations, ownedVerticals,
+    view, libraryByArchetype, ownedVariations, ownedVerticals,
     saveStatus, saveError, busyMessage, totalSelected, isPortfolioReady,
     onReplaceVertical, onAddMultiVerticalFromCatalogue, onAddCreatorVertical,
     onRemoveVertical, onMoveVertical,
