@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import {
   consumeAuthRedirectPath,
@@ -53,30 +53,57 @@ function ScrollToTop() {
 }
 
 function AuthCallback() {
+  const [error, setError] = useState<string | null>(null);
+
   useEffect(() => {
     let mounted = true;
     const params = new URLSearchParams(window.location.search);
     const code = params.get('code');
     const nextParam = params.get('next');
-    const next = normalizeRedirectPath(nextParam ?? consumeAuthRedirectPath() ?? '/cockpit');
 
     const finishAuthRedirect = async () => {
-      if (code) {
-        const { error } = await supabase.auth.exchangeCodeForSession(code);
-        if (error) {
-          console.error('[auth callback] exchangeCodeForSession error', error);
+      try {
+        // 1. Exchange the PKCE code for a session
+        if (code) {
+          const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+          if (exchangeError) {
+            if (import.meta.env.DEV) {
+              console.error('[auth callback] exchangeCodeForSession error', exchangeError);
+            }
+            if (mounted) {
+              setError('Unable to complete sign-in. Please try again.');
+            }
+            return;
+          }
         }
-      }
 
-      const { data: { session }, error } = await supabase.auth.getSession();
-      if (error) {
-        console.error('[auth callback] getSession error', error);
-      }
+        // 2. Confirm a valid session exists before navigating
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError || !session) {
+          if (import.meta.env.DEV) {
+            if (sessionError) console.error('[auth callback] getSession error', sessionError);
+            if (!session) console.error('[auth callback] no session after code exchange');
+          }
+          if (mounted) {
+            setError('Sign-in did not complete. Please try again.');
+          }
+          return;
+        }
 
-      const finalRedirectPath = `/#${next}`;
+        // 3. Consume the stored redirect path only after successful auth.
+        //    The URL 'next' param takes precedence; fall back to stored path or /my.
+        const next = normalizeRedirectPath(nextParam ?? consumeAuthRedirectPath(), '/my');
 
-      if (mounted) {
-        window.location.replace(`${window.location.origin}${finalRedirectPath}`);
+        if (mounted) {
+          window.location.replace(`${window.location.origin}/#${next}`);
+        }
+      } catch (err) {
+        if (import.meta.env.DEV) {
+          console.error('[auth callback] unexpected error', err);
+        }
+        if (mounted) {
+          setError('An unexpected error occurred. Please try again.');
+        }
       }
     };
 
@@ -86,6 +113,19 @@ function AuthCallback() {
       mounted = false;
     };
   }, []);
+
+  if (error) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-surface-2 p-4">
+        <div className="w-full max-w-md rounded-2xl border border-pink/30 bg-surface/92 p-6 text-center shadow-2xl shadow-black/25">
+          <p className="text-sm text-pink" role="alert">{error}</p>
+          <a href="/#/auth/login" className="btn-primary mt-4 inline-flex">
+            Back to Sign In
+          </a>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <LoadingScreen label="Signing you in…" />

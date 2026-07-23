@@ -201,10 +201,18 @@ export function CreatorGate({ children }: { children: ReactNode }) {
     setSending(true);
     clearAuthMessage();
     storeAuthRedirectPath(DESTINATION);
-    const { error } = await supabase.auth.signInWithOAuth({
+    const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: authCallbackUrl(DESTINATION) },
+      options: {
+        redirectTo: authCallbackUrl(DESTINATION),
+        skipBrowserRedirect: true,
+      },
     });
+
+    if (data?.url) {
+      window.location.href = data.url;
+      return;
+    }
     if (error) {
       setAuthMessage('error', 'Unable to start Google sign-in. Please try again.');
       if (import.meta.env.DEV) {
