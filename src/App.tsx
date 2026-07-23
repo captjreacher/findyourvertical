@@ -61,12 +61,25 @@ function AuthCallback() {
     const code = params.get('code');
     const nextParam = params.get('next');
 
+    // DIAG: log entry params
+    console.log('[OAuth DIAG] AuthCallback mounted', {
+      code: code ? code.substring(0, 8) + '…' : null,
+      nextParam,
+      href: window.location.href,
+      search: window.location.search,
+      sessionStorage_redirectPath: window.sessionStorage.getItem('findyourvertical.auth.redirectPath'),
+    });
+
     const finishAuthRedirect = async () => {
       try {
         // 1. Exchange the PKCE code for a session
         if (code) {
+          // DIAG: before exchange
+          console.log('[OAuth DIAG] calling exchangeCodeForSession', { code: code.substring(0, 8) + '…' });
           const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
           if (exchangeError) {
+            // DIAG: exchange failed
+            console.log('[OAuth DIAG] exchangeCodeForSession FAILED', { name: exchangeError.name, message: exchangeError.message, status: (exchangeError as any).status });
             if (import.meta.env.DEV) {
               console.error('[auth callback] exchangeCodeForSession error', exchangeError);
             }
@@ -75,10 +88,18 @@ function AuthCallback() {
             }
             return;
           }
+          // DIAG: exchange succeeded
+          console.log('[OAuth DIAG] exchangeCodeForSession SUCCEEDED');
         }
 
         // 2. Confirm a valid session exists before navigating
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        // DIAG: session check result
+        console.log('[OAuth DIAG] getSession result', {
+          hasSession: !!session,
+          sessionError: sessionError ? { message: sessionError.message, status: (sessionError as any).status } : null,
+          userEmail: session?.user?.email,
+        });
         if (sessionError || !session) {
           if (import.meta.env.DEV) {
             if (sessionError) console.error('[auth callback] getSession error', sessionError);
@@ -92,10 +113,24 @@ function AuthCallback() {
 
         // 3. Consume the stored redirect path only after successful auth.
         //    The URL 'next' param takes precedence; fall back to stored path or /my.
+        //    IMPORTANT: keep the ?? short-circuit — consumeAuthRedirectPath() must
+        //    only be called when nextParam is falsy (side-effect: removes from storage).
+        // DIAG: inspect stored path before consuming (read without removing)
+        const storedBeforeConsume = window.sessionStorage.getItem('findyourvertical.auth.redirectPath');
+        console.log('[OAuth DIAG] redirect path resolution', {
+          nextParam,
+          storedBeforeConsume,
+          chained: nextParam ?? storedBeforeConsume,
+        });
         const next = normalizeRedirectPath(nextParam ?? consumeAuthRedirectPath(), '/my');
+        // DIAG: final next value
+        console.log('[OAuth DIAG] final next', { next });
 
         if (mounted) {
-          window.location.replace(`${window.location.origin}/#${next}`);
+          const targetUrl = `${window.location.origin}/#${next}`;
+          // DIAG: final navigation
+          console.log('[OAuth DIAG] navigating to', { targetUrl });
+          window.location.replace(targetUrl);
         }
       } catch (err) {
         if (import.meta.env.DEV) {
@@ -133,7 +168,13 @@ function AuthCallback() {
 }
 
 export default function App() {
-  if (window.location.pathname === '/auth/callback') {
+  // Handle OAuth callback — Supabase redirects to /auth/callback?code=xxx&next=...
+  // but Cloudflare's SPA handler may strip the path and serve at /?code=xxx.
+  // Check for the code param anywhere in the URL as a failsafe.
+  if (
+    window.location.pathname === '/auth/callback' ||
+    new URLSearchParams(window.location.search).has('code')
+  ) {
     return <AuthCallback />;
   }
 

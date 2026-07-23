@@ -201,15 +201,33 @@ export function CreatorGate({ children }: { children: ReactNode }) {
     setSending(true);
     clearAuthMessage();
     storeAuthRedirectPath(DESTINATION);
+
+    // DIAG: log before OAuth initiation
+    console.log('[OAuth DIAG] starting Google OAuth', {
+      DESTINATION,
+      storedPath: window.sessionStorage.getItem('findyourvertical.auth.redirectPath'),
+    });
+
+    const redirectTo = authCallbackUrl(DESTINATION);
+    console.log('[OAuth DIAG] redirectTo URL', { redirectTo });
+
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: authCallbackUrl(DESTINATION),
+        redirectTo,
         skipBrowserRedirect: true,
       },
     });
 
+    // DIAG: log the OAuth URL response
+    console.log('[OAuth DIAG] signInWithOAuth response', {
+      hasUrl: !!data?.url,
+      urlPrefix: data?.url ? data.url.substring(0, 60) + '…' : null,
+      error: error ? { message: error.message } : null,
+    });
+
     if (data?.url) {
+      console.log('[OAuth DIAG] navigating to OAuth provider');
       window.location.href = data.url;
       return;
     }
