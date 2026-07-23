@@ -197,25 +197,21 @@ export function CreatorGate({ children }: { children: ReactNode }) {
     if (session) await resolveCreator(session);
   }, [session, resolveCreator]);
 
-  /* Google sign-in is TEMPORARILY DISABLED while we finalise OAuth configuration.
-     Re-enable by: (1) removing `disabled` from the button JSX, (2) replacing the
-     body below with the original OAuth call. The original code is preserved here
-     so re-enabling is a one-line uncomment. */
   const handleGoogleLogin = async () => {
-    /* Original OAuth call — uncomment to re-enable:
-       setSending(true);
-       clearAuthMessage();
-       storeAuthRedirectPath(DESTINATION);
-       const { error } = await supabase.auth.signInWithOAuth({
-         provider: 'google',
-         options: { redirectTo: authCallbackUrl(DESTINATION) },
-       });
-       if (error) {
-         setAuthMessage('error', 'Unable to start Google sign-in. Please try again.');
-         setSending(false);
-       }
-    */
-    setAuthMessage('error', 'Google sign-in is not available yet. Please use email/password to sign in.');
+    setSending(true);
+    clearAuthMessage();
+    storeAuthRedirectPath(DESTINATION);
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: authCallbackUrl(DESTINATION) },
+    });
+    if (error) {
+      setAuthMessage('error', 'Unable to start Google sign-in. Please try again.');
+      if (import.meta.env.DEV) {
+        console.error('[Google OAuth] signInWithOAuth error', error);
+      }
+      setSending(false);
+    }
   };
 
   const handlePasswordLogin = async (event: FormEvent) => {
@@ -329,14 +325,12 @@ export function CreatorGate({ children }: { children: ReactNode }) {
                 <button
                   type="button"
                   onClick={() => void handleGoogleLogin()}
-                  disabled
-                  className="inline-flex min-h-13 w-full cursor-not-allowed items-center justify-center gap-3 rounded-xl bg-white/60 px-4 py-3 text-base font-semibold text-black/40 shadow-lg shadow-black/10"
-                  title="Google sign-in coming soon"
+                  disabled={sending}
+                  className="inline-flex min-h-13 w-full items-center justify-center gap-3 rounded-xl bg-white px-4 py-3 text-base font-semibold text-black shadow-lg shadow-black/10 transition-colors hover:bg-white/90 active:bg-white/70 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  <span className="grid h-5 w-5 place-items-center rounded-full border border-black/10 text-sm font-bold text-black/40">G</span>
+                  <span className="grid h-5 w-5 place-items-center rounded-full border border-black/10 text-sm font-bold">G</span>
                   Continue with Google
                 </button>
-                <p className="mt-1 text-center text-xs text-charcoal-2/70">Google sign-in coming soon</p>
                 <div className="grid gap-2 rounded-xl border border-dashed border-white/10 bg-white/[0.03] p-3">
                   <p className="text-xs font-medium uppercase tracking-[0.18em] text-charcoal-2">Future providers</p>
                   <div className="grid grid-cols-2 gap-2">
