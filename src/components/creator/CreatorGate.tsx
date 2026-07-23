@@ -12,6 +12,8 @@ import type { Session } from '@supabase/supabase-js';
 import {
   authCallbackUrl,
   checkIsAgency,
+  consumeAuthRedirectPath,
+  normalizeRedirectPath,
   signOut,
   storeAuthRedirectPath,
   supabase,
@@ -230,6 +232,21 @@ export function CreatorGate({ children }: { children: ReactNode }) {
 
     setPassword('');
     setSending(false);
+
+    // Explicitly route the user to their post-auth destination. The CreatorGate
+    // mount also reacts to onAuthStateChange and remounts itself via
+    // <Navigate to="/my" replace /> on /auth/login, but Supabase's
+    // onAuthStateChange relies on BroadcastChannel/storage events that can be
+    // dropped or delayed by some browsers (notably Playwright's WebKit
+    // runtime), leaving the URL pinned at /auth/login. Hash navigation here
+    // routes immediately after Supabase confirms the session is valid, so the
+    // user lands on /my (or any pre-auth redirect stored by OAuth / invite
+    // links) regardless of event timing. Guard against the no-op assignment
+    // when onAuthStateChange already routed us, so we never double-fire.
+    const target = normalizeRedirectPath(consumeAuthRedirectPath() ?? DESTINATION);
+    if (window.location.hash !== `#${target}`) {
+      window.location.hash = target;
+    }
   };
 
   const handlePasswordReset = async () => {

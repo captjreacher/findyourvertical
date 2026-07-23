@@ -8,3 +8,7 @@ dist
 .freebuff/
 nul
 *.tsbuildinfo
+
+# Playwright throwaway output — fresh runs on every invocation.
+test-results/
+# Playwright HTML report generated under artifacts/ (kept; evidence preserved).

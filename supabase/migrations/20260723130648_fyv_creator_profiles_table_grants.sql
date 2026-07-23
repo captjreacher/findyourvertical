@@ -1,0 +1,32 @@
+-- FYV creator_profiles table-grant fix.
+--
+-- Symptom in Playwright WebKit at 390x667: CreatorGate phase='error' with
+-- "Failed to load your profile: permission denied for table creator_profiles".
+--
+-- Root cause: the existing RLS policies
+--   * "Creator can read own profile"        (USING auth_user_id = auth.uid())
+--   * "Public can read creator profiles"    (USING true)
+--   * "Public can update creator profiles for assessment"
+--   * "Public can insert creator profiles"
+--   * "Agency full access profiles"         (USING is_agency())
+-- are correct on their face, but Postgres evaluates table-level GRANTs BEFORE
+-- consulting RLS. Without a SELECT/INSERT/UPDATE at the table level the
+-- authenticated role cannot even read the row whose auth_user_id matches its
+-- JWT subject, so PostgREST returns the table-level denial error and RLS is
+-- never consulted.
+--
+-- The default privileges shipped with the Supabase harness only guarantee
+-- REFERENCES/TRIGGER/TRUNCATE to anon + authenticated on this table, so the
+-- dataset only recovered when we ran
+--   grant select, insert, update, delete
+--     on public.creator_profiles to anon, authenticated
+-- via `npx supabase db query --local`. This migration captures that recovery
+-- so:
+--   1. Production deploys fix the same defect the moment this migration runs.
+--   2. `supabase db reset` re-applies it on team replay.
+--
+-- DELETE is intentionally NOT granted here. anon has no business deleting
+-- creator profiles; authenticated self-cleanup (if ever needed) is funneled
+-- through SECURITY DEFINER RPCs with explicit predicates, not blanket DELETE.
+
+grant select, insert, update on table public.creator_profiles to anon, authenticated;
