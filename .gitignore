@@ -9,6 +9,8 @@ dist
 nul
 *.tsbuildinfo
 
-# Playwright throwaway output — fresh runs on every invocation.
+# Playwright throwaway output â€” fresh runs on every invocation.
 test-results/
 # Playwright HTML report generated under artifacts/ (kept; evidence preserved).
+.env.production
+supabase/.branches/

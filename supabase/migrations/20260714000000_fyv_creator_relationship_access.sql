@@ -154,7 +154,7 @@ create or replace function public.fyv_emit_creator_relationship_event(
   returns boolean
   language plpgsql
   security definer
-  set search_path = public, pg_temp
+  set search_path = public, extensions, pg_temp
 as $$
 declare
   v_corr    text := 'fyv/creator-relationship/' || p_relationship_id::text || '/' || p_relationship_state;
@@ -212,7 +212,7 @@ create or replace function public.create_creator_access_invitation(
   returns jsonb
   language plpgsql
   security definer
-  set search_path = public, pg_temp
+  set search_path = public, extensions, pg_temp
 as $$
 declare
   v_rel    public.creator_relationships;
@@ -308,7 +308,7 @@ create or replace function public.validate_creator_access_invitation(p_token tex
   language plpgsql
   stable
   security definer
-  set search_path = public, pg_temp
+  set search_path = public, extensions, pg_temp
 as $$
 declare
   v_inv public.creator_invitations;
@@ -360,7 +360,7 @@ create or replace function public.accept_creator_access_invitation(
   returns jsonb
   language plpgsql
   security definer
-  set search_path = public, pg_temp
+  set search_path = public, extensions, pg_temp
 as $$
 declare
   v_inv          public.creator_invitations;
@@ -446,7 +446,7 @@ create or replace function public.activate_creator_relationship(
   returns jsonb
   language plpgsql
   security definer
-  set search_path = public, pg_temp
+  set search_path = public, extensions, pg_temp
 as $$
 declare
   v_target uuid;
