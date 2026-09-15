@@ -8,6 +8,7 @@ const NAV_ITEMS = [
   { label: 'Creators', to: '/cockpit/creators', icon: 'C' },
   { label: 'Relationships', to: '/cockpit/relationships', icon: 'R' },
   { label: 'Assessment Templates', to: '/cockpit/settings/assessment-templates', icon: 'T' },
+  { label: 'Report Templates', to: '/cockpit/settings/report-templates', icon: 'R' },
   { label: 'Question Bank', to: '/cockpit/settings/question-bank', icon: 'Q' },
 ];
 

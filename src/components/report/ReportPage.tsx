@@ -695,6 +695,10 @@ export function ReportPage() {
           </div>
         </section>
 
+        {!!d.evidence_guidance?.length && <section className={REPORT_CARD_CLASS}>
+          <h2 className={`${REPORT_HEADING_CLASS} mb-4 text-xl`}>What your answers suggest</h2>
+          <div className="space-y-4">{d.evidence_guidance.map(block => <SummaryBlock key={block.heading} title={block.heading} text={block.content} />)}</div>
+        </section>}
         {/* Next CTA */}
         <section>
           <h2 className={`${REPORT_HEADING_CLASS} mb-4 text-xl`}>What's Next?</h2>
