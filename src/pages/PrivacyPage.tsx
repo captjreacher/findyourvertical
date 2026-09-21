@@ -10,13 +10,13 @@ const PRIVACY_SECTIONS = [
     title: '1. Introduction',
     body: [
       `Find Your Vertical is operated within the Maximised AI ecosystem. This Privacy Policy explains how FYV handles information when you use ${SITE_URL}, creator assessments, onboarding, reports, creator accounts, and related services.`,
-      `Effective date: ${EFFECTIVE_DATE}. Privacy questions can be sent to ${CONTACT_EMAIL}.`,
+      `Effective date: ${EFFECTIVE_DATE}. Privacy rights requests can be sent to ${CONTACT_EMAIL}.`,
     ],
   },
   {
     title: '2. Scope',
     body: [
-      'This policy applies to the public site, assessments, creator accounts, onboarding flows, reports, creator profiles, agency relationship workflows, invitation links, and related FYV services.',
+      'This policy applies to the public site, assessments, creator accounts, onboarding flows, reports, creator profiles, digital commercial requests and self-service plans, invitation links, and related FYV services.',
     ],
   },
   {
@@ -35,7 +35,7 @@ const PRIVACY_SECTIONS = [
   {
     title: '5. How Information Is Used',
     body: [
-      'We use information to provide assessments, generate reports, recommend verticals, support character and persona planning, manage onboarding, manage creator-agency relationships, authenticate users, prevent fraud and misuse, maintain service reliability, provide support, improve the product, and comply with legal obligations.',
+      'We use information to provide assessments, generate reports, recommend verticals, support character and persona planning, manage onboarding, manage digital product access, authenticate users, prevent fraud and misuse, maintain service reliability, provide support, improve the product, and comply with legal obligations.',
     ],
   },
   {
@@ -101,7 +101,7 @@ const PRIVACY_SECTIONS = [
   {
     title: '16. Contact',
     body: [
-      `For privacy questions or requests, contact ${CONTACT_EMAIL}.`,
+      `For privacy rights requests only, use ${CONTACT_EMAIL}.`,
     ],
   },
 ];

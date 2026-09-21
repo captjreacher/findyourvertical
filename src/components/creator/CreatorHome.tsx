@@ -1,19 +1,16 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { CreatorShell } from './CreatorShell';
+import { PlanJourneyCta } from './PlanJourneyCta';
 import { useCreatorSession } from './CreatorGate';
 import {
   getAssessmentsForProfile,
   getReportsForProfile,
   createCreatorRetakeInvite,
-  requestStrategyDiscussion,
-  trackAgencyCalendarClick,
-  trackCreatorServicesClick,
   getMyArchetypeSnapshot,
   getMyVariationSelections,
   getActivePersonaGeneration,
 } from '@/lib/creators-api';
-import { getCreatorJourneyCtas } from '@/lib/fyv-completion';
 import { snapshotToRankedArchetypes, summariseSelectionCompleteness } from '@/lib/persona-archetypes';
 import { deriveOnboardingHero, deriveProgress, type ProgressState } from '@/lib/onboarding';
 import { CreatorHomeValidationSummary } from '@/components/recommendations/CreatorHomeValidationSummary';
@@ -31,14 +28,12 @@ const PROGRESS_LABEL: Record<ProgressState, string> = {
 };
 
 export function CreatorHome() {
-  const { profile, reload } = useCreatorSession();
+  const { profile } = useCreatorSession();
   const navigate = useNavigate();
 
   const [assessments, setAssessments] = useState<CreatorAssessment[]>([]);
   const [reports, setReports] = useState<CreatorReport[]>([]);
   const [retaking, setRetaking] = useState(false);
-  const [engageBusy, setEngageBusy] = useState('');
-  const [engageMessage, setEngageMessage] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [characterLoading, setCharacterLoading] = useState(true);
   const [characterState, setCharacterState] = useState<{
@@ -125,41 +120,6 @@ export function CreatorHome() {
     }
   };
 
-  const handleExploreServices = () => {
-    // Identity comes from the authenticated creator, not a query param.
-    void trackCreatorServicesClick({ profileId: profile.id, reportSlug }).catch(() => {});
-    navigate('/creator-services');
-  };
-
-  const handleBookStrategyCall = async () => {
-    setEngageBusy('book');
-    setEngageMessage(null);
-    setActionError(null);
-    try {
-      await requestStrategyDiscussion({ profileId: profile.id, reportSlug });
-      await trackAgencyCalendarClick({ profileId: profile.id, reportSlug });
-      window.location.href = getCreatorJourneyCtas('book_strategy_call').primary.href;
-    } catch (error) {
-      setActionError(error instanceof Error ? error.message : 'Could not open booking. Please try again.');
-    } finally {
-      setEngageBusy('');
-    }
-  };
-
-  const handleExpressInterest = async () => {
-    setEngageBusy('interest');
-    setEngageMessage(null);
-    setActionError(null);
-    try {
-      await requestStrategyDiscussion({ profileId: profile.id, reportSlug });
-      setEngageMessage("Thanks — we've noted your interest and will be in touch.");
-      await reload();
-    } catch (error) {
-      setActionError(error instanceof Error ? error.message : 'Could not record your interest. Please try again.');
-    } finally {
-      setEngageBusy('');
-    }
-  };
 
   return (
     <CreatorShell>
@@ -169,7 +129,8 @@ export function CreatorHome() {
           <h1 className="text-2xl font-bold leading-tight text-charcoal">Welcome back, {displayName}</h1>
         </header>
 
-        {/* Onboarding-first hero (dominant until onboarding is complete). */}
+        {hasAssessment && <div className="mb-6"><PlanJourneyCta reportSlug={reportSlug} /></div>}
+        {/* Existing persona onboarding remains available. */}
         {!hasAssessment ? (
           <section className="mb-6 rounded-2xl border border-accent/40 bg-surface p-6">
             <p className="text-xs font-semibold uppercase tracking-wide text-accent">Get started</p>
@@ -196,13 +157,7 @@ export function CreatorHome() {
             {hero.supportingMessage && (
               <p className="mt-3 max-w-2xl text-sm leading-6 text-charcoal-2">{hero.supportingMessage}</p>
             )}
-            <div className="mt-4 rounded-xl border border-white/10 bg-surface-2 px-4 py-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-accent">A FunkMyFans reminder</p>
-              <p className="mt-1 text-sm leading-6 text-charcoal-2">
-                FunkMyFans can help with content and audience opportunities, fan engagement and messaging, creator
-                workflow automation, and operational support and growth. Services are not active yet.
-              </p>
-            </div>
+
             {hero.actions.length > 0 && (
               <div className="mt-4 flex flex-wrap gap-2">
                 {hero.actions.map(action => (
@@ -255,39 +210,7 @@ export function CreatorHome() {
           </div>
         )}
 
-        {/* Engage */}
-        <section className="mb-5 rounded-2xl border border-white/10 bg-surface p-5">
-          <h2 className="text-lg font-bold text-charcoal">Work with us</h2>
-          <p className="mt-1 text-sm text-charcoal-2">
-            Ready to go further? Talk through your results or explore how we can help you grow.
-          </p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <button onClick={handleBookStrategyCall} disabled={engageBusy === 'book'} className="btn-primary text-sm">
-              {engageBusy === 'book' ? 'Opening…' : 'Book a Strategy Call'}
-            </button>
-            <button onClick={handleExpressInterest} disabled={engageBusy === 'interest'} className="btn-secondary text-sm">
-              {engageBusy === 'interest' ? 'Saving…' : 'Express Interest'}
-            </button>
-            <button onClick={handleExploreServices} className="btn-secondary text-sm">Explore Creator Services</button>
-          </div>
-          {engageMessage && <p className="mt-3 text-sm text-success" role="status">{engageMessage}</p>}
-        </section>
 
-        {/* Future FMF workspace (non-operational placeholder) */}
-        <section className="rounded-2xl border border-white/10 bg-surface-3/60 p-5">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-lg font-bold text-charcoal">FunkMyFans Workspace</h2>
-            <span className="rounded-full bg-surface-3 px-3 py-1 text-xs font-semibold text-charcoal-2">Not active</span>
-          </div>
-          <p className="mt-2 text-sm text-charcoal-2">
-            FunkMyFans can support your content opportunities, fan engagement, messaging and creator operations. Your
-            workspace will activate when onboarding is complete and the relevant services are connected.
-          </p>
-          <div className="mt-3 grid gap-2 text-xs text-charcoal-2 sm:grid-cols-2">
-            <div className="rounded-lg bg-surface-2 px-3 py-2">Workspace status: <span className="font-semibold text-charcoal">Not active</span></div>
-            <div className="rounded-lg bg-surface-2 px-3 py-2">OnlyFans integration: <span className="font-semibold text-charcoal">Not connected</span></div>
-          </div>
-        </section>
       </div>
     </CreatorShell>
   );

@@ -17,10 +17,10 @@ test('hero: incomplete character choices are the next onboarding step', () => {
   const h = deriveOnboardingHero({ characterComplete: false, portfolio: 'none' });
   assert.equal(h.heading, 'Complete your onboarding');
   assert.equal(h.body, 'Choose the character possibilities that feel right for you and continue building your Persona Portfolio.');
-  assert.equal(h.supportingMessage, 'This helps shape how FunkMyFans can support your content, audience growth and creator operations.');
+  assert.equal(h.supportingMessage, 'Use these optional character directions alongside your Personal Vertical Plan.');
   assert.deepEqual(h.actions, [
     { label: 'Continue onboarding', to: '/my/characters', variant: 'primary' },
-    { label: 'Explore FunkMyFans services', to: '/creator-services', variant: 'secondary' },
+    { label: 'Build My Personal Vertical Plan', to: '/my/plan', variant: 'secondary' },
   ]);
   assert.doesNotMatch(JSON.stringify(h), /awaiting|review|approval/i);
 });
@@ -41,8 +41,8 @@ test('hero: active generation advances to portfolio progress', () => {
 
 test('hero: completed portfolio advances to service activation without claiming activation', () => {
   const h = deriveOnboardingHero({ characterComplete: true, portfolio: 'completed' });
-  assert.equal(h.heading, 'Explore service activation');
-  assert.equal(h.actions[0].to, '/creator-services');
+  assert.equal(h.heading, 'Build your Personal Vertical Plan');
+  assert.equal(h.actions[0].to, '/my/plan');
   assert.doesNotMatch(JSON.stringify(h), /workspace is ready|services are active/i);
 });
 
@@ -54,7 +54,7 @@ test('progress reflects real signals', () => {
   assert.deepEqual(done.map(s => s.state), ['done', 'done', 'current', 'upcoming']);
 
   const full = deriveProgress({ hasAssessment: true, onboardingComplete: true, hasCompletedPortfolio: true });
-  assert.deepEqual(full.map(s => s.state), ['done', 'done', 'done', 'current']);
+  assert.deepEqual(full.map(s => s.state), ['done', 'done', 'done', 'upcoming']);
 });
 
 test('redemption codes each map to a distinct message', () => {
@@ -82,7 +82,7 @@ test('accept path encodes the raw token', () => {
 test('nav has the required items in order', () => {
   assert.deepEqual(
     CREATOR_NAV.map(n => n.label),
-    ['Home', 'Onboarding', 'My Report', 'Assessments', 'Creator Services', 'Persona Portfolio', 'Account'],
+    ['Home', 'My Personal Vertical Plan', 'My Report', 'Assessments', 'Persona Portfolio', 'Account'],
   );
   assert.equal(ONBOARDING_STATUSES.length, 5);
 });

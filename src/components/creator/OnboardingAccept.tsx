@@ -41,7 +41,7 @@ export function OnboardingAccept() {
         setMessage(describeRedemption(result));
       } catch {
         setFailed(true);
-        setMessage('We could not open this onboarding link. Please try again or contact the team.');
+        setMessage('We could not open this onboarding link. Return to your dashboard and continue digitally.');
       }
     })();
   }, [token, navigate]);

@@ -3,6 +3,7 @@ import { CreatorShell } from './CreatorShell';
 import { useCreatorSession } from './CreatorGate';
 import { getAssessmentsForProfile, getReportsForProfile } from '@/lib/creators-api';
 import type { CreatorAssessment, CreatorReport } from '@/types/creator';
+import { reportForAssessment } from '@/lib/assessment-evidence';
 
 function fmt(value?: string | null): string {
   if (!value) return '—';
@@ -34,18 +35,7 @@ export function CreatorAssessments() {
   }, [profile.id]);
 
   const reportFor = (a: CreatorAssessment): CreatorReport | null => {
-    if (!reports.length) return null;
-    const t = new Date(a.created_at).getTime();
-    let best: CreatorReport | null = null;
-    let bestDiff = Number.POSITIVE_INFINITY;
-    for (const r of reports) {
-      const diff = Math.abs(new Date(r.created_at).getTime() - t);
-      if (diff < bestDiff) {
-        bestDiff = diff;
-        best = r;
-      }
-    }
-    return best;
+    return reportForAssessment(a.id, reports);
   };
 
   return (
@@ -53,6 +43,12 @@ export function CreatorAssessments() {
       <div className="mx-auto max-w-3xl">
         <h1 className="text-2xl font-bold text-charcoal">Assessments</h1>
         <p className="mt-1 text-sm text-charcoal-2">Your assessment history and the report generated from each.</p>
+        <a href="/#/my/retake" className="btn-secondary mt-4 inline-flex">Retake Assessment</a>
+        {reports.some(r => !r.assessment_id) && <section className="mt-4 rounded-xl border border-white/10 p-4">
+          <h2 className="font-semibold">Earlier reports</h2>
+          <p className="mt-1 text-sm text-charcoal-2">These reports predate assessment linking. Their original content is preserved.</p>
+          {reports.filter(r => !r.assessment_id).map(r => <a className="mt-2 block text-accent" key={r.id} href={`#/report/${r.report_slug}`}>Report from {fmt(r.created_at)}</a>)}
+        </section>}
         <section className="mt-5 rounded-2xl border border-white/10 bg-surface p-5">
           {loading ? (
             <p className="text-sm text-charcoal-2">Loading your history…</p>

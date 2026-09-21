@@ -1,13 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { getReportBySlug, requestStrategyDiscussion, trackAgencyCalendarClick, trackCreatorEvent, trackCreatorServicesClick } from '@/lib/creators-api';
-import { getCreatorCompletionCta, getCreatorJourneyCtas } from '@/lib/fyv-completion';
-import type { CreatorPublicNextAction, CreatorReport, ReportData } from '@/types/creator';
+import { PlanJourneyCta } from '../creator/PlanJourneyCta';
+import { getReportBySlug, trackCreatorEvent } from '@/lib/creators-api';
+import { projectSelfServiceReport } from '@/lib/self-service-report';
+import type { CreatorReport, ReportData } from '@/types/creator';
 
-const AGENCY_PROMPT_COPY = 'Would you like to discuss what this result could mean for your creator growth?';
-
-type ReportAction = 'print_save' | 'email' | 'share' | 'discuss';
-type AgencyAnswer = 'yes' | 'no';
+type ReportAction = 'print_save' | 'share';
 
 const REPORT_CARD_CLASS = 'fyv-report-card rounded-xl p-5';
 const REPORT_TEXT_CLASS = 'text-sm leading-6 text-charcoal-2';
@@ -27,7 +25,6 @@ type ReportGuidance = {
   scoreInterpretations: Record<string, ScoreInsight>;
   archetypeSummary: NonNullable<ReportData['creator_archetype_summary']>;
   recommendedActions: NonNullable<ReportData['recommended_actions']>;
-  agencyOpportunity: NonNullable<ReportData['creator_agency_opportunity']>;
 };
 
 const SCORE_LABELS: Record<PublicScoreKey, string> = {
@@ -107,11 +104,6 @@ function buildGuidance(report: ReportData, publicScores: Record<string, number>)
       { title: 'Expand content mix', rationale: `Test ${firstVertical} as a repeatable lane before spreading effort across too many formats.` },
       { title: 'Improve monetisation approach', rationale: 'Give fans a clearer path from discovery to paid access or premium requests.' },
     ],
-    agencyOpportunity: report.creator_agency_opportunity ?? {
-      growth_potential: 'Your profile shows growth potential if positioning, content cadence, and monetisation are developed together.',
-      coaching_suitability: 'A strategy review can help identify which few changes are most likely to improve traction.',
-      recommended_support: 'Recommended support: a focused strategy call to prioritise niche, consistency, and monetisation foundations.',
-    },
   };
 }
 
@@ -184,41 +176,10 @@ function SummaryList({ title, items }: { title: string; items: string[] }) {
   );
 }
 
-function CreatorJourneyCta({ action, profileId, reportSlug }: { action: CreatorPublicNextAction; profileId: string; reportSlug: string }) {
-  const { primary, secondary } = getCreatorJourneyCtas(action);
-
-  const handlePrimaryClick = () => {
-    // Best-effort tracking — navigation proceeds immediately regardless of DB outcome.
-    void trackCreatorServicesClick({ profileId, reportSlug }).catch(() => {});
-    window.location.href = primary.href;
-  };
-
-  return (
-    <section className="fyv-report-card rounded-xl border border-accent/30 bg-accent/10 p-5">
-      <p className="text-xs font-semibold uppercase tracking-wide text-accent">Continue Your Creator Journey</p>
-      <h2 className={`${REPORT_HEADING_CLASS} mt-2 text-xl`}>{primary.label}</h2>
-      <p className="mt-2 text-sm leading-6 text-charcoal-2">
-        Take the next step with creator services shaped around your result, or book a strategy call to talk it through.
-      </p>
-      <div className="mt-4 flex flex-col gap-3 sm:flex-row">
-        <button onClick={handlePrimaryClick} className="inline-flex rounded-lg bg-accent px-5 py-2.5 text-sm font-semibold text-white hover:bg-accent-2">
-          {primary.label}
-        </button>
-        <a href={secondary.href} className={`${REPORT_OUTLINE_BUTTON_CLASS} inline-flex`}>
-          {secondary.label}
-        </a>
-      </div>
-    </section>
-  );
-}
-
 export function ReportPage() {
   const { slug } = useParams<{ slug: string }>();
   const [report, setReport] = useState<CreatorReport | null>(null);
   const [loading, setLoading] = useState(true);
-  const [pendingAction, setPendingAction] = useState<ReportAction | null>(null);
-  const [agencyAnswer, setAgencyAnswer] = useState<AgencyAnswer | null>(null);
-  const [promptWorking, setPromptWorking] = useState(false);
   const [actionMessage, setActionMessage] = useState('');
   const [actionError, setActionError] = useState('');
   const [loadError, setLoadError] = useState('');
@@ -228,8 +189,6 @@ export function ReportPage() {
     getReportBySlug(slug)
       .then(r => {
         setReport(r);
-        const storedAnswer = window.sessionStorage.getItem(`agencyPrompt:${slug}`);
-        if (storedAnswer === 'yes' || storedAnswer === 'no') setAgencyAnswer(storedAnswer);
         if (r && !window.sessionStorage.getItem(`reportViewed:${slug}`)) {
           window.sessionStorage.setItem(`reportViewed:${slug}`, 'true');
           const seenKey = `reportSeen:${slug}`;
@@ -246,7 +205,7 @@ export function ReportPage() {
           });
         }
       })
-      .catch(() => setLoadError('Unable to load this report. Check the link or contact the person who sent it to you.'))
+      .catch(() => setLoadError('Unable to load this report. Sign in to My Report to reopen your saved result.'))
       .finally(() => setLoading(false));
   }, [slug]);
 
@@ -263,28 +222,19 @@ export function ReportPage() {
       <div className="fyv-report-shell min-h-screen flex flex-col items-center justify-center p-4 text-charcoal">
         <h1 className="font-display text-2xl font-bold mb-4 text-charcoal">Report Not Found</h1>
         <p className="max-w-md text-center text-sm leading-6 text-charcoal-2">
-          {loadError || 'This report link may have expired or been moved. Check the link or contact the person who sent it to you.'}
+          {loadError || 'This report link may have expired or been moved. Sign in to My Report to reopen your saved result.'}
         </p>
       </div>
     );
   }
 
-  const d = report.report_json as unknown as ReportData;
+  const d = projectSelfServiceReport(report.report_json as unknown as ReportData);
   const isFreeReport = (d.report_tier ?? 'free') === 'free';
   const isAgencyReport = d.report_tier === 'agency';
   const publicScores = Object.fromEntries(
     Object.entries(d.scores).filter(([key]) => key !== 'agency_opportunity')
   ) as Record<string, number>;
   const guidance = buildGuidance(d, publicScores);
-  // Creator-facing action only. Never derived from `recommended_next_action`
-  // (internal routing). Legacy reports without `creator_next_action` fall back
-  // to the persisted consent/identity signals already stored on the router snapshot.
-  const creatorNextAction: CreatorPublicNextAction =
-    d.completion_routing?.creator_next_action
-    ?? (d.completion_routing?.consent && d.completion_routing?.identity_complete
-      ? 'explore_creator_services'
-      : 'book_strategy_call');
-
   const printSaveReport = async () => {
     const blob = createReportPdfBlob(d, publicScores, guidance);
     const url = URL.createObjectURL(blob);
@@ -309,18 +259,6 @@ export function ReportPage() {
 
     if (action === 'print_save') {
       await printSaveReport();
-      return;
-    }
-
-    if (action === 'email') {
-      await trackCreatorEvent({
-        profileId: report.creator_profile_id,
-        eventType: 'report.email_clicked',
-        details: { report_slug: report.report_slug, emailed_at: new Date().toISOString() },
-      });
-      const subject = encodeURIComponent('My Find Your Vertical Report');
-      const body = encodeURIComponent(`Here is my Find Your Vertical report: ${window.location.href}`);
-      window.location.href = `mailto:?subject=${subject}&body=${body}`;
       return;
     }
 
@@ -353,52 +291,8 @@ export function ReportPage() {
   };
 
   const startReportAction = async (action: ReportAction) => {
-    if (!agencyAnswer) {
-      setPendingAction(action);
-      return;
-    }
-
-    if (action === 'discuss') {
-      setPendingAction(action);
-      return;
-    }
-
-    await performReportAction(action);
-  };
-
-  const continueWithoutAgency = async () => {
-    if (!slug || !pendingAction) return;
-    const action = pendingAction;
-    window.sessionStorage.setItem(`agencyPrompt:${slug}`, 'no');
-    setAgencyAnswer('no');
-    setPendingAction(null);
-
-    if (action !== 'discuss') {
-      await performReportAction(action);
-    }
-  };
-
-  const requestDiscussionAndRedirect = async () => {
-    if (!slug) return;
-    setPromptWorking(true);
-    setActionError('');
-
-    try {
-      await requestStrategyDiscussion({
-        profileId: report.creator_profile_id,
-        reportSlug: report.report_slug,
-      });
-      await trackAgencyCalendarClick({
-        profileId: report.creator_profile_id,
-        reportSlug: report.report_slug,
-      });
-      window.sessionStorage.setItem(`agencyPrompt:${slug}`, 'yes');
-      setAgencyAnswer('yes');
-      window.location.href = getCreatorCompletionCta('book_strategy_call', report.creator_profile_id).href;
-    } catch (e) {
-      setActionError(e instanceof Error ? e.message : 'Something went wrong');
-      setPromptWorking(false);
-    }
+    try { await performReportAction(action); }
+    catch { setActionError('Could not complete this action. Please try again.'); }
   };
 
   if (isAgencyReport) {
@@ -444,62 +338,22 @@ export function ReportPage() {
             <SummaryBlock title="First Recommendation" text={recommendation} />
           </section>
 
-          <section className={`${REPORT_CARD_CLASS} space-y-4 border-accent/25 bg-accent/10`}>
-            <h2 className={`${REPORT_HEADING_CLASS} text-xl`}>Unlock the Full Creator DNA Report</h2>
-            <p className={REPORT_TEXT_CLASS}>
-              Your full report expands this snapshot into score reasoning, confidence explanation, content opportunities, monetisation pathway, and a 90-day action plan.
-            </p>
-            <button
-              onClick={() => startReportAction('discuss')}
-              className="inline-flex rounded-lg bg-accent px-5 py-2.5 text-sm font-semibold text-white hover:bg-accent-2"
-            >
-              Discuss My Full Report
-            </button>
-          </section>
-
-          <CreatorJourneyCta action={creatorNextAction} profileId={report.creator_profile_id} reportSlug={report.report_slug} />
+          {!!d.evidence_guidance?.length && <section className={REPORT_CARD_CLASS}>
+            <h2 className={`${REPORT_HEADING_CLASS} mb-4 text-xl`}>What your answers suggest</h2>
+            {d.evidence_guidance.map(block => <SummaryBlock key={block.heading} title={block.heading} text={block.content} />)}
+          </section>}
+          <PlanJourneyCta reportSlug={report.report_slug} />
 
           <div className="border-t border-white/10 py-6">
             <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:justify-center">
               <button onClick={() => startReportAction('share')} className={REPORT_OUTLINE_BUTTON_CLASS}>
                 Share report
               </button>
-              <button onClick={() => startReportAction('discuss')} className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-2">
-                Book Strategy Call
-              </button>
             </div>
             {actionMessage && <p className="mt-3 text-center text-xs text-success">{actionMessage}</p>}
             {actionError && <p className="mt-3 text-center text-xs text-pink">{actionError}</p>}
           </div>
         </div>
-
-        {pendingAction && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
-            <div className="w-full max-w-md rounded-xl border border-white/10 bg-surface p-5 shadow-2xl">
-              <h2 className={`${REPORT_HEADING_CLASS} text-xl`}>{AGENCY_PROMPT_COPY}</h2>
-              <p className="mt-3 text-sm leading-6 text-charcoal-2">
-                A short Find Your Vertical strategy discussion can help translate your report into the most relevant next steps for your goals.
-              </p>
-              {actionError && <p className="mt-4 rounded-lg border border-pink/30 bg-pink/10 px-3 py-2 text-sm text-pink">{actionError}</p>}
-              <div className="mt-5 flex flex-col gap-3">
-                <button
-                  onClick={requestDiscussionAndRedirect}
-                  disabled={promptWorking}
-                  className="rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold text-white hover:bg-accent-2 disabled:opacity-50"
-                >
-                  {promptWorking ? 'Opening Calendar...' : "Yes, I'd Like to Discuss My Results"}
-                </button>
-                <button
-                  onClick={continueWithoutAgency}
-                  disabled={promptWorking}
-                  className={`${REPORT_OUTLINE_BUTTON_CLASS} disabled:opacity-50`}
-                >
-                  Not right now, continue
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     );
   }
@@ -652,14 +506,7 @@ export function ReportPage() {
           </div>
         </section>
 
-        <section>
-          <h2 className={`${REPORT_HEADING_CLASS} mb-4 text-xl`}>Growth & Support Opportunity</h2>
-          <div className={`${REPORT_CARD_CLASS} grid grid-cols-1 gap-4 md:grid-cols-3`}>
-            <SummaryBlock title="Growth Potential" text={guidance.agencyOpportunity.growth_potential} />
-            <SummaryBlock title="Coaching Suitability" text={guidance.agencyOpportunity.coaching_suitability} />
-            <SummaryBlock title="Recommended Support" text={guidance.agencyOpportunity.recommended_support} />
-          </div>
-        </section>
+
 
         {/* Tech Stack */}
         <section>
@@ -699,26 +546,7 @@ export function ReportPage() {
           <h2 className={`${REPORT_HEADING_CLASS} mb-4 text-xl`}>What your answers suggest</h2>
           <div className="space-y-4">{d.evidence_guidance.map(block => <SummaryBlock key={block.heading} title={block.heading} text={block.content} />)}</div>
         </section>}
-        {/* Next CTA */}
-        <section>
-          <h2 className={`${REPORT_HEADING_CLASS} mb-4 text-xl`}>What's Next?</h2>
-          <div className={`${REPORT_CARD_CLASS} space-y-4 border-accent/40 bg-accent/10`}>
-            <p className={REPORT_TEXT_CLASS}>
-              Your assessment highlights several opportunities that could significantly improve positioning, audience growth, and monetisation.
-            </p>
-            <p className={REPORT_TEXT_CLASS}>
-              A strategy discussion can help determine which opportunities are most relevant to your goals and whether creator management support could accelerate your progress.
-            </p>
-            <button
-              onClick={() => startReportAction('discuss')}
-              className="inline-flex rounded-lg bg-accent px-5 py-2.5 text-sm font-semibold text-white hover:bg-accent-2"
-            >
-              Book Strategy Call
-            </button>
-          </div>
-        </section>
-
-        <CreatorJourneyCta action={creatorNextAction} profileId={report.creator_profile_id} reportSlug={report.report_slug} />
+        <PlanJourneyCta reportSlug={report.report_slug} />
 
         {/* Report Actions */}
         <div className="border-t border-white/10 py-6">
@@ -726,48 +554,14 @@ export function ReportPage() {
             <button onClick={() => startReportAction('print_save')} className={REPORT_OUTLINE_BUTTON_CLASS}>
               Download PDF
             </button>
-            <button onClick={() => startReportAction('email')} className={REPORT_OUTLINE_BUTTON_CLASS}>
-              Email me this report
-            </button>
             <button onClick={() => startReportAction('share')} className={REPORT_OUTLINE_BUTTON_CLASS}>
               Share report
             </button>
-              <button onClick={() => startReportAction('discuss')} className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-2">
-                Book Strategy Call
-              </button>
           </div>
           {actionMessage && <p className="mt-3 text-center text-xs text-success">{actionMessage}</p>}
           {actionError && <p className="mt-3 text-center text-xs text-pink">{actionError}</p>}
         </div>
       </div>
-
-      {pendingAction && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
-            <div className="w-full max-w-md rounded-xl border border-white/10 bg-surface p-5 shadow-2xl">
-            <h2 className={`${REPORT_HEADING_CLASS} text-xl`}>{AGENCY_PROMPT_COPY}</h2>
-            <p className="mt-3 text-sm leading-6 text-charcoal-2">
-              A short Find Your Vertical strategy discussion can help translate your report into the most relevant next steps for your goals.
-            </p>
-            {actionError && <p className="mt-4 rounded-lg border border-pink/30 bg-pink/10 px-3 py-2 text-sm text-pink">{actionError}</p>}
-            <div className="mt-5 flex flex-col gap-3">
-              <button
-                onClick={requestDiscussionAndRedirect}
-                disabled={promptWorking}
-                  className="rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold text-white hover:bg-accent-2 disabled:opacity-50"
-              >
-                {promptWorking ? 'Opening Calendar...' : "Yes, I'd Like to Discuss My Results"}
-              </button>
-              <button
-                onClick={continueWithoutAgency}
-                disabled={promptWorking}
-                className={`${REPORT_OUTLINE_BUTTON_CLASS} disabled:opacity-50`}
-              >
-                Not right now, continue
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -863,19 +657,12 @@ function createReportPdfBlob(report: ReportData, publicScores: Record<string, nu
       title: 'Recommended Next Steps',
       body: guidance.recommendedActions.map(action => `${action.title}: ${action.rationale}`),
     },
-    {
-      title: 'Growth & Support Opportunity',
-      body: [
-        `Growth potential: ${guidance.agencyOpportunity.growth_potential}`,
-        `Coaching suitability: ${guidance.agencyOpportunity.coaching_suitability}`,
-        `Recommended support: ${guidance.agencyOpportunity.recommended_support}`,
-      ],
-    },
+
     {
       title: "What's Next?",
       body: [
         'Your assessment highlights several opportunities that could significantly improve positioning, audience growth, and monetisation.',
-        'A strategy discussion can help determine which opportunities are most relevant to your goals and whether creator management support could accelerate your progress.',
+        'Build My Personal Vertical Plan: develop your strategy, schedule, scripts, experiments and next actions in a guided self-service workspace with AI assistance. Price: POA. Submit a digital request and check its status in My Personal Vertical Plan. Funk My Fans — Coming Soon.',
       ],
     },
   ];

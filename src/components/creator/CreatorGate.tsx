@@ -111,6 +111,8 @@ function FullScreen({ children }: { children: ReactNode }) {
 }
 
 export function CreatorGate({ children }: { children: ReactNode }) {
+  const requestedDestination = normalizeRedirectPath(window.location.hash.slice(1), '/my');
+  const destination = requestedDestination.startsWith('/my') ? requestedDestination : DESTINATION;
   const [phase, setPhase] = useState<Phase>('loading');
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<CreatorProfile | null>(null);
@@ -200,7 +202,7 @@ export function CreatorGate({ children }: { children: ReactNode }) {
   const handleGoogleLogin = async () => {
     setSending(true);
     clearAuthMessage();
-    storeAuthRedirectPath(DESTINATION);
+    storeAuthRedirectPath(destination);
 
     // DIAG: log before OAuth initiation
     console.log('[OAuth DIAG] starting Google OAuth', {
@@ -208,7 +210,7 @@ export function CreatorGate({ children }: { children: ReactNode }) {
       storedPath: window.sessionStorage.getItem('findyourvertical.auth.redirectPath'),
     });
 
-    const redirectTo = authCallbackUrl(DESTINATION);
+    const redirectTo = authCallbackUrl(destination);
     console.log('[OAuth DIAG] redirectTo URL', { redirectTo });
 
     const { data, error } = await supabase.auth.signInWithOAuth({
@@ -265,7 +267,7 @@ export function CreatorGate({ children }: { children: ReactNode }) {
     // user lands on /my (or any pre-auth redirect stored by OAuth / invite
     // links) regardless of event timing. Guard against the no-op assignment
     // when onAuthStateChange already routed us, so we never double-fire.
-    const target = normalizeRedirectPath(consumeAuthRedirectPath() ?? DESTINATION);
+    const target = destination !== DESTINATION ? destination : normalizeRedirectPath(consumeAuthRedirectPath() ?? DESTINATION);
     if (window.location.hash !== `#${target}`) {
       window.location.hash = target;
     }

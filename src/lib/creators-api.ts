@@ -743,7 +743,9 @@ export async function submitAssessment(
     intelligence,
     reportData: reportDataWithRouting,
   });
-  const evidenceDerivation = deriveReportEvidence(generationContext);
+  const capturedKeys = new Set(includedQuestions.flatMap(q => [q.question_key, q.response_key]));
+  const evidenceDerivation = deriveReportEvidence({ ...generationContext,
+    answers: Object.fromEntries(Object.entries(generationContext.answers).filter(([key]) => capturedKeys.has(key))) });
   reportDataWithRouting.evidence_guidance = evidenceDerivation.renderedSections.flatMap(section =>
     section.blocks.map(block => ({ heading: block.heading ?? section.title, content: block.content })));
   const { data: report, error: reportErr } = await (supabase as any)

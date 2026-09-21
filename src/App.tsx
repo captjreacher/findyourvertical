@@ -30,6 +30,9 @@ const AcceptInvite = lazy(() => import('./components/creator/AcceptInvite').then
 const MyReportRedirect = lazy(() => import('./components/creator/MyReportRedirect').then(module => ({ default: module.MyReportRedirect })));
 const CreatorAssessments = lazy(() => import('./components/creator/CreatorAssessments').then(module => ({ default: module.CreatorAssessments })));
 const CreatorAccount = lazy(() => import('./components/creator/CreatorAccount').then(module => ({ default: module.CreatorAccount })));
+const PersonalVerticalPlan = lazy(() => import('./components/creator/PersonalVerticalPlan').then(module => ({ default: module.PersonalVerticalPlan })));
+const RetakeAssessment = lazy(() => import('./components/creator/RetakeAssessment').then(module => ({ default: module.RetakeAssessment })));
+const PlanRequests = lazy(() => import('./components/cockpit/PlanRequests').then(module => ({ default: module.PlanRequests })));
 const PublicHomePage = lazy(() => import('./pages/PublicHomePage').then(module => ({ default: module.PublicHomePage })));
 const AboutPage = lazy(() => import('./pages/AboutPage').then(module => ({ default: module.AboutPage })));
 const PrivacyPage = lazy(() => import('./pages/PrivacyPage').then(module => ({ default: module.PrivacyPage })));
@@ -227,12 +230,15 @@ export default function App() {
           <Route path="/my/report" element={<CreatorGate><MyReportRedirect /></CreatorGate>} />
           <Route path="/my/assessments" element={<CreatorGate><CreatorAssessments /></CreatorGate>} />
           <Route path="/my/account" element={<CreatorGate><CreatorAccount /></CreatorGate>} />
+          <Route path="/my/plan" element={<CreatorGate><PersonalVerticalPlan /></CreatorGate>} />
+          <Route path="/my/retake" element={<CreatorGate><RetakeAssessment /></CreatorGate>} />
 
           <Route path="/cockpit/*" element={<AuthGate><CockpitLayout /></AuthGate>}>
             <Route index element={<AgencyDashboard />} />
             <Route path="creators" element={<CreatorPipeline />} />
             {/* FYV↔FMF creator relationship + access lifecycle console (agency-only). */}
             <Route path="relationships" element={<CreatorRelationships />} />
+            <Route path="plan-requests" element={<PlanRequests />} />
             <Route path="creators/:profileId/review" element={<CreatorAssessmentReview />} />
             <Route path="creators/:profileId" element={<CreatorProfileView />} />
             <Route path="creators/:profileId/intelligence" element={<CreatorIntelligence />} />

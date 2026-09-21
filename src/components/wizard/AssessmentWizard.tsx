@@ -1013,10 +1013,10 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
           Find Your Vertical is designed to identify your strongest creator positioning, content opportunities, monetisation potential, and long-term growth paths.
         </p>
         <p className="text-sm leading-6 text-charcoal-2">
-          Your responses help generate a personalised creator report and may be reviewed for creator management opportunities.
+          Your responses generate your Personal Report and inform your guided self-service Personal Vertical Plan.
         </p>
         <p className="text-sm leading-6 text-charcoal-2">
-          Your information is treated confidentially and used only for assessment and creator contact purposes.
+          Your information is treated confidentially and used only for assessment, account access and self-service planning.
         </p>
       </div>
 
@@ -1333,7 +1333,7 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
               <h2 className="font-display text-lg font-semibold text-charcoal">What happens next?</h2>
               <ul className="mt-4 space-y-3 text-sm leading-6 text-charcoal">
                 <li className="flex gap-3"><span className="font-bold text-accent">OK</span><span>Your assessment has been saved.</span></li>
-                <li className="flex gap-3"><span className="font-bold text-accent">OK</span><span>Your Creator DNA, Brand Clarity, Monetisation, Consistency, and Agency Opportunity scores have been calculated.</span></li>
+                <li className="flex gap-3"><span className="font-bold text-accent">OK</span><span>Your Creator DNA, Brand Clarity, Monetisation, and Consistency scores have been calculated.</span></li>
                 <li className="flex gap-3"><span className="font-bold text-accent">OK</span><span>Your personalised report is ready to view.</span></li>
               </ul>
             </div>

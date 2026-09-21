@@ -525,7 +525,7 @@ export function CharacterPossibilities() {
   }, [updateView]);
 
   const submitOwnedVerticalForReview = useCallback(async (ownedVerticalId: string) => {
-    setBusyMessage('Sending to the team…');
+    setBusyMessage('Saving request…');
     try {
       const updated = await submitMyOwnedVerticalForReview(ownedVerticalId);
       setOwnedVerticals(prev => prev.map(v => v.id === updated.id ? updated : v));
@@ -533,7 +533,7 @@ export function CharacterPossibilities() {
   }, []);
 
   const submitOwnedVariationForReview = useCallback(async (ownedVariationId: string) => {
-    setBusyMessage('Sending to the team…');
+    setBusyMessage('Saving request…');
     try {
       const updated = await submitMyOwnedVariationForReview(ownedVariationId);
       setOwnedVariations(prev => prev.map(v => v.id === updated.id ? updated : v));
@@ -1401,7 +1401,7 @@ function DirectionCard(props: DirectionCardProps) {
         )}
         {onSubmitOwnedVerticalForReview && (
           <button type="button" className="btn-secondary text-xs" onClick={() => { void onSubmitOwnedVerticalForReview(); }}>
-            Send to the team for review
+            Save for internal review
           </button>
         )}
         <button type="button" className="btn-secondary text-xs text-pink ml-auto" onClick={() => onRemove()} disabled={totalVerticals === MIN_WORKSET_SIZE}>
@@ -1636,7 +1636,7 @@ function AddDirectionCard(props: {
       <button type="button" className="rounded-2xl border border-dashed border-accent/40 bg-surface p-5 text-left" onClick={props.onOpenAddPicker}>
         <span className="text-xs font-semibold uppercase tracking-wide text-accent">From the catalogue</span>
         <p className="mt-1 text-sm font-semibold text-charcoal">Add another direction</p>
-        <p className="mt-1 text-xs text-charcoal-2">Pick any archetype the FYV team has already curated.</p>
+        <p className="mt-1 text-xs text-charcoal-2">Pick an archetype from the catalogue.</p>
       </button>
       <button type="button" className="rounded-2xl border border-dashed border-accent/40 bg-surface p-5 text-left" onClick={() => setMode('custom')}>
         <span className="text-xs font-semibold uppercase tracking-wide text-accent">Created by you</span>

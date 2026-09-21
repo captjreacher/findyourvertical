@@ -13,9 +13,9 @@ const SECTIONS = [
       'Creators can move from an invitation-based assessment into a personalised report, onboarding, persona or character planning, and clearer recommendations for what to build next. The goal is to make the path forward feel specific, useful, and grounded in what the creator has actually shared.',
   },
   {
-    title: 'Built for Creators and the Teams Supporting Them',
+    title: 'A Self-Service Digital Product',
     body:
-      'FYV also supports creator-agency relationship workflows, so the people helping creators grow can review context, understand opportunities, and coordinate support without losing the creator-first view of the work.',
+      'Build your Personal Vertical Plan through guided steps and embedded AI assistance: vertical strategy, content schedule, scripts, experiments and next actions. Follow digital pricing and access status in your account.',
   },
   {
     title: 'What We Believe',
@@ -25,7 +25,7 @@ const SECTIONS = [
   {
     title: 'Part of the Maximised AI Ecosystem',
     body:
-      'Find Your Vertical operates within the Maximised AI ecosystem, connecting creator strategy, assessment intelligence, onboarding, and operational support into one coherent experience.',
+      'Find Your Vertical operates within the Maximised AI ecosystem, connecting creator strategy, assessment intelligence, onboarding, and self-service planning into one coherent experience.',
   },
 ];
 
@@ -49,7 +49,7 @@ export function AboutPage() {
     <PublicSiteShell
       eyebrow="About FYV"
       title="Creator intelligence for finding the right vertical."
-      description="Find Your Vertical helps creators and the teams supporting them turn structured assessment insight into clearer positioning, onboarding, and growth decisions."
+      description="Find Your Vertical helps creators turn structured assessment insight into clearer positioning, onboarding, and growth decisions."
     >
       <div className="grid gap-4 md:grid-cols-2">
         {SECTIONS.slice(0, 4).map(section => (

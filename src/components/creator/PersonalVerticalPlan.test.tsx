@@ -1,0 +1,44 @@
+import { beforeEach, expect, test, vi } from 'vitest';
+import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+import { PersonalVerticalPlan } from './PersonalVerticalPlan';
+import * as api from '@/lib/personal-plan-api';
+vi.mock('./CreatorShell',()=>({CreatorShell:({children}:any)=><main>{children}</main>}));
+vi.mock('@/lib/personal-plan-api',()=>({getPlanAccess:vi.fn(),openPersonalPlan:vi.fn(),requestPersonalPlan:vi.fn(),savePlanStage:vi.fn(),requestPlanGuidance:vi.fn()}));
+const plan={id:'plan',assessment_id:'assessment',report_id:'report',status:'draft'};
+const stage={stage_key:'direction',data:{vertical:'Fitness',reason:'My interest',boundaries:'Keep it non-explicit'},completed:false,revision:1,approved_suggestion_id:null};
+beforeEach(()=>{cleanup();vi.resetAllMocks();vi.mocked(api.getPlanAccess).mockResolvedValue({entitled:true,interest:null});vi.mocked(api.openPersonalPlan).mockResolvedValue({plan,stages:[structuredClone(stage)],suggestions:[],assessment:{id:'assessment',answers:{}},report:{report_json:{}}} as any);});
+test('free creator sees POA request and persisted next step, not paid editor',async()=>{
+  vi.mocked(api.getPlanAccess).mockResolvedValue({entitled:false,interest:null});
+  vi.mocked(api.requestPersonalPlan).mockResolvedValue({id:'request',status:'requested',catalogue_status:'pending_configuration',created_at:''});
+  render(<MemoryRouter initialEntries={['/my/plan?report=original']}><PersonalVerticalPlan /></MemoryRouter>);
+  fireEvent.click(await screen.findByRole('button',{name:'Build My Personal Vertical Plan'}));
+  await screen.findByText('Your request is saved');expect(api.requestPersonalPlan).toHaveBeenCalledWith('original');
+  expect(screen.queryByLabelText('Your chosen vertical')).toBeNull();expect(api.openPersonalPlan).not.toHaveBeenCalled();
+  expect(screen.getByText('Coming Soon')).toBeInTheDocument();
+  expect(screen.queryByRole('link', { name: /Funk My Fans/ })).toBeNull();
+  expect(screen.getByText('Status: Request received')).toBeInTheDocument();
+});
+test('creator edits persist with revision and progression uses completed saved data',async()=>{
+  vi.mocked(api.savePlanStage).mockImplementation(async(_id,_stage,data,_revision,complete)=>({...stage,data,completed:complete,revision:2}) as any);
+  render(<MemoryRouter><PersonalVerticalPlan /></MemoryRouter>);
+  const field=await screen.findByLabelText('Your chosen vertical');expect(field).toHaveValue('Fitness');
+  fireEvent.change(field,{target:{value:'My updated direction'}});
+  expect(screen.getByRole('button',{name:'2. Your Audience'})).toBeDisabled();
+  fireEvent.click(screen.getByRole('button',{name:'Save and continue'}));
+  await screen.findByLabelText('Who you want to reach');
+  expect(api.savePlanStage).toHaveBeenCalledWith('plan','direction',expect.objectContaining({vertical:'My updated direction'}),1,true,undefined);
+});
+test('AI suggestions never save until creator explicitly adopts and saves edited draft',async()=>{
+  vi.mocked(api.requestPlanGuidance).mockResolvedValue({id:'suggestion',stage_key:'direction',stage_revision:1,suggestion:{vertical:'AI direction'},provider:'test',model:'test',created_at:''});
+  vi.mocked(api.savePlanStage).mockImplementation(async(_id,_stage,data)=>({...stage,data,revision:2}) as any);
+  render(<MemoryRouter><PersonalVerticalPlan /></MemoryRouter>);
+  await screen.findByLabelText('Your chosen vertical');
+  fireEvent.click(screen.getByRole('button',{name:'Help me refine this'}));
+  await screen.findByText('AI direction');expect(api.savePlanStage).not.toHaveBeenCalled();
+  expect(screen.getByLabelText('Your chosen vertical')).toHaveValue('Fitness');
+  fireEvent.click(screen.getByRole('button',{name:'Use as editable draft'}));
+  fireEvent.change(screen.getByLabelText('Your chosen vertical'),{target:{value:'My version'}});
+  fireEvent.click(screen.getByRole('button',{name:'Save progress'}));
+  await waitFor(()=>expect(api.savePlanStage).toHaveBeenCalledWith('plan','direction',expect.objectContaining({vertical:'My version'}),1,false,'suggestion'));
+});

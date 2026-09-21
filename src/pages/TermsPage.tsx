@@ -2,7 +2,6 @@ import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { PublicSiteShell } from '@/components/public/PublicSiteShell';
 
-const CONTACT_EMAIL = 'privacy@maximisedai.com';
 
 const TERMS_SECTIONS = [
   {
@@ -20,7 +19,7 @@ const TERMS_SECTIONS = [
   {
     title: '3. Service Description',
     body: [
-      'FYV provides creator assessments, reports, creator intelligence, vertical recommendations, persona or character planning, onboarding, creator-agency relationship workflows, and related support and operational tools.',
+      'FYV provides creator assessments, reports, creator intelligence, vertical recommendations, persona or character planning, onboarding, self-service Personal Vertical Plans, and related support and operational tools.',
     ],
   },
   {
@@ -61,9 +60,9 @@ const TERMS_SECTIONS = [
     ],
   },
   {
-    title: '10. Creator and Agency Relationships',
+    title: '10. Digital Product Access',
     body: [
-      'FYV may facilitate creator relationships, onboarding, and operational workflows. FYV does not guarantee the conduct, performance, payment, or outcomes of creators, agencies, or third parties. Separate agreements may govern those relationships.',
+      'FYV provides a self-service digital planning workspace. Product selection, pricing requests, access status and guided planning take place digitally. Paid access is subject to the applicable commercial terms.',
     ],
   },
   {
@@ -127,9 +126,9 @@ const TERMS_SECTIONS = [
     ],
   },
   {
-    title: '22. Contact',
+    title: '22. Product Journey',
     body: [
-      `Questions about these terms can be sent to ${CONTACT_EMAIL}.`,
+      'Your Personal Report and Personal Vertical Plan are available through your creator account. Pricing request status and access updates appear in the product.',
     ],
   },
 ];
@@ -143,7 +142,7 @@ function usePageMeta() {
       meta.name = 'description';
       document.head.appendChild(meta);
     }
-    meta.content = 'Find Your Vertical Terms of Service for creator assessments, reports, onboarding, accounts, and creator-agency workflows.';
+    meta.content = 'Find Your Vertical Terms of Service for creator assessments, reports, onboarding, accounts, and self-service planning.';
   }, []);
 }
 

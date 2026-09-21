@@ -5,7 +5,7 @@ import { PublicLegalFooter } from '@/components/public/PublicSiteShell';
 
 const PAGE_TITLE = 'Find Your Vertical | Creator Assessment and Vertical Discovery';
 const PAGE_DESCRIPTION =
-  'Find Your Vertical is a creator assessment and planning application. It helps creators identify their strengths, discover suitable content verticals, generate personalised reports and character possibilities, and prepare for optional creator services provided through FunkMyFans.';
+  'Find Your Vertical is a creator assessment and planning application. It helps creators identify their strengths, discover suitable content verticals, generate personalised reports and character possibilities, and build a Personal Vertical Plan in a guided self-service workspace with AI assistance.';
 
 const HOW_IT_WORKS = [
   'Complete your creator assessment.',
@@ -86,7 +86,7 @@ export function PublicHomePage() {
                 Creator assessment and vertical discovery
               </h2>
               <p className="mt-3 text-sm leading-7 text-charcoal-2 sm:text-base">
-                Find Your Vertical is a creator assessment and planning application. It helps creators identify their strengths, discover suitable content verticals, generate personalised reports and character possibilities, and prepare for optional creator services provided through FunkMyFans.
+                Find Your Vertical is a creator assessment and planning application. It helps creators identify their strengths, discover suitable content verticals, generate personalised reports and character possibilities, and build a Personal Vertical Plan in a guided self-service workspace with AI assistance.
               </p>
               <p className="mt-3 text-sm leading-7 text-charcoal-2 sm:text-base">
                 Creators can use Google Sign-In or email authentication to securely access their assessments, reports, onboarding progress and Persona Portfolio.

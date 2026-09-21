@@ -9,7 +9,7 @@ import type {
   ReportData,
 } from '@/types/creator';
 
-const DEFAULT_STRATEGY_CALL_URL = 'https://calendly.com/mikegrobinson/20-min';
+
 
 function text(value: unknown): string {
   return String(value ?? '').trim();
@@ -141,8 +141,8 @@ export function getCreatorCompletionCta(
       href: configuredUrl('VITE_FYV_QUALIFY_OPPORTUNITY_URL', profileReviewUrl),
     },
     book_strategy_call: {
-      label: 'Book strategy call',
-      href: configuredUrl('VITE_FYV_STRATEGY_CALL_URL', DEFAULT_STRATEGY_CALL_URL),
+      label: 'Build My Personal Vertical Plan',
+      href: `${base}/#/my/plan`,
     },
     manual_review: {
       label: 'Send to manual review',
@@ -153,34 +153,14 @@ export function getCreatorCompletionCta(
   return ctaByAction[nextAction];
 }
 
-/**
- * Creator-facing CTAs for the "Continue Your Creator Journey" report section.
- *
- * The section always offers both a primary and a secondary action; the
- * `creator_next_action` value only decides which one leads. The primary
- * "Explore Creator Services" destination is config-driven via
- * VITE_FYV_CREATOR_SERVICES_URL. Until that is set (e.g. once FMF is wired) it
- * falls back to the existing strategy-call URL, so the button never dead-ends
- * and no downstream (FMF) internal is hard-coded here.
- */
+/** Historical routing enums remain compatible; public actions are always digital. */
 export function getCreatorJourneyCtas(
-  creatorNextAction: CreatorPublicNextAction
+  _creatorNextAction: CreatorPublicNextAction
 ): { primary: { label: string; href: string }; secondary: { label: string; href: string } } {
-  const strategyHref = configuredUrl('VITE_FYV_STRATEGY_CALL_URL', DEFAULT_STRATEGY_CALL_URL);
-  const exploreServices = {
-    label: 'Explore Creator Services',
-    href: configuredUrl('VITE_FYV_CREATOR_SERVICES_URL', strategyHref),
+  return {
+    primary: { label: 'Build My Personal Vertical Plan', href: `${origin()}/#/my/plan` },
+    secondary: { label: 'Retake Assessment', href: `${origin()}/#/my/retake` },
   };
-  const bookStrategyCall = {
-    label: 'Book Strategy Call',
-    href: strategyHref,
-  };
-
-  if (creatorNextAction === 'book_strategy_call') {
-    return { primary: bookStrategyCall, secondary: exploreServices };
-  }
-
-  return { primary: exploreServices, secondary: bookStrategyCall };
 }
 
 export function buildCreatorAssessmentCompletedPayload(input: {
