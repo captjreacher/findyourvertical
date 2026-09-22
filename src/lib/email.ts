@@ -64,8 +64,8 @@ function optionalFooterLinks(footerLinks: Array<{ label: string; url: string }> 
 }
 
 export function buildFyvEmailHtml(params: FyVEmailTemplateParams): string {
-  const brandName = params.brandName ?? 'Find Your Vertical';
-  const logoAlt = params.logoAlt ?? 'Find Your Vertical logo';
+  const brandName = params.brandName ?? 'Find My Vertical';
+  const logoAlt = params.logoAlt ?? 'Find My Vertical logo';
   const eyebrow = escapeHtml(params.eyebrow);
   const heading = escapeHtml(params.heading);
   const bodyHtml = linesToHtml(params.body);
@@ -125,7 +125,7 @@ export function buildFyvEmailHtml(params: FyVEmailTemplateParams): string {
                   <img src="${logoSrc}" width="180" alt="${escapeHtml(logoAlt)}" style="display:block; width:180px; max-width:100%; height:auto; border:0; outline:none; text-decoration:none; margin:0 0 6px 0;">
                 ` : `
                   <div style="margin:0 0 6px 0; color:${WARM_WHITE}; font-family:Arial, Helvetica, sans-serif; font-size:18px; line-height:1; font-weight:700; letter-spacing:0.08em; text-transform:uppercase;">
-                    Find Your Vertical
+                    Find My Vertical
                   </div>
                 `}
                 <div style="width:100%; height:1px; background-color:${FYV_PINK}; font-size:1px; line-height:1px;">&nbsp;</div>
@@ -193,14 +193,14 @@ export function buildFyvMagicLinkEmailHtml(input: {
 }): string {
   return buildFyvEmailHtml({
     eyebrow: 'Magic Link',
-    heading: 'Sign in to Find Your Vertical',
+    heading: 'Sign in to Find My Vertical',
     body: input.email
       ? `Use the button below to finish signing in as ${input.email}. The link will open your FYV cockpit securely.`
       : 'Use the button below to finish signing in securely. The link will open your FYV cockpit.',
     ctaLabel: 'Open secure sign in',
     ctaUrl: input.loginUrl,
     detailContent: 'If you did not request this email, you can ignore it. The link expires for security.',
-    preheader: 'Secure sign in to Find Your Vertical',
+    preheader: 'Secure sign in to Find My Vertical',
     footerNote: 'This email was sent for account access and security verification.',
     logoSrc: input.logoSrc,
   });
@@ -214,7 +214,7 @@ export function buildFyvAssessmentInviteEmailHtml(input: {
 }): string {
   return buildFyvEmailHtml({
     eyebrow: 'Assessment Invite',
-    heading: `Your Find Your Vertical assessment is ready`,
+    heading: `Your Find My Vertical assessment is ready`,
     body: `${input.creatorName}, your invite${input.templateName ? ` for ${input.templateName}` : ''} is ready. Complete the assessment to unlock your creator profile and report.`,
     ctaLabel: 'Start assessment',
     ctaUrl: input.inviteUrl,
@@ -236,7 +236,7 @@ export function buildFyvAssessmentResultsEmailHtml(input: {
   return buildFyvEmailHtml({
     eyebrow: 'Assessment Result',
     heading: `Your creator report is ready`,
-    body: `${input.creatorName}, we have analysed your responses and prepared your Find Your Vertical result.`,
+    body: `${input.creatorName}, we have analysed your responses and prepared your Find My Vertical result.`,
     ctaLabel: 'View report',
     ctaUrl: input.reportUrl,
     detailContent: input.reportSummary,

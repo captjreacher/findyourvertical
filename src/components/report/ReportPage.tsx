@@ -264,8 +264,8 @@ export function ReportPage() {
 
     if (action === 'share') {
       const shareData = {
-        title: 'Find Your Vertical Report',
-        text: 'My Find Your Vertical creator assessment report',
+        title: 'Find My Vertical Report',
+        text: 'My Find My Vertical creator assessment report',
         url: window.location.href,
       };
 
@@ -300,7 +300,7 @@ export function ReportPage() {
       <div className="fyv-report-shell min-h-screen flex flex-col items-center justify-center p-4 text-charcoal">
         <h1 className="font-display text-2xl font-bold mb-4 text-charcoal">Internal Report</h1>
         <p className="max-w-md text-center text-sm leading-6 text-charcoal-2">
-          This agency report is available only inside the Find Your Vertical cockpit.
+          This agency report is available only inside the Find My Vertical cockpit.
         </p>
       </div>
     );
@@ -315,7 +315,7 @@ export function ReportPage() {
       <div className="fyv-report-shell min-h-screen text-charcoal">
         <div className="border-b border-white/10 bg-surface/80">
           <div className="max-w-3xl mx-auto px-6 py-12">
-            <p className="mb-4 text-xs font-semibold uppercase tracking-[0.18em] text-accent">Find Your Vertical Free Report</p>
+            <p className="mb-4 text-xs font-semibold uppercase tracking-[0.18em] text-accent">Find My Vertical Free Report</p>
             <h1 className="font-display text-4xl font-bold mb-3 text-charcoal">{d.archetype}</h1>
             <p className="max-w-xl text-base leading-7 text-charcoal-2">{d.free_report_summary || d.archetype_description}</p>
             <div className="mt-4"><ConfidenceBadge confidence={d.result_confidence ?? 'Moderate'} /></div>
@@ -363,7 +363,7 @@ export function ReportPage() {
       {/* Hero */}
       <div className="border-b border-white/10 bg-surface/80">
         <div className="max-w-4xl mx-auto px-6 py-12">
-          <p className="mb-4 text-xs font-semibold uppercase tracking-[0.18em] text-accent">Find Your Vertical Report</p>
+          <p className="mb-4 text-xs font-semibold uppercase tracking-[0.18em] text-accent">Find My Vertical Report</p>
           <div className="flex items-start justify-between flex-wrap gap-4">
             <div>
               <h1 className="font-display text-4xl font-bold mb-3 text-charcoal">{d.archetype}</h1>
@@ -684,8 +684,8 @@ function createReportPdfBlob(report: ReportData, publicScores: Record<string, nu
     y -= fontSize + 5;
   };
 
-  addLine('Find Your Vertical Creator Assessment', 10, 'orange');
-  addLine('Find Your Vertical Report', 18, 'white');
+  addLine('Find My Vertical Creator Assessment', 10, 'orange');
+  addLine('Find My Vertical Report', 18, 'white');
   addLine(report.archetype, 14, 'orange');
   wrapPdfText(report.archetype_description).forEach(line => addLine(line));
   y -= 8;

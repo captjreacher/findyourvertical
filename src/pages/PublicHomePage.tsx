@@ -3,9 +3,9 @@ import { Link } from 'react-router-dom';
 import brandLogo from '@/assets/fyv-brand-logo.png';
 import { PublicLegalFooter } from '@/components/public/PublicSiteShell';
 
-const PAGE_TITLE = 'Find Your Vertical | Creator Assessment and Vertical Discovery';
+const PAGE_TITLE = 'Find My Vertical | Creator Assessment and Vertical Discovery';
 const PAGE_DESCRIPTION =
-  'Find Your Vertical is a creator assessment and planning application. It helps creators identify their strengths, discover suitable content verticals, generate personalised reports and character possibilities, and build a Personal Vertical Plan in a guided self-service workspace with AI assistance.';
+  'Find My Vertical is a creator assessment and planning application. It helps creators identify their strengths, discover suitable content verticals, generate personalised reports and character possibilities, and build a Personal Vertical Plan in a guided self-service workspace with AI assistance.';
 
 const HOW_IT_WORKS = [
   'Complete your creator assessment.',
@@ -44,9 +44,9 @@ function usePublicHomeMeta() {
   useEffect(() => {
     document.title = PAGE_TITLE;
     setMetaByName('description', PAGE_DESCRIPTION);
-    setMetaByName('application-name', 'Find Your Vertical');
-    setMetaByProperty('og:site_name', 'Find Your Vertical');
-    setMetaByProperty('og:title', 'Find Your Vertical');
+    setMetaByName('application-name', 'Find My Vertical');
+    setMetaByProperty('og:site_name', 'Find My Vertical');
+    setMetaByProperty('og:title', 'Find My Vertical');
   }, []);
 }
 
@@ -57,8 +57,8 @@ export function PublicHomePage() {
     <div className="fyv-public-shell flex min-h-screen flex-col bg-surface-2 text-charcoal">
       <header className="border-b border-white/10 bg-black/85 px-4 py-4 backdrop-blur sm:px-6">
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4">
-          <Link to="/" aria-label="Find Your Vertical home" className="flex items-center gap-3">
-            <img src={brandLogo} alt="Find Your Vertical" className="fyv-logo-mark h-16 w-auto object-contain sm:h-20" />
+          <Link to="/" aria-label="Find My Vertical home" className="flex items-center gap-3">
+            <img src={brandLogo} alt="Find My Vertical" className="fyv-logo-mark h-16 w-auto object-contain sm:h-20" />
             <span className="hidden font-display text-base font-bold leading-tight text-charcoal sm:block">
               Find the Creator in You
             </span>
@@ -72,7 +72,7 @@ export function PublicHomePage() {
           <div className="py-3 sm:py-6">
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-accent">Creator Assessment</p>
             <h1 id="public-home-title" className="mt-4 max-w-3xl font-display text-4xl font-bold leading-tight text-charcoal sm:text-5xl lg:text-6xl">
-              Find Your Vertical
+              Find My Vertical
             </h1>
             <p className="mt-3 font-display text-2xl font-bold text-charcoal sm:text-3xl">
               Find the Creator in You
@@ -86,7 +86,7 @@ export function PublicHomePage() {
                 Creator assessment and vertical discovery
               </h2>
               <p className="mt-3 text-sm leading-7 text-charcoal-2 sm:text-base">
-                Find Your Vertical is a creator assessment and planning application. It helps creators identify their strengths, discover suitable content verticals, generate personalised reports and character possibilities, and build a Personal Vertical Plan in a guided self-service workspace with AI assistance.
+                Find My Vertical is a creator assessment and planning application. It helps creators identify their strengths, discover suitable content verticals, generate personalised reports and character possibilities, and build a Personal Vertical Plan in a guided self-service workspace with AI assistance.
               </p>
               <p className="mt-3 text-sm leading-7 text-charcoal-2 sm:text-base">
                 Creators can use Google Sign-In or email authentication to securely access their assessments, reports, onboarding progress and Persona Portfolio.
@@ -107,9 +107,9 @@ export function PublicHomePage() {
             </section>
 
             <section className="flex h-full flex-col justify-center rounded-2xl border border-white/10 bg-surface/92 p-5 shadow-2xl shadow-black/25 sm:p-6" aria-labelledby="homepage-process-title">
-              <img src={brandLogo} alt="Find Your Vertical" className="fyv-logo-mark mx-auto h-28 w-auto object-contain sm:h-36" />
+              <img src={brandLogo} alt="Find My Vertical" className="fyv-logo-mark mx-auto h-28 w-auto object-contain sm:h-36" />
               <h2 id="homepage-process-title" className="mt-6 text-xl font-bold text-charcoal">
-                How Find Your Vertical works
+                How Find My Vertical works
               </h2>
               <ol className="mt-4 grid gap-4">
                 {HOW_IT_WORKS.map((step, index) => (

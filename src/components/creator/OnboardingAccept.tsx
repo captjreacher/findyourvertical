@@ -49,7 +49,7 @@ export function OnboardingAccept() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-surface-2 px-4 text-charcoal">
       <div className="w-full max-w-md rounded-3xl border border-white/10 bg-surface p-6 text-center shadow-2xl shadow-black/25">
-        <img src={brandLogo} alt="Find Your Vertical" className="mx-auto mb-5 h-14 w-auto object-contain" />
+        <img src={brandLogo} alt="Find My Vertical" className="mx-auto mb-5 h-14 w-auto object-contain" />
         {!failed ? (
           <p className="animate-pulse text-sm text-charcoal-2" role="status">{message}</p>
         ) : (

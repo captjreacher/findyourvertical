@@ -135,7 +135,7 @@ export function PersonaWorkspace() {
       <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 lg:px-8">
         <header className="mb-6 flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <img src={brandLogo} alt="Find Your Vertical" className="h-14 w-auto object-contain" />
+            <img src={brandLogo} alt="Find My Vertical" className="h-14 w-auto object-contain" />
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-accent">Your Character Portfolio</p>
               <h1 className="text-2xl font-bold leading-tight text-charcoal">

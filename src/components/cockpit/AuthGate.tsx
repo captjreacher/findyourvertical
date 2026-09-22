@@ -241,7 +241,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
               <div className="flex flex-col items-start">
                 <img
                   src={brandLogo}
-                  alt="Find Your Vertical"
+                  alt="Find My Vertical"
                   className="fyv-logo-mark h-auto w-[min(100%,19rem)] object-contain sm:w-80"
                 />
                 <p className="mt-2 font-display text-lg font-semibold tracking-[0.08em] text-charcoal/80 sm:text-xl">
@@ -254,7 +254,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
               </h1>
               <div className="mt-4 max-w-[35rem] space-y-3 text-sm leading-7 sm:text-[0.9375rem]">
                 <p className="font-medium text-success">
-                  Find Your Vertical helps creators identify their strongest content opportunities, business readiness, growth potential, and monetisation pathways.
+                  Find My Vertical helps creators identify their strongest content opportunities, business readiness, growth potential, and monetisation pathways.
                 </p>
                 <p className="text-charcoal/70">
                   Complete an assessment, receive a personalised report, and discover opportunities to grow faster.
@@ -343,7 +343,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
                     <h2 className="text-xl font-bold leading-tight text-charcoal">Get Your Assessment Invite</h2>
                     <p className="mt-1 text-sm font-semibold text-accent">Thinking about becoming a creator?</p>
                     <p className="mt-2 text-sm leading-5 text-charcoal-2">
-                      Request an invitation to complete the Find Your Vertical assessment.
+                      Request an invitation to complete the Find My Vertical assessment.
                     </p>
                   </div>
 

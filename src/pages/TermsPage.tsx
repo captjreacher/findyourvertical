@@ -7,13 +7,13 @@ const TERMS_SECTIONS = [
   {
     title: '1. Acceptance of Terms',
     body: [
-      'By using Find Your Vertical, you accept these Terms of Service. If you do not agree, you should not use the service.',
+      'By using Find My Vertical, you accept these Terms of Service. If you do not agree, you should not use the service.',
     ],
   },
   {
     title: '2. Operator',
     body: [
-      'Find Your Vertical is operated within the Maximised AI ecosystem. These terms apply to FYV and related creator services made available through the platform.',
+      'Find My Vertical is operated within the Maximised AI ecosystem. These terms apply to FYV and related creator services made available through the platform.',
     ],
   },
   {
@@ -135,14 +135,14 @@ const TERMS_SECTIONS = [
 
 function usePageMeta() {
   useEffect(() => {
-    document.title = 'Terms of Service | Find Your Vertical';
+    document.title = 'Terms of Service | Find My Vertical';
     let meta = document.querySelector<HTMLMetaElement>('meta[name="description"]');
     if (!meta) {
       meta = document.createElement('meta');
       meta.name = 'description';
       document.head.appendChild(meta);
     }
-    meta.content = 'Find Your Vertical Terms of Service for creator assessments, reports, onboarding, accounts, and self-service planning.';
+    meta.content = 'Find My Vertical Terms of Service for creator assessments, reports, onboarding, accounts, and self-service planning.';
   }, []);
 }
 

@@ -678,7 +678,7 @@ function WizardHeader() {
     <header className="border-b border-white/10 bg-surface px-4 py-4">
       <div className="mx-auto flex w-full max-w-4xl flex-wrap items-center justify-between gap-4 px-0 sm:px-6 lg:px-8">
         <div className="flex items-center gap-3">
-          <img src={brandLogo} alt="Find Your Vertical" className="h-12 w-auto object-contain" />
+          <img src={brandLogo} alt="Find My Vertical" className="h-12 w-auto object-contain" />
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-accent">Build Your Character Possibilities</p>
             <h1 className="text-xl font-bold leading-tight text-charcoal sm:text-2xl">Your character portfolio</h1>

@@ -37,7 +37,7 @@ export function CockpitLayout() {
           <div className="flex min-w-0 flex-col items-start gap-2">
             <img
               src={brandLogo}
-              alt="Find Your Vertical"
+              alt="Find My Vertical"
               className="fyv-logo-mark block h-auto w-full max-w-[208px] shrink-0 object-contain"
             />
             <p className="max-w-[208px] text-[12px] font-medium leading-snug tracking-[0.02em] text-charcoal-2">
