@@ -28,7 +28,7 @@ test('CreatorShell renders the required nav and sign out, with a mobile drawer',
 
 test('nav library exposes the required items in order', () => {
   const lib = read('src/lib/onboarding.ts');
-  for (const label of ['Home', 'Onboarding', 'My Report', 'Assessments', 'Creator Services', 'Persona Portfolio', 'Account']) {
+  for (const label of ['Home', 'My Personal Vertical Plan', 'My Report', 'Assessments', 'Persona Portfolio', 'Account']) {
     assert.ok(lib.includes(`'${label}'`), `nav includes ${label}`);
   }
 });
@@ -39,8 +39,8 @@ test('CreatorHome shows the state-derived next step and removes redundant dashbo
   assert.match(home, /deriveProgress/);
   assert.match(home, /CreatorShell/);
   assert.match(home, /Your next step/);
-  assert.match(home, /A FunkMyFans reminder/);
-  assert.match(home, /Services are not active yet/);
+  assert.match(home, /PlanJourneyCta/);
+  assert.doesNotMatch(home, /Book a Strategy Call|Express Interest|Work with us/);
   assert.match(home, /Loading your onboarding progress/);
   assert.match(home, /could not load your onboarding progress/);
   assert.doesNotMatch(home, /Latest assessment/);
@@ -50,11 +50,10 @@ test('CreatorHome shows the state-derived next step and removes redundant dashbo
   assert.doesNotMatch(home, /awaiting review|awaiting approval/i);
 });
 
-test('CreatorHome previews workspace activation truthfully', () => {
-  const home = read('src/components/creator/CreatorHome.tsx');
-  assert.match(home, /workspace will activate when onboarding is complete and the relevant services are connected/);
-  assert.match(home, /Workspace status:[\s\S]*Not active/);
-  assert.match(home, /OnlyFans integration:[\s\S]*Not connected/);
+test('FMF is passive Coming Soon without conversion controls', () => {
+  const cta = read('src/components/creator/PlanJourneyCta.tsx').split('export function PlanJourneyCta')[0];
+  assert.match(cta, /Funk My Fans/); assert.match(cta, /Coming Soon/);
+  assert.doesNotMatch(cta, /<a |<button|href=/);
 });
 
 test('creators-api exposes the onboarding functions', () => {
@@ -82,6 +81,7 @@ test('cockpit invite action generates a link, runs the email boundary, and never
 
 test('creator services Start button routes into authenticated onboarding (no profileId)', () => {
   const svc = read('src/components/report/CreatorServicesPage.tsx');
-  assert.match(svc, /onboardingUrl = '\/my\/onboarding'/);
+  assert.match(svc, /<Navigate/);
+  assert.match(svc, /\/my\/plan/);
   assert.ok(!/creator-services\/onboarding\$\{/.test(svc), 'no profileId query onboarding URL');
 });

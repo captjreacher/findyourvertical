@@ -498,7 +498,7 @@ function Header({ persona, personaId, charProfile }: {
     <header className="border-b border-white/10 bg-surface px-4 py-4">
       <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-4 px-0 sm:px-6 lg:px-8">
         <div className="flex items-center gap-3">
-          <img src={brandLogo} alt="Find Your Vertical" className="h-12 w-auto object-contain" />
+          <img src={brandLogo} alt="Find My Vertical" className="h-12 w-auto object-contain" />
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-accent">
               {persona ? `Character: ${persona.display_name}` : 'Character detail'}

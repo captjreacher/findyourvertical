@@ -57,7 +57,7 @@ export function buildAssessmentInvitationEmail(
 <title>${ASSESSMENT_INVITATION_SUBJECT}</title>
 </head>
 <body style="margin:0;padding:0;background:${b.background};">
-<span style="display:none;max-height:0;overflow:hidden;opacity:0;">Your Find Your Vertical assessment invite is ready. Start the assessment when it suits you.</span>
+<span style="display:none;max-height:0;overflow:hidden;opacity:0;">Your Find My Vertical assessment invite is ready. Start the assessment when it suits you.</span>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${b.background};padding:24px 12px;">
 <tr><td align="center">
 <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:${b.surface};border-radius:${b.radius};overflow:hidden;">
@@ -72,7 +72,7 @@ export function buildAssessmentInvitationEmail(
   <tr><td style="padding:28px;">
     <h1 style="margin:0 0 16px;font-family:${b.headingFont};font-size:28px;line-height:36px;font-weight:700;color:${b.white};">Your assessment invite is ready</h1>
     <p style="margin:0 0 16px;font-family:${b.bodyFont};font-size:16px;line-height:24px;color:${b.text};">Hi ${name},</p>
-    <p style="margin:0 0 16px;font-family:${b.bodyFont};font-size:16px;line-height:24px;color:${b.text};">Thanks for requesting a Find Your Vertical assessment. Your secure invitation link is below — you can start whenever it suits you.</p>
+    <p style="margin:0 0 16px;font-family:${b.bodyFont};font-size:16px;line-height:24px;color:${b.text};">Thanks for requesting a Find My Vertical assessment. Your secure invitation link is below — you can start whenever it suits you.</p>
     <p style="margin:0 0 24px;font-family:${b.bodyFont};font-size:16px;line-height:24px;color:${b.text};">The assessment takes around 10 minutes. Once you're done, you'll receive a personalised creator report.</p>
     <table role="presentation" cellpadding="0" cellspacing="0"><tr>
       <td style="border-radius:${b.radius};background:${b.primary};">
@@ -83,7 +83,7 @@ export function buildAssessmentInvitationEmail(
     <p style="margin:16px 0 0;font-family:${b.bodyFont};font-size:12px;line-height:18px;color:${b.text};">If the button doesn't work, copy and paste this link:<br /><a href="${safeUrl}" style="color:${b.primary};word-break:break-all;">${safeUrl}</a></p>
   </td></tr>
   <tr><td style="padding:20px 28px 28px;border-top:1px solid rgba(255,255,255,0.08);">
-    <p style="margin:0 0 4px;font-family:${b.headingFont};font-size:14px;font-weight:600;color:${b.white};">Find Your Vertical</p>
+    <p style="margin:0 0 4px;font-family:${b.headingFont};font-size:14px;font-weight:600;color:${b.white};">Find My Vertical</p>
     <p style="margin:0 0 12px;font-family:${b.bodyFont};font-size:12px;line-height:18px;color:${b.text};">Find the Creator in You</p>
     <p style="margin:0;font-family:${b.bodyFont};font-size:12px;line-height:18px;color:${b.text};">Questions? Just reply to this email.</p>
   </td></tr>
@@ -98,7 +98,7 @@ export function buildAssessmentInvitationEmail(
     '',
     `Hi ${firstNameOr('there', input.firstName)},`,
     '',
-    'Thanks for requesting a Find Your Vertical assessment. Your secure invitation link is below — you can start whenever it suits you.',
+    'Thanks for requesting a Find My Vertical assessment. Your secure invitation link is below — you can start whenever it suits you.',
     'The assessment takes around 10 minutes. Once you\'re done, you\'ll receive a personalised creator report.',
     '',
     'Start Assessment:',
@@ -106,7 +106,7 @@ export function buildAssessmentInvitationEmail(
     '',
     'You can leave and return using this same link — your invite stays valid until it expires.',
     '',
-    'Find Your Vertical — Find the Creator in You',
+    'Find My Vertical — Find the Creator in You',
     'Questions? Just reply to this email.',
   ].join('\n');
 

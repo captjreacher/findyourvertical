@@ -31,8 +31,10 @@ import {
 } from '../src/lib/persona-portfolio.ts';
 import { generatePortfolio, ProviderError, resolveProviderMethod, type ProviderDeps } from './provider.ts';
 import { routeCreatorRelationship } from './creator-relationship.ts';
+import { handlePlanGuide } from './plan-guide.ts';
 
 export interface Env {
+  PLAN_AI_ENABLED?: string;
   SUPABASE_URL: string;
   SUPABASE_ANON_KEY: string;
   SUPABASE_SERVICE_ROLE_KEY: string;
@@ -361,6 +363,7 @@ export async function handleGenerate(
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
+    if (url.pathname === '/api/plans/guide') return handlePlanGuide(request, env);
     if (url.pathname === GENERATE_PATH) return handleGenerate(request, env);
     // FYV Creator Relationship & Access Layer (invite / accept / activate).
     if (url.pathname.startsWith('/api/creators/')) {

@@ -15,7 +15,7 @@
 /** Public canonical origin for the FYV assessment wizard. Matches
  *  AssessmentTemplates.PUBLIC_ASSESSMENT_ORIGIN so agency-issued and
  *  self-issued invite URLs are identical in shape. */
-export const PUBLIC_ASSESSMENT_ORIGIN = 'https://findyourvertical.online';
+export const PUBLIC_ASSESSMENT_ORIGIN = 'https://findmyvertical.com';
 
 /** Shape returned by the create_public_assessment_invite RPC. */
 export interface PublicAssessmentInviteResult {

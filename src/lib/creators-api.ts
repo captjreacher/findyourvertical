@@ -42,6 +42,11 @@ import type {
 } from '@/types/creator';
 import { scoreAssessment, generateReportSlug } from './scoring';
 import { createCreatorIntelligenceResult } from './creator-intelligence';
+import { normalizeAssessmentEvidence, ANSWER_INTERPRETATION_VERSION } from './assessment-evidence';
+import { deriveReportEvidence } from './report-evidence-template';
+import {
+  buildCreatorReportGenerationContext,
+} from './report-generation';
 import type { CreatorOnboardingCase, RedemptionResult } from './onboarding';
 import {
   buildCreatorAssessmentCompletedPayload,
@@ -587,12 +592,7 @@ export async function submitAssessment(
   // — the events outbox insert policy is anon-only. Force the anonymous client
   // so a logged-in creator's retake behaves exactly like a public submission.
   const supabase = publicSupabase;
-  const scoringResponses = Object.fromEntries(Object.entries(responses).map(([key, value]) => {
-    if (value && typeof value === 'object' && !Array.isArray(value) && Array.isArray((value as { selectedOptionIds?: unknown }).selectedOptionIds)) {
-      return [key, (value as { selectedOptionIds: unknown[] }).selectedOptionIds.map(String)];
-    }
-    return [key, value];
-  })) as AssessmentResponses;
+  const scoringResponses = normalizeAssessmentEvidence(responses);
   // 1. Score the assessment
   if (responses.audience_target === null) {
     throw new Error('Audience target is required');
@@ -733,18 +733,32 @@ export async function submitAssessment(
     },
   };
 
-  const { data: report, error: reportErr } = await supabase
-    .from('creator_reports')
-    .insert({
-      creator_profile_id: profileId,
-      report_slug: slug,
-      report_json: reportDataWithRouting,
-      report_tier: reportDataWithRouting.report_tier,
-      premium_report_available: reportDataWithRouting.premium_report_available,
-      premium_report_generated: reportDataWithRouting.premium_report_generated,
-      version: '1.0',
+  const generationContext = buildCreatorReportGenerationContext({
+    profile,
+    assessment,
+    assessmentTemplate: runtimeTemplate,
+    questions: includedQuestions,
+    responses: scoringResponses,
+    baselineResult,
+    intelligence,
+    reportData: reportDataWithRouting,
+  });
+  const capturedKeys = new Set(includedQuestions.flatMap(q => [q.question_key, q.response_key]));
+  const evidenceDerivation = deriveReportEvidence({ ...generationContext,
+    answers: Object.fromEntries(Object.entries(generationContext.answers).filter(([key]) => capturedKeys.has(key))) });
+  reportDataWithRouting.evidence_guidance = evidenceDerivation.renderedSections.flatMap(section =>
+    section.blocks.map(block => ({ heading: block.heading ?? section.title, content: block.content })));
+  const { data: report, error: reportErr } = await (supabase as any)
+    .rpc('fyv_persist_legacy_creator_report', {
+      p_creator_profile_id: profileId,
+      p_assessment_id: assessment.id,
+      p_invite_code: invite?.invite_code ?? assessment.invite_code,
+      p_creator_dna_profile_id: dnaProfile.id,
+      p_report_slug: slug,
+      p_report_json: reportDataWithRouting,
+      p_generation_context: { ...generationContext, answerInterpretationVersion: ANSWER_INTERPRETATION_VERSION,
+        evidenceDerivation },
     })
-    .select()
     .single();
 
   if (reportErr) throw new Error(`Failed to save report: ${reportErr.message}`);

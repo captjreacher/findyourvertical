@@ -57,8 +57,8 @@ function FullScreen({ children }: { children: ReactNode }) {
     <div className="min-h-screen bg-surface-2 text-charcoal">
       <header className="border-b border-white/10 bg-black/88 px-4 py-3 backdrop-blur sm:px-6">
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4">
-          <a href="#/auth/login" aria-label="Find Your Vertical creator login" className="shrink-0">
-            <img src={brandLogo} alt="Find Your Vertical" className="fyv-logo-mark h-20 w-auto object-contain sm:h-24" />
+          <a href="#/auth/login" aria-label="Find My Vertical creator login" className="shrink-0">
+            <img src={brandLogo} alt="Find My Vertical" className="fyv-logo-mark h-20 w-auto object-contain sm:h-24" />
           </a>
           {isLoginRoute ? (
             <button type="button" aria-current="page" className="btn-primary min-h-11 cursor-default px-5">
@@ -111,6 +111,8 @@ function FullScreen({ children }: { children: ReactNode }) {
 }
 
 export function CreatorGate({ children }: { children: ReactNode }) {
+  const requestedDestination = normalizeRedirectPath(window.location.hash.slice(1), '/my');
+  const destination = requestedDestination.startsWith('/my') ? requestedDestination : DESTINATION;
   const [phase, setPhase] = useState<Phase>('loading');
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<CreatorProfile | null>(null);
@@ -200,7 +202,7 @@ export function CreatorGate({ children }: { children: ReactNode }) {
   const handleGoogleLogin = async () => {
     setSending(true);
     clearAuthMessage();
-    storeAuthRedirectPath(DESTINATION);
+    storeAuthRedirectPath(destination);
 
     // DIAG: log before OAuth initiation
     console.log('[OAuth DIAG] starting Google OAuth', {
@@ -208,7 +210,7 @@ export function CreatorGate({ children }: { children: ReactNode }) {
       storedPath: window.sessionStorage.getItem('findyourvertical.auth.redirectPath'),
     });
 
-    const redirectTo = authCallbackUrl(DESTINATION);
+    const redirectTo = authCallbackUrl(destination);
     console.log('[OAuth DIAG] redirectTo URL', { redirectTo });
 
     const { data, error } = await supabase.auth.signInWithOAuth({
@@ -265,7 +267,7 @@ export function CreatorGate({ children }: { children: ReactNode }) {
     // user lands on /my (or any pre-auth redirect stored by OAuth / invite
     // links) regardless of event timing. Guard against the no-op assignment
     // when onAuthStateChange already routed us, so we never double-fire.
-    const target = normalizeRedirectPath(consumeAuthRedirectPath() ?? DESTINATION);
+    const target = destination !== DESTINATION ? destination : normalizeRedirectPath(consumeAuthRedirectPath() ?? DESTINATION);
     if (window.location.hash !== `#${target}`) {
       window.location.hash = target;
     }
@@ -312,7 +314,7 @@ export function CreatorGate({ children }: { children: ReactNode }) {
               <div className="text-center">
                 <img
                   src={brandLogo}
-                  alt="Find Your Vertical"
+                  alt="Find My Vertical"
                   className="fyv-logo-mark mx-auto h-36 w-auto object-contain sm:h-40 lg:h-44"
                 />
                 <p className="mt-3 font-display text-2xl font-bold text-charcoal sm:text-3xl">

@@ -551,11 +551,11 @@ function PublicBrandHeader({ eyebrow }: { eyebrow?: string }) {
     <div className="text-center">
       <img
         src={brandLogo}
-        alt="Find Your Vertical"
+        alt="Find My Vertical"
         className="fyv-logo-mark mx-auto h-36 w-80 max-w-full object-contain"
       />
       {eyebrow && <p className="mt-5 text-xs font-semibold uppercase tracking-[0.18em] text-accent">{eyebrow}</p>}
-      <h1 className="mt-3 font-display text-3xl font-bold text-charcoal">Find Your Vertical</h1>
+      <h1 className="mt-3 font-display text-3xl font-bold text-charcoal">Find My Vertical</h1>
       <p className="mt-1 text-sm font-semibold text-charcoal-2">Find the Creator in You</p>
     </div>
   );
@@ -1008,15 +1008,15 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
   const renderDetailsStep = () => (
     <div className="mx-auto max-w-2xl space-y-6 animate-in">
       <div className="space-y-3">
-        <h2 className="font-display text-xl font-semibold">Find Your Vertical - Find the Creator in You</h2>
+        <h2 className="font-display text-xl font-semibold">Find My Vertical - Find the Creator in You</h2>
         <p className="text-sm leading-6 text-charcoal-2">
-          Find Your Vertical is designed to identify your strongest creator positioning, content opportunities, monetisation potential, and long-term growth paths.
+          Find My Vertical is designed to identify your strongest creator positioning, content opportunities, monetisation potential, and long-term growth paths.
         </p>
         <p className="text-sm leading-6 text-charcoal-2">
-          Your responses help generate a personalised creator report and may be reviewed for creator management opportunities.
+          Your responses generate your Personal Report and inform your guided self-service Personal Vertical Plan.
         </p>
         <p className="text-sm leading-6 text-charcoal-2">
-          Your information is treated confidentially and used only for assessment and creator contact purposes.
+          Your information is treated confidentially and used only for assessment, account access and self-service planning.
         </p>
       </div>
 
@@ -1324,7 +1324,7 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-accent">Assessment saved</p>
               <h1 className="font-display text-3xl font-bold text-charcoal sm:text-4xl">Assessment Complete</h1>
               <div className="space-y-3 text-sm leading-6 text-charcoal sm:text-base">
-                <p>Thanks for completing your Find Your Vertical assessment.</p>
+                <p>Thanks for completing your Find My Vertical assessment.</p>
                 <p>We've analysed your responses and generated your personalised creator profile.</p>
               </div>
             </div>
@@ -1333,7 +1333,7 @@ export function AssessmentWizard({ templateSlug }: { templateSlug?: string }) {
               <h2 className="font-display text-lg font-semibold text-charcoal">What happens next?</h2>
               <ul className="mt-4 space-y-3 text-sm leading-6 text-charcoal">
                 <li className="flex gap-3"><span className="font-bold text-accent">OK</span><span>Your assessment has been saved.</span></li>
-                <li className="flex gap-3"><span className="font-bold text-accent">OK</span><span>Your Creator DNA, Brand Clarity, Monetisation, Consistency, and Agency Opportunity scores have been calculated.</span></li>
+                <li className="flex gap-3"><span className="font-bold text-accent">OK</span><span>Your Creator DNA, Brand Clarity, Monetisation, and Consistency scores have been calculated.</span></li>
                 <li className="flex gap-3"><span className="font-bold text-accent">OK</span><span>Your personalised report is ready to view.</span></li>
               </ul>
             </div>

@@ -13,6 +13,7 @@ import type {
   TraitWeight,
 } from '@/types/creator';
 import { generateCreatorDnaProfile } from './creator-dna';
+import { ADMINISTRATIVE_ANSWER_KEYS } from './assessment-evidence';
 import { enrichWithKnowledge } from './knowledge/enrichment';
 import { scoreAssessment, type ScoreBreakdown, type ScoringResult } from './scoring';
 
@@ -140,6 +141,7 @@ export function extractAssessmentEvidence(
   const evidence: AssessmentEvidence[] = [];
 
   for (const [responseKey, value] of Object.entries(responses)) {
+    if (ADMINISTRATIVE_ANSWER_KEYS.has(responseKey)) continue;
     if (value === '' || value === null || value === undefined) continue;
     if (Array.isArray(value) && value.length === 0) continue;
 
@@ -387,7 +389,6 @@ export function buildReportFromCreatorDna(input: {
     ...input.confidence.drivers,
     `Creator DNA confidence is ${input.dnaProfile.confidence}/100`,
     `Archetype confidence is ${input.dnaProfile.archetype_confidence}/100`,
-    ...reportHooks.map(hook => `Report interpretation hook: ${hook}`),
   ];
   const freeSummary = `${input.dnaProfile.summary} Recommendation: ${recommendationForTier(tier, input.legacy)}`;
 
@@ -405,8 +406,8 @@ export function buildReportFromCreatorDna(input: {
     premium_report_status: tier === 'premium' ? 'delivered' : 'available',
     why_this_result: {
       ...input.legacy.why_this_result,
-      summary: `${input.dnaProfile.summary} This report is projected from Creator DNA using ${input.evidence.length} evidence signals rather than direct answer-to-score mapping.`,
-      strongest_behavioural_signals: confidenceExplanation,
+      summary: `${input.dnaProfile.summary} These are starting hypotheses based on your answers. Test them against your experience and audience response.`,
+      strongest_behavioural_signals: input.legacy.why_this_result.strongest_behavioural_signals,
     },
   };
 }

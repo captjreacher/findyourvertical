@@ -62,7 +62,7 @@ const BRANCH_ACTIONS: Array<{ value: AssessmentBranchAction; label: string }> = 
   { value: 'jump_section', label: 'Jump to section' },
   { value: 'end', label: 'End assessment' },
 ];
-const PUBLIC_ASSESSMENT_ORIGIN = 'https://findyourvertical.online';
+const PUBLIC_ASSESSMENT_ORIGIN = 'https://findmyvertical.com';
 const EMPTY_TEMPLATE_FORM = { name: '', slug: '', description: '', duplicateFromTemplateId: '' };
 const EMPTY_INVITE_FORM = {
   templateId: '',

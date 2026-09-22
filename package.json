@@ -5,12 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "typecheck": "tsc -b",
+    "typecheck": "tsc -b && tsc -p tsconfig.worker.json",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "deploy": "wrangler versions upload",
     "db:types": "supabase gen types typescript --linked > src/lib/database.types.ts",
-    "test": "node --experimental-strip-types --test tests/persona-portfolio.test.ts tests/persona-worker.test.ts tests/persona-workspace.test.ts tests/persona-migration.test.ts tests/persona-ui-contract.test.ts tests/onboarding.test.ts tests/onboarding-migration.test.ts tests/onboarding-ui-contract.test.ts tests/email.test.ts tests/intelligence-snapshot.test.ts tests/intelligence-snapshot-migration.test.ts tests/creator-relationship.test.ts tests/creator-relationship-migration.test.ts tests/creator-relationship-worker.test.ts tests/agency-admin-console.test.ts tests/public-assessment-invite.test.ts tests/public-assessment-invite-email.test.ts tests/public-assessment-invite-migration.test.ts tests/recommendations.test.ts"
+    "test": "node --experimental-strip-types --test tests/persona-portfolio.test.ts tests/persona-worker.test.ts tests/persona-workspace.test.ts tests/persona-migration.test.ts tests/persona-ui-contract.test.ts tests/onboarding.test.ts tests/onboarding-migration.test.ts tests/onboarding-ui-contract.test.ts tests/email.test.ts tests/intelligence-snapshot.test.ts tests/intelligence-snapshot-migration.test.ts tests/creator-relationship.test.ts tests/creator-relationship-migration.test.ts tests/creator-relationship-worker.test.ts tests/agency-admin-console.test.ts tests/public-assessment-invite.test.ts tests/public-assessment-invite-email.test.ts tests/public-assessment-invite-migration.test.ts tests/recommendations.test.ts tests/report-generation.test.ts tests/report-generation-migration.test.ts tests/report-template-authoring.test.ts tests/assessment-evidence.test.ts tests/personal-plan.test.ts tests/personal-plan-database.test.ts tests/plan-guide-worker.test.ts tests/self-service-boundary.test.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.1",
@@ -20,6 +20,7 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20250303.0",
+    "@electric-sql/pglite": "0.5.8",
     "@playwright/test": "^1.61.1",
     "@tailwindcss/vite": "^4.0.9",
     "@testing-library/jest-dom": "^7.0.0",

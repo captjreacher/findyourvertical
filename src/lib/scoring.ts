@@ -405,12 +405,12 @@ function generatePlan(readiness: ManagementReadiness, topVerticals: { name: Cont
     {
       phase: 'Scale Opportunity',
       focus: 'Decide what should be systemised, delegated, or developed further.',
-      actions: ['Identify which parts of the workflow are limiting growth', 'Consider whether collaborations or channel expansion would accelerate discovery', 'Review whether management support would improve consistency, monetisation, or positioning'],
+      actions: ['Identify which parts of the workflow are limiting growth', 'Consider whether collaborations or channel expansion would accelerate discovery', 'Review your self-service plan for consistency, monetisation, and positioning'],
     },
   ];
 
   if (readiness === 'Scale Candidate') {
-    base[2].actions.push('Explore what an agency-supported growth plan would need to prioritise first');
+    base[2].actions.push('Prioritise the next experiment in your Personal Vertical Plan');
   }
   if (readiness === 'Needs Foundation' || readiness === 'Hobby Creator') {
     base[0].actions.unshift('Clarify your creator identity before adding more complexity');
@@ -703,13 +703,13 @@ function creatorAgencyOpportunity(
         ? 'Your profile shows developing growth potential, with the biggest upside likely coming from clearer systems and offer structure.'
         : 'Your profile has early growth potential that would benefit from stronger foundations before scaling.',
     coaching_suitability: coachability >= 70
-      ? 'You appear well suited to coaching because your answers show openness to structured improvement and experimentation.'
+      ? 'Your answers suggest openness to structured improvement and experimentation in a guided workspace.'
       : coachability >= 50
-        ? 'You may benefit from focused coaching around the few decisions most likely to improve traction.'
-        : 'Coaching may be most useful once you have a clearer goal, cadence, and preferred content direction.',
+        ? 'Use guided planning steps to focus on decisions most likely to improve traction.'
+        : 'Start your plan with a clear goal, cadence, and preferred content direction.',
     recommended_support: readiness === 'Scale Candidate' || recommendation.agency_priority === 'high'
-      ? 'A strategy call is recommended to review whether management support could accelerate your next stage.'
-      : 'A light strategy review is recommended first, focused on niche, consistency, and monetisation foundations.',
+      ? 'Build your Personal Vertical Plan with guided steps and AI assistance.'
+      : 'Start your self-service plan with niche, consistency, and monetisation foundations.',
   };
 }
 

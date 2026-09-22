@@ -40,7 +40,7 @@ export function CreatorShell({ children }: { children: ReactNode }) {
     <div className="min-h-screen bg-surface-2 text-charcoal">
       {/* Mobile top bar */}
       <div className="flex items-center justify-between border-b border-white/10 bg-surface px-4 py-3 lg:hidden">
-        <img src={brandLogo} alt="Find Your Vertical" className="h-9 w-auto object-contain" />
+        <img src={brandLogo} alt="Find My Vertical" className="h-9 w-auto object-contain" />
         <button
           type="button"
           onClick={() => setOpen(v => !v)}
@@ -55,7 +55,7 @@ export function CreatorShell({ children }: { children: ReactNode }) {
       <div className="mx-auto flex w-full max-w-7xl">
         {/* Desktop persistent sidebar */}
         <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-white/10 bg-surface px-4 py-6 lg:flex">
-          <img src={brandLogo} alt="Find Your Vertical" className="mb-6 h-12 w-auto object-contain" />
+          <img src={brandLogo} alt="Find My Vertical" className="mb-6 h-12 w-auto object-contain" />
           <NavLinks />
           <div className="mt-4 border-t border-white/10 pt-4">
             <p className="px-3 text-xs uppercase tracking-wide text-charcoal-2">Signed in as</p>
@@ -74,7 +74,7 @@ export function CreatorShell({ children }: { children: ReactNode }) {
               id="creator-nav-drawer"
               className="absolute left-0 top-0 flex h-full w-72 flex-col border-r border-white/10 bg-surface px-4 py-6"
             >
-              <img src={brandLogo} alt="Find Your Vertical" className="mb-6 h-11 w-auto object-contain" />
+              <img src={brandLogo} alt="Find My Vertical" className="mb-6 h-11 w-auto object-contain" />
               <NavLinks onNavigate={() => setOpen(false)} />
               <div className="mt-4 border-t border-white/10 pt-4">
                 <p className="truncate px-3 text-sm font-semibold text-charcoal">{displayName}</p>

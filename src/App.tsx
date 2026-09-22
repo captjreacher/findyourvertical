@@ -18,6 +18,7 @@ const CreatorIntelligence = lazy(() => import('./components/cockpit/creator-inte
 const AgencyDashboard = lazy(() => import('./components/cockpit/AgencyDashboard').then(module => ({ default: module.AgencyDashboard })));
 const AuthGate = lazy(() => import('./components/cockpit/AuthGate').then(module => ({ default: module.AuthGate })));
 const AssessmentTemplates = lazy(() => import('./components/cockpit/AssessmentTemplates').then(module => ({ default: module.AssessmentTemplates })));
+const ReportTemplates = lazy(() => import('./components/cockpit/ReportTemplates').then(module => ({ default: module.ReportTemplates })));
 const CreatorGate = lazy(() => import('./components/creator/CreatorGate').then(module => ({ default: module.CreatorGate })));
 const CreatorHome = lazy(() => import('./components/creator/CreatorHome').then(module => ({ default: module.CreatorHome })));
 const CharacterPossibilities = lazy(() => import('./components/creator/CharacterPossibilities').then(module => ({ default: module.CharacterPossibilities })));
@@ -29,6 +30,9 @@ const AcceptInvite = lazy(() => import('./components/creator/AcceptInvite').then
 const MyReportRedirect = lazy(() => import('./components/creator/MyReportRedirect').then(module => ({ default: module.MyReportRedirect })));
 const CreatorAssessments = lazy(() => import('./components/creator/CreatorAssessments').then(module => ({ default: module.CreatorAssessments })));
 const CreatorAccount = lazy(() => import('./components/creator/CreatorAccount').then(module => ({ default: module.CreatorAccount })));
+const PersonalVerticalPlan = lazy(() => import('./components/creator/PersonalVerticalPlan').then(module => ({ default: module.PersonalVerticalPlan })));
+const RetakeAssessment = lazy(() => import('./components/creator/RetakeAssessment').then(module => ({ default: module.RetakeAssessment })));
+const PlanRequests = lazy(() => import('./components/cockpit/PlanRequests').then(module => ({ default: module.PlanRequests })));
 const PublicHomePage = lazy(() => import('./pages/PublicHomePage').then(module => ({ default: module.PublicHomePage })));
 const AboutPage = lazy(() => import('./pages/AboutPage').then(module => ({ default: module.AboutPage })));
 const PrivacyPage = lazy(() => import('./pages/PrivacyPage').then(module => ({ default: module.PrivacyPage })));
@@ -226,17 +230,22 @@ export default function App() {
           <Route path="/my/report" element={<CreatorGate><MyReportRedirect /></CreatorGate>} />
           <Route path="/my/assessments" element={<CreatorGate><CreatorAssessments /></CreatorGate>} />
           <Route path="/my/account" element={<CreatorGate><CreatorAccount /></CreatorGate>} />
+          <Route path="/my/plan" element={<CreatorGate><PersonalVerticalPlan /></CreatorGate>} />
+          <Route path="/my/retake" element={<CreatorGate><RetakeAssessment /></CreatorGate>} />
 
           <Route path="/cockpit/*" element={<AuthGate><CockpitLayout /></AuthGate>}>
             <Route index element={<AgencyDashboard />} />
             <Route path="creators" element={<CreatorPipeline />} />
             {/* FYV↔FMF creator relationship + access lifecycle console (agency-only). */}
             <Route path="relationships" element={<CreatorRelationships />} />
+            <Route path="plan-requests" element={<PlanRequests />} />
             <Route path="creators/:profileId/review" element={<CreatorAssessmentReview />} />
             <Route path="creators/:profileId" element={<CreatorProfileView />} />
             <Route path="creators/:profileId/intelligence" element={<CreatorIntelligence />} />
             <Route path="settings/assessment-templates" element={<AssessmentTemplates />} />
             <Route path="settings/assessment-templates/:templateId" element={<AssessmentTemplates />} />
+            <Route path="settings/report-templates" element={<ReportTemplates />} />
+            <Route path="settings/report-templates/:templateId" element={<ReportTemplates />} />
             <Route path="settings/question-bank" element={<AssessmentTemplates />} />
             <Route path="settings/question-bank/new" element={<AssessmentTemplates />} />
             <Route path="settings/question-bank/:questionId/edit" element={<AssessmentTemplates />} />

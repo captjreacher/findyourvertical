@@ -195,6 +195,7 @@ export interface CreatorAssessmentTemplate {
   is_public: boolean;
   is_default: boolean;
   is_active: boolean;
+  active_report_template_version_id?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -409,6 +410,7 @@ export interface CreatorDnaProfile {
 
 // ── Report ──
 export interface ReportData {
+  evidence_guidance?: { heading: string; content: string }[];
   archetype: string;
   archetype_description: string;
   archetype_strengths: string[];
@@ -522,6 +524,10 @@ export interface CreatorReport {
   report_tier?: ReportTier;
   premium_report_available?: boolean;
   premium_report_generated?: boolean;
+  assessment_id?: string | null;
+  creator_dna_profile_id?: string | null;
+  report_template_version_id?: string | null;
+  generation_run_id?: string | null;
 }
 
 // ── Notes & Events ──

@@ -525,7 +525,7 @@ export function CharacterPossibilities() {
   }, [updateView]);
 
   const submitOwnedVerticalForReview = useCallback(async (ownedVerticalId: string) => {
-    setBusyMessage('Sending to the team…');
+    setBusyMessage('Saving request…');
     try {
       const updated = await submitMyOwnedVerticalForReview(ownedVerticalId);
       setOwnedVerticals(prev => prev.map(v => v.id === updated.id ? updated : v));
@@ -533,7 +533,7 @@ export function CharacterPossibilities() {
   }, []);
 
   const submitOwnedVariationForReview = useCallback(async (ownedVariationId: string) => {
-    setBusyMessage('Sending to the team…');
+    setBusyMessage('Saving request…');
     try {
       const updated = await submitMyOwnedVariationForReview(ownedVariationId);
       setOwnedVariations(prev => prev.map(v => v.id === updated.id ? updated : v));
@@ -678,7 +678,7 @@ function WizardHeader() {
     <header className="border-b border-white/10 bg-surface px-4 py-4">
       <div className="mx-auto flex w-full max-w-4xl flex-wrap items-center justify-between gap-4 px-0 sm:px-6 lg:px-8">
         <div className="flex items-center gap-3">
-          <img src={brandLogo} alt="Find Your Vertical" className="h-12 w-auto object-contain" />
+          <img src={brandLogo} alt="Find My Vertical" className="h-12 w-auto object-contain" />
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-accent">Build Your Character Possibilities</p>
             <h1 className="text-xl font-bold leading-tight text-charcoal sm:text-2xl">Your character portfolio</h1>
@@ -1401,7 +1401,7 @@ function DirectionCard(props: DirectionCardProps) {
         )}
         {onSubmitOwnedVerticalForReview && (
           <button type="button" className="btn-secondary text-xs" onClick={() => { void onSubmitOwnedVerticalForReview(); }}>
-            Send to the team for review
+            Save for internal review
           </button>
         )}
         <button type="button" className="btn-secondary text-xs text-pink ml-auto" onClick={() => onRemove()} disabled={totalVerticals === MIN_WORKSET_SIZE}>
@@ -1636,7 +1636,7 @@ function AddDirectionCard(props: {
       <button type="button" className="rounded-2xl border border-dashed border-accent/40 bg-surface p-5 text-left" onClick={props.onOpenAddPicker}>
         <span className="text-xs font-semibold uppercase tracking-wide text-accent">From the catalogue</span>
         <p className="mt-1 text-sm font-semibold text-charcoal">Add another direction</p>
-        <p className="mt-1 text-xs text-charcoal-2">Pick any archetype the FYV team has already curated.</p>
+        <p className="mt-1 text-xs text-charcoal-2">Pick an archetype from the catalogue.</p>
       </button>
       <button type="button" className="rounded-2xl border border-dashed border-accent/40 bg-surface p-5 text-left" onClick={() => setMode('custom')}>
         <span className="text-xs font-semibold uppercase tracking-wide text-accent">Created by you</span>

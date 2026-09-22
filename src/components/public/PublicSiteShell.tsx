@@ -66,8 +66,8 @@ export function PublicSiteShell({
     <div className="fyv-public-shell flex min-h-screen flex-col text-charcoal">
       <header className="border-b border-white/10 bg-black/80 backdrop-blur-xl">
         <div className="mx-auto flex min-h-20 w-full max-w-[1440px] items-center justify-between gap-5 px-5 sm:px-8">
-          <Link to="/" aria-label="Find Your Vertical home">
-            <img src={brandLogo} alt="Find Your Vertical" className="h-12 w-auto object-contain sm:h-14" />
+          <Link to="/" aria-label="Find My Vertical home">
+            <img src={brandLogo} alt="Find My Vertical" className="h-12 w-auto object-contain sm:h-14" />
           </Link>
           <nav className="hidden items-center gap-8 text-sm font-semibold md:flex" aria-label="Public navigation">
             {PUBLIC_NAV_ITEMS.map(item => (
@@ -92,7 +92,7 @@ export function PublicSiteShell({
       <main className="mx-auto flex w-full max-w-[1360px] flex-1 px-4 py-8 sm:px-8 lg:py-10">
         <section className="grid w-full overflow-hidden rounded-[1.75rem] border border-white/10 bg-surface/80 shadow-2xl shadow-black/25 lg:grid-cols-[0.92fr_1.08fr]">
           <aside className="relative flex min-h-[410px] flex-col justify-center overflow-hidden border-b border-white/10 bg-black/40 p-7 sm:p-10 lg:min-h-[650px] lg:border-b-0 lg:border-r lg:p-14">
-            <img src={brandLogo} alt="Find Your Vertical" className="relative z-10 h-20 w-auto self-start object-contain sm:h-24" />
+            <img src={brandLogo} alt="Find My Vertical" className="relative z-10 h-20 w-auto self-start object-contain sm:h-24" />
             <p className="relative z-10 mt-7 text-xs font-bold uppercase tracking-[0.22em] text-accent">{eyebrow}</p>
             <h1 className="relative z-10 mt-3 max-w-xl text-3xl font-bold leading-tight text-white sm:text-4xl lg:text-5xl">
               {heroTitle ?? title}

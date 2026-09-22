@@ -55,9 +55,9 @@ export interface RedemptionResult {
 /** Distinct, human-readable messaging for every safe-failure code. */
 export const REDEMPTION_MESSAGES: Record<RedemptionCode, string> = {
   authentication_required: 'Please sign in with your creator email to open this onboarding link.',
-  invalid: 'This onboarding link is not valid. Please ask the team for a fresh link.',
-  revoked: 'This onboarding link has been revoked. Please ask the team for a new one.',
-  expired: 'This onboarding link has expired. Please ask the team for a new one.',
+  invalid: 'This onboarding link is not valid. Return to your dashboard to continue digitally.',
+  revoked: 'This onboarding link has been revoked. Return to your dashboard to continue digitally.',
+  expired: 'This onboarding link has expired. Return to your dashboard to continue digitally.',
   creator_mismatch: 'This onboarding link belongs to a different account. Sign in with the invited email.',
   already_accepted: 'This onboarding link has already been used — continue from your dashboard.',
 };
@@ -109,10 +109,10 @@ export function deriveOnboardingHero(input: {
     return {
       heading: 'Complete your onboarding',
       body: 'Choose the character possibilities that feel right for you and continue building your Persona Portfolio.',
-      supportingMessage: 'This helps shape how FunkMyFans can support your content, audience growth and creator operations.',
+      supportingMessage: 'Use these optional character directions alongside your Personal Vertical Plan.',
       actions: [
         { label: 'Continue onboarding', to: '/my/characters', variant: 'primary' },
-        { label: 'Explore FunkMyFans services', to: '/creator-services', variant: 'secondary' },
+        { label: 'Build My Personal Vertical Plan', to: '/my/plan', variant: 'secondary' },
       ],
     };
   }
@@ -127,9 +127,9 @@ export function deriveOnboardingHero(input: {
 
   if (input.portfolio === 'completed') {
     return {
-      heading: 'Explore service activation',
-      body: 'Your Persona Portfolio is ready. Explore the FunkMyFans services that could support your next stage of growth.',
-      actions: [{ label: 'Explore FunkMyFans services', to: '/creator-services', variant: 'primary' }],
+      heading: 'Build your Personal Vertical Plan',
+      body: 'Your Persona Portfolio is ready. Turn your assessment into practical next actions in your self-service Personal Vertical Plan.',
+      actions: [{ label: 'Build My Personal Vertical Plan', to: '/my/plan', variant: 'primary' }],
     };
   }
 
@@ -138,7 +138,7 @@ export function deriveOnboardingHero(input: {
     body: 'Turn your chosen character possibilities into six distinct draft personas.',
     actions: [
       { label: 'Create Persona Portfolio', to: '/my/characters', variant: 'primary' },
-      { label: 'Explore FunkMyFans services', to: '/creator-services', variant: 'secondary' },
+      { label: 'Build My Personal Vertical Plan', to: '/my/plan', variant: 'secondary' },
     ],
   };
 }
@@ -172,14 +172,12 @@ export function deriveProgress(input: {
   if (input.hasCompletedPortfolio) portfolio = 'done';
   else if (input.onboardingComplete) portfolio = 'current';
 
-  let services: ProgressState = 'upcoming';
-  if (input.onboardingComplete && input.hasCompletedPortfolio) services = 'current';
 
   return [
     { key: 'assessment', label: 'Assessment complete', state: assessment },
     { key: 'onboarding', label: 'Onboarding', state: onboarding },
     { key: 'persona_portfolio', label: 'Persona Portfolio', state: portfolio },
-    { key: 'services', label: 'Services ready', state: services },
+    { key: 'services', label: 'Funk My Fans — Coming Soon', state: 'upcoming' },
   ];
 }
 
@@ -193,17 +191,16 @@ export function buildOnboardingAcceptPath(rawToken: string): string {
 // ── Creator sidebar nav (labels + order; routing handled by the shell) ───────
 
 export interface CreatorNavItem {
-  id: 'home' | 'onboarding' | 'report' | 'assessments' | 'services' | 'personas' | 'account';
+  id: 'home' | 'onboarding' | 'report' | 'assessments' | 'services' | 'personas' | 'account' | 'plan';
   label: string;
   to: string;
 }
 
 export const CREATOR_NAV: readonly CreatorNavItem[] = [
   { id: 'home', label: 'Home', to: '/my' },
-  { id: 'onboarding', label: 'Onboarding', to: '/my/onboarding' },
+  { id: 'plan', label: 'My Personal Vertical Plan', to: '/my/plan' },
   { id: 'report', label: 'My Report', to: '/my/report' },
   { id: 'assessments', label: 'Assessments', to: '/my/assessments' },
-  { id: 'services', label: 'Creator Services', to: '/creator-services' },
   { id: 'personas', label: 'Persona Portfolio', to: '/my/personas' },
   { id: 'account', label: 'Account', to: '/my/account' },
 ] as const;

@@ -7,7 +7,9 @@ const NAV_ITEMS = [
   { label: 'Dashboard', to: '/cockpit', icon: 'D', end: true },
   { label: 'Creators', to: '/cockpit/creators', icon: 'C' },
   { label: 'Relationships', to: '/cockpit/relationships', icon: 'R' },
+  { label: 'Plan Requests', to: '/cockpit/plan-requests', icon: 'P' },
   { label: 'Assessment Templates', to: '/cockpit/settings/assessment-templates', icon: 'T' },
+  { label: 'Report Templates', to: '/cockpit/settings/report-templates', icon: 'R' },
   { label: 'Question Bank', to: '/cockpit/settings/question-bank', icon: 'Q' },
 ];
 
@@ -35,7 +37,7 @@ export function CockpitLayout() {
           <div className="flex min-w-0 flex-col items-start gap-2">
             <img
               src={brandLogo}
-              alt="Find Your Vertical"
+              alt="Find My Vertical"
               className="fyv-logo-mark block h-auto w-full max-w-[208px] shrink-0 object-contain"
             />
             <p className="max-w-[208px] text-[12px] font-medium leading-snug tracking-[0.02em] text-charcoal-2">

@@ -2,21 +2,21 @@ import { useEffect } from 'react';
 import { PublicSiteShell } from '@/components/public/PublicSiteShell';
 
 const EFFECTIVE_DATE = '16 July 2026';
-const SITE_URL = 'https://findyourvertical.online/';
+const SITE_URL = 'https://findmyvertical.com/';
 const CONTACT_EMAIL = 'privacy@maximisedai.com';
 
 const PRIVACY_SECTIONS = [
   {
     title: '1. Introduction',
     body: [
-      `Find Your Vertical is operated within the Maximised AI ecosystem. This Privacy Policy explains how FYV handles information when you use ${SITE_URL}, creator assessments, onboarding, reports, creator accounts, and related services.`,
-      `Effective date: ${EFFECTIVE_DATE}. Privacy questions can be sent to ${CONTACT_EMAIL}.`,
+      `Find My Vertical is operated within the Maximised AI ecosystem. This Privacy Policy explains how FYV handles information when you use ${SITE_URL}, creator assessments, onboarding, reports, creator accounts, and related services.`,
+      `Effective date: ${EFFECTIVE_DATE}. Privacy rights requests can be sent to ${CONTACT_EMAIL}.`,
     ],
   },
   {
     title: '2. Scope',
     body: [
-      'This policy applies to the public site, assessments, creator accounts, onboarding flows, reports, creator profiles, agency relationship workflows, invitation links, and related FYV services.',
+      'This policy applies to the public site, assessments, creator accounts, onboarding flows, reports, creator profiles, digital commercial requests and self-service plans, invitation links, and related FYV services.',
     ],
   },
   {
@@ -35,7 +35,7 @@ const PRIVACY_SECTIONS = [
   {
     title: '5. How Information Is Used',
     body: [
-      'We use information to provide assessments, generate reports, recommend verticals, support character and persona planning, manage onboarding, manage creator-agency relationships, authenticate users, prevent fraud and misuse, maintain service reliability, provide support, improve the product, and comply with legal obligations.',
+      'We use information to provide assessments, generate reports, recommend verticals, support character and persona planning, manage onboarding, manage digital product access, authenticate users, prevent fraud and misuse, maintain service reliability, provide support, improve the product, and comply with legal obligations.',
     ],
   },
   {
@@ -101,21 +101,21 @@ const PRIVACY_SECTIONS = [
   {
     title: '16. Contact',
     body: [
-      `For privacy questions or requests, contact ${CONTACT_EMAIL}.`,
+      `For privacy rights requests only, use ${CONTACT_EMAIL}.`,
     ],
   },
 ];
 
 function usePageMeta() {
   useEffect(() => {
-    document.title = 'Privacy Policy | Find Your Vertical';
+    document.title = 'Privacy Policy | Find My Vertical';
     let meta = document.querySelector<HTMLMetaElement>('meta[name="description"]');
     if (!meta) {
       meta = document.createElement('meta');
       meta.name = 'description';
       document.head.appendChild(meta);
     }
-    meta.content = 'Find Your Vertical Privacy Policy for assessments, creator accounts, reports, onboarding, and Google Sign-In.';
+    meta.content = 'Find My Vertical Privacy Policy for assessments, creator accounts, reports, onboarding, and Google Sign-In.';
   }, []);
 }
 
