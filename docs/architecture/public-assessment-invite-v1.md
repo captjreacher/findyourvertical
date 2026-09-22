@@ -60,7 +60,7 @@ No new table. No policy change. No column added to any existing table. No new pr
 
 Pure isomorphic. Depends on nothing. Exports:
 
-- `PUBLIC_ASSESSMENT_ORIGIN = 'https://findyourvertical.online'` (byte-identical to `AssessmentTemplates.PUBLIC_ASSESSMENT_ORIGIN`, so agency-issued and self-issued URLs stay in the same shape).
+- `PUBLIC_ASSESSMENT_ORIGIN = 'https://findmyvertical.com'` (byte-identical to `AssessmentTemplates.PUBLIC_ASSESSMENT_ORIGIN`, so agency-issued and self-issued URLs stay in the same shape).
 - `buildPublicAssessmentInviteUrl({ templateSlug, inviteCode, creatorEmail?, origin? })` — deterministic URL construction (`/a/<slug>?ref=<code>&email=<email>`).
 - `validatePublicAssessmentInviteInput(input)` — pure validator, mirrors the server-side check so bad input never reaches the network.
 - `successCopyForDelivery(delivery)` — selects the exact spec copy for `delivered` vs `manual`/`error` branches. Locked here so UI + tests agree.
@@ -78,24 +78,28 @@ Two files matching the PR#17 pattern:
 - `src/lib/email/assessmentInvitationEmail.ts` — `buildAssessmentInvitationEmail({ to, firstName, assessmentUrl })` produces subject `"Your assessment invite is ready"` and responsive HTML + plain-text bodies using the FYV brand tokens exported by `onboardingInvitationEmail.ts`. Recipient name is HTML-escaped.
 - `src/lib/email/deliverAssessmentInvitation.ts` — wraps `resolveEmailProvider().send()` in try/catch, normalising provider throws into `{ delivered: false, mode: 'manual', reason: 'send_failed: <msg>' }`. Callers always get `linkGenerated: true` and can always show the URL.
 
-The default provider is still `ManualNoopEmailProvider` — nothing sends silently, delivery is reported as `manual`, and the UI surfaces the "Email delivery is not configured. Use the secure invitation link below." fallback with the URL box.
+The default provider is still `ManualNoopEmailProvider` — nothing sends silently and delivery is reported as `manual`. The UI does NOT expose that internal state: every delivery outcome resolves to the same customer-facing success state (**Your assessment is ready.**) with the secure URL box, so an undelivered email never blocks the creator.
 
 To wire a real provider later, slot its implementation into `resolveEmailProvider()` behind a server-side configuration check (Cloudflare Worker route + secret). Never in the browser. Never hard-coded.
 
-### UI — `src/components/cockpit/AuthGate.tsx`
+### UI — `src/components/public/PublicAssessmentStart.tsx`
 
-The landing page layout is unchanged. Only the section under **Get Your Assessment Invite** changes:
+Originally embedded in the legacy AuthGate landing page, this card is now a
+standalone public component rendered by the public homepage
+(`src/pages/PublicHomePage.tsx`) as its **Complete My Assessment** primary CTA.
+`AuthGate` is now only the `/cockpit/*` authorization boundary and no longer
+presents any public acquisition UI.
 
 1. **Submit** calls `createPublicAssessmentInvite`, assembles the URL via `buildPublicAssessmentInviteUrl`, then attempts email delivery (never fatal).
-2. **Success state** (per spec):
-   - Heading: **Your assessment invite is ready.**
-   - Body when email delivered: *We've emailed your secure sign-in link. You can begin your assessment immediately.*
-   - Body when manual: *Email delivery is not configured. Use the secure invitation link below.* + `Email not sent · manual delivery` badge.
+2. **Success state**:
+   - Heading: **Your assessment is ready.** (every delivery outcome, so email is a convenience rather than a gate)
+   - Body when email delivered: *We've emailed your secure assessment link. You can start now, or use the link below any time.*
+   - Body when manual/undelivered: *Your secure assessment link is ready below. Use it to begin your assessment.* plus a keep-this-link hint. No provider/internal language is exposed.
    - Secure URL rendered verbatim in a monospaced box.
-   - **Start Assessment** button — anchor to the URL (opens the wizard directly).
-   - **Copy Invite Link** button — clipboard API with legacy `execCommand` fallback; shows `Copied ✓` for 2.5s.
+   - **Start My Assessment** button — anchor to the URL (opens the wizard directly).
+   - **Copy My Link** button — clipboard API with legacy `execCommand` fallback; shows `Copied ✓` for 2.5s.
    - When the RPC returns `reused: true`, an inline hint explains the dedupe.
-   - "Request another invite" text button to reset the card.
+   - "Use a different email" text button to reset the card.
 
 Failure branch: inline `role="alert"` error message under the form; visitor can retry.
 
@@ -114,7 +118,9 @@ Three node `--test` suites, all pure (no DB, no runtime):
 
 - `tests/public-assessment-invite.test.ts` — URL builder, validator, success-copy selector, RPC-result-shape lock.
 - `tests/public-assessment-invite-email.test.ts` — email builder + delivery boundary + provider default + throw normalisation.
-- `tests/public-assessment-invite-migration.test.ts` — static contract checks over the migration SQL, contract module, API helper, and AuthGate wiring. Locks: transaction wrapping; additive-only (no drop/alter/RLS change); SECURITY DEFINER + fixed search_path; PUBLIC revoked; anon+authenticated EXECUTE granted; no plaintext code in event payload; scoped partial unique index; UI heading + button labels + fallback copy + deprecated marker on the legacy helper.
+- `tests/public-assessment-invite-migration.test.ts` — static contract checks over the migration SQL, contract module, API helper, and public assessment-start wiring. Locks: transaction wrapping; additive-only (no drop/alter/RLS change); SECURITY DEFINER + fixed search_path; PUBLIC revoked; anon+authenticated EXECUTE granted; no plaintext code in event payload; scoped partial unique index; UI heading + button labels + fallback copy + deprecated marker on the legacy helper; and that `AuthGate` no longer carries public acquisition.
+- `tests/public-home-assessment-entry.test.ts` — static contract checks that the homepage exposes the assessment start as its primary CTA with Creator Login still available, reuses the existing issuance contract (no second workflow), keeps assessment access working when email delivery is manual or fails, never exposes internal delivery language, and that the cockpit gate still requires `is_agency()`.
+- `src/components/public/PublicAssessmentStart.test.tsx` (vitest) — behavioural coverage of the card against the real URL/copy contract with the RPC + email seams mocked.
 
 DB-applied verification: `scripts/verify_public_assessment_invite.sql` runs a full trace in a single transaction and rolls back at the end. It confirms the RPC grants, the fresh/reused branches, the profile upsert, the events-outbox emit (single row per day, no plaintext code), and the input-validation SQLSTATE.
 

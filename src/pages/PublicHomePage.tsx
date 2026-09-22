@@ -1,23 +1,43 @@
-import { useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import brandLogo from '@/assets/fyv-brand-logo.png';
+import { PublicAssessmentStart, PUBLIC_ASSESSMENT_START_ID } from '@/components/public/PublicAssessmentStart';
 import { PublicLegalFooter } from '@/components/public/PublicSiteShell';
 
 const PAGE_TITLE = 'Find My Vertical | Creator Assessment and Vertical Discovery';
 const PAGE_DESCRIPTION =
-  'Find My Vertical is a creator assessment and planning application. It helps creators identify their strengths, discover suitable content verticals, generate personalised reports and character possibilities, and build a Personal Vertical Plan in a guided self-service workspace with AI assistance.';
+  'Find My Vertical is a creator assessment and planning application. Complete the creator assessment, discover the verticals that best fit you, get your personalised starter report, and build a Personal Vertical Plan in a guided self-service workspace with AI assistance.';
 
-const HOW_IT_WORKS = [
-  'Complete your creator assessment.',
-  'Explore content verticals matched to your strengths and goals.',
-  'Turn your results into creator profiles and practical next steps.',
+// Single source of truth for the anchor the primary CTA targets.
+const ASSESSMENT_START_SECTION_ID = PUBLIC_ASSESSMENT_START_ID;
+
+const CREATOR_JOURNEY = [
+  {
+    title: 'Complete the creator assessment',
+    description: 'Answer questions about your interests, strengths, experience and goals.',
+  },
+  {
+    title: 'Discover the verticals that fit you',
+    description: 'See the content verticals most strongly supported by your own responses.',
+  },
+  {
+    title: 'Receive your personalised starter report',
+    description: 'Your free report brings your direction, strengths and next steps together.',
+  },
+  {
+    title: 'Continue in the Creator Portal',
+    description: 'Sign in to review your assessment, reports and character possibilities.',
+  },
+  {
+    title: 'Build your Personal Vertical Plan',
+    description: 'Turn your report into strategy, schedule, scripts, experiments and next actions at your own pace.',
+  },
 ];
 
 const PUBLIC_LINKS = [
   { to: '/about', label: 'About' },
   { to: '/privacy', label: 'Privacy Policy' },
   { to: '/terms', label: 'Terms of Service' },
-  { to: '/auth/login', label: 'Creator Sign In' },
 ];
 
 function setMetaByName(name: string, content: string) {
@@ -53,6 +73,15 @@ function usePublicHomeMeta() {
 export function PublicHomePage() {
   usePublicHomeMeta();
 
+  // The primary CTA is an in-page move (the site runs under a HashRouter, so a
+  // plain "#start-assessment" href would be read as a route change).
+  const revealAssessmentStart = useCallback(() => {
+    const target = document.getElementById(ASSESSMENT_START_SECTION_ID);
+    if (!target) return;
+    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    window.setTimeout(() => target.querySelector<HTMLInputElement>('input[name="name"]')?.focus(), 250);
+  }, []);
+
   return (
     <div className="fyv-public-shell flex min-h-screen flex-col bg-surface-2 text-charcoal">
       <header className="border-b border-white/10 bg-black/85 px-4 py-4 backdrop-blur sm:px-6">
@@ -63,7 +92,11 @@ export function PublicHomePage() {
               Find the Creator in You
             </span>
           </Link>
-          <Link to="/auth/login" className="btn-primary min-h-11 px-5">Creator Login</Link>
+          {/* Returning creators: always available, deliberately secondary to the
+              assessment CTA below. */}
+          <Link to="/auth/login" className="btn-secondary min-h-11 px-5">
+            Creator Login
+          </Link>
         </div>
       </header>
 
@@ -81,21 +114,34 @@ export function PublicHomePage() {
 
           <div className="grid gap-6 lg:grid-cols-2 lg:items-stretch">
             <section className="flex h-full flex-col rounded-2xl border border-white/10 bg-surface/80 p-5 shadow-xl shadow-black/20 sm:p-6" aria-labelledby="homepage-purpose-title">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-success">Purpose</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-success">How it works</p>
               <h2 id="homepage-purpose-title" className="mt-2 text-xl font-bold text-charcoal">
-                Creator assessment and vertical discovery
+                Assessment, report, then your Personal Vertical Plan
               </h2>
               <p className="mt-3 text-sm leading-7 text-charcoal-2 sm:text-base">
-                Find My Vertical is a creator assessment and planning application. It helps creators identify their strengths, discover suitable content verticals, generate personalised reports and character possibilities, and build a Personal Vertical Plan in a guided self-service workspace with AI assistance.
+                Find My Vertical helps creators discover the verticals that best fit them. Complete the creator
+                assessment, receive a personalised starter report, and continue in the Creator Portal where your
+                assessment and reports stay available to you.
               </p>
               <p className="mt-3 text-sm leading-7 text-charcoal-2 sm:text-base">
-                Creators can use Google Sign-In or email authentication to securely access their assessments, reports, onboarding progress and Persona Portfolio.
+                When you're ready to go further, the Personal Vertical Plan turns your report into strategy, schedule,
+                scripts, experiments and next actions in a guided self-service workspace with AI assistance.
               </p>
 
               <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-                <Link to="/auth/login" className="btn-primary min-h-12 px-6 text-base">Creator Sign In</Link>
+                <button type="button" onClick={revealAssessmentStart} className="btn-primary min-h-12 px-6 text-base">
+                  Complete My Assessment
+                </button>
                 <Link to="/about" className="btn-secondary min-h-12 px-6 text-base">Learn About FYV</Link>
               </div>
+
+              <p className="mt-4 text-sm text-charcoal-2">
+                Already completed your assessment?{' '}
+                <Link to="/auth/login" className="font-semibold text-accent underline underline-offset-4">
+                  Sign in to your Creator Portal
+                </Link>
+                .
+              </p>
 
               <nav className="mt-5 flex flex-wrap gap-2 border-t border-white/10 pt-5 lg:mt-auto" aria-label="Public homepage links">
                 {PUBLIC_LINKS.map(link => (
@@ -106,40 +152,31 @@ export function PublicHomePage() {
               </nav>
             </section>
 
-            <section className="flex h-full flex-col justify-center rounded-2xl border border-white/10 bg-surface/92 p-5 shadow-2xl shadow-black/25 sm:p-6" aria-labelledby="homepage-process-title">
-              <img src={brandLogo} alt="Find My Vertical" className="fyv-logo-mark mx-auto h-28 w-auto object-contain sm:h-36" />
-              <h2 id="homepage-process-title" className="mt-6 text-xl font-bold text-charcoal">
-                How Find My Vertical works
-              </h2>
-              <ol className="mt-4 grid gap-4">
-                {HOW_IT_WORKS.map((step, index) => (
-                  <li key={step} className="flex gap-3 text-sm font-semibold leading-6 text-charcoal sm:text-base">
-                    <span className="font-display text-xl font-bold leading-6 text-accent" aria-hidden="true">{index + 1}.</span>
-                    <span>{step}</span>
-                  </li>
-                ))}
-              </ol>
-            </section>
+            {/* Primary acquisition: the existing self-service assessment-start flow. */}
+            <PublicAssessmentStart id={ASSESSMENT_START_SECTION_ID} className="h-full" />
           </div>
         </section>
 
-        <section className="mx-auto mt-8 w-full max-w-6xl rounded-2xl border border-white/10 bg-surface/80 p-5 shadow-xl shadow-black/20 sm:p-6 lg:mt-10" aria-labelledby="planning-title">
+        <section className="mx-auto mt-8 w-full max-w-6xl rounded-2xl border border-white/10 bg-surface/80 p-5 shadow-xl shadow-black/20 sm:p-6 lg:mt-10" aria-labelledby="journey-title">
           <div className="flex flex-col gap-2 border-b border-white/10 pb-5 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-success">Planning outputs</p>
-              <h2 id="planning-title" className="mt-2 text-2xl font-bold text-charcoal">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-success">Your route</p>
+              <h2 id="journey-title" className="mt-2 text-2xl font-bold text-charcoal">
                 From assessment to next steps
               </h2>
             </div>
             <p className="max-w-md text-sm leading-6 text-charcoal-2">
-              A compact path from assessment answers to creator planning.
+              Self-service from start to finish — no waiting on anyone else.
             </p>
           </div>
-          <ol className="grid gap-0 md:grid-cols-3">
-            {['Strength discovery', 'Content vertical matching', 'Reports, profiles and actions'].map((step, index) => (
-              <li key={step} className="flex gap-4 border-b border-white/10 py-5 last:border-b-0 md:border-b-0 md:border-r md:px-5 md:first:pl-0 md:last:border-r-0 md:last:pr-0">
+          <ol className="grid gap-6 pt-5 md:grid-cols-2 lg:grid-cols-3">
+            {CREATOR_JOURNEY.map((step, index) => (
+              <li key={step.title} className="flex gap-4">
                 <span className="font-display text-3xl font-bold leading-none text-accent" aria-hidden="true">{index + 1}</span>
-                <p className="text-sm font-semibold leading-6 text-charcoal">{step}</p>
+                <div>
+                  <h3 className="text-sm font-semibold leading-6 text-charcoal">{step.title}</h3>
+                  <p className="mt-1 text-sm leading-6 text-charcoal-2">{step.description}</p>
+                </div>
               </li>
             ))}
           </ol>

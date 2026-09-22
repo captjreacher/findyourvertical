@@ -13,7 +13,10 @@
 //   * dedupe partial unique index on events(correlation_id) scoped to
 //     'creator.assessment_invite.self_requested'
 //   * plaintext invite_code never appears in the emitted event payload
-//   * AuthGate uses the new helper + renders the spec's success state
+//   * PublicAssessmentStart (the public assessment-start card the homepage
+//     renders) uses the new helper + renders the spec's success state
+//   * AuthGate stays the cockpit security boundary and no longer presents the
+//     public acquisition flow
 //   * legacy createCreatorInviteRequest is marked @deprecated (not deleted)
 
 import { test } from 'node:test';
@@ -25,6 +28,8 @@ const sql = read('../supabase/migrations/20260714010000_fyv_public_assessment_in
 const contract = read('../src/lib/public-assessment-invite.ts');
 const api = read('../src/lib/creators-api.ts');
 const authGate = read('../src/components/cockpit/AuthGate.tsx');
+const publicStart = read('../src/components/public/PublicAssessmentStart.tsx');
+const publicHome = read('../src/pages/PublicHomePage.tsx');
 const emailBuilder = read('../src/lib/email/assessmentInvitationEmail.ts');
 const emailDeliver = read('../src/lib/email/deliverAssessmentInvitation.ts');
 
@@ -150,7 +155,7 @@ test('events insert dedupes via WHERE NOT EXISTS (race-safe pattern used by PR#2
 // ── Contract module ──────────────────────────────────────────────────────────
 
 test('contract exposes URL builder, validator, and success-copy selector', () => {
-  has(contract, /export const PUBLIC_ASSESSMENT_ORIGIN\s*=\s*'https:\/\/findyourvertical\.online'/,
+  has(contract, /export const PUBLIC_ASSESSMENT_ORIGIN\s*=\s*'https:\/\/findmyvertical\.com'/,
     'origin locked');
   has(contract, /export function buildPublicAssessmentInviteUrl/, 'URL builder exported');
   has(contract, /export function validatePublicAssessmentInviteInput/, 'validator exported');
@@ -171,39 +176,60 @@ test('createCreatorInviteRequest is retained but marked @deprecated (not removed
   has(api, /export async function createCreatorInviteRequest/, 'helper still exists (compile-time safety)');
 });
 
-// ── AuthGate wiring ──────────────────────────────────────────────────────────
+// ── Public assessment-start wiring (homepage acquisition surface) ─────────────
 
-test('AuthGate imports the new helper + delivery + contract (not the deprecated one)', () => {
-  has(authGate, /createPublicAssessmentInvite/, 'uses new helper');
-  has(authGate, /deliverAssessmentInvitation/, 'uses new email delivery');
-  has(authGate, /successCopyForDelivery/, 'uses success-copy selector');
-  has(authGate, /buildPublicAssessmentInviteUrl/, 'uses URL builder');
-  missing(authGate, /createCreatorInviteRequest/, 'no longer imports the deprecated helper');
+test('PublicAssessmentStart imports the new helper + delivery + contract (not the deprecated one)', () => {
+  has(publicStart, /createPublicAssessmentInvite/, 'uses new helper');
+  has(publicStart, /deliverAssessmentInvitation/, 'uses new email delivery');
+  has(publicStart, /successCopyForDelivery/, 'uses success-copy selector');
+  has(publicStart, /buildPublicAssessmentInviteUrl/, 'uses URL builder');
+  missing(publicStart, /createCreatorInviteRequest/, 'no longer imports the deprecated helper');
 });
 
-test('AuthGate renders the spec success state (heading + start + copy)', () => {
-  // The literal heading string ("Your assessment invite is ready.") is locked
-  // once in the contract module (successCopyForDelivery) and asserted by the
-  // pure test. AuthGate just has to (a) call the selector, (b) render its
-  // {heading} property, and (c) render the two named buttons.
-  has(authGate, /successCopyForDelivery\(inviteSuccess\.delivery\)/, 'invokes the copy selector');
-  has(authGate, /\{copy\.heading\}/, 'renders the selector-produced heading');
-  has(authGate, /\{copy\.body\}/, 'renders the selector-produced body');
-  has(authGate, /Start Assessment/, 'start button label');
-  has(authGate, /Copy Invite Link/, 'copy button label');
-  has(authGate, /data-testid="start-assessment-cta"/, 'testable start button');
-  has(authGate, /data-testid="copy-invite-link"/, 'testable copy button');
+test('PublicAssessmentStart renders the spec success state (heading + start + copy)', () => {
+  // The literal heading string ("Your assessment is ready.") is locked once in
+  // the contract module (successCopyForDelivery) and asserted by the pure test.
+  // The card just has to (a) call the selector, (b) render its {heading}
+  // property, and (c) render the named start + copy actions.
+  has(publicStart, /successCopyForDelivery\(success\.delivery\)/, 'invokes the copy selector');
+  has(publicStart, /\{copy\.heading\}/, 'renders the selector-produced heading');
+  has(publicStart, /\{copy\.body\}/, 'renders the selector-produced body');
+  has(publicStart, /Start My Assessment/, 'start action label');
+  has(publicStart, /Copy My Link/, 'copy action label');
+  has(publicStart, /data-testid="start-assessment-cta"/, 'testable start action');
+  has(publicStart, /data-testid="copy-assessment-link"/, 'testable copy action');
 });
 
-test('AuthGate shows the email-not-configured fallback + reused-invite hint', () => {
-  has(authGate, /Email not sent · manual delivery/, 'manual delivery badge');
-  has(authGate, /reused your existing link/, 'retake-friendly reused hint');
+test('PublicAssessmentStart surfaces the URL + reused-invite hint without internal delivery copy', () => {
+  has(publicStart, /Keep this link handy/, 'customer-facing keep-this-link hint');
+  has(publicStart, /reused your existing link/, 'retake-friendly reused hint');
+  has(publicStart, /href=\{success\.url\}/, 'secure URL is always linked');
+  missing(publicStart, /Email delivery is not configured/i, 'no internal delivery language');
+  missing(publicStart, /manual delivery/i, 'no manual-delivery badge');
 });
 
-test('AuthGate never renders the old pending-approval copy', () => {
-  missing(authGate, /Invite request received\. We'll review your details before granting access\./,
+test('PublicAssessmentStart never renders the old pending-approval copy', () => {
+  missing(publicStart, /Invite request received\. We'll review your details before granting access\./,
     'old dead-end message removed');
-  missing(authGate, /review your details before granting access/i, 'no residual approval-gate wording');
+  missing(publicStart, /review your details before granting access/i, 'no residual approval-gate wording');
+});
+
+test('the public homepage owns assessment acquisition and renders the start card', () => {
+  has(publicHome, /<PublicAssessmentStart/, 'homepage renders the extracted card');
+  has(publicHome, /Complete My Assessment/, 'primary assessment CTA');
+  has(publicHome, /Creator Login/, 'returning-creator entry stays visible');
+  missing(publicHome, /createCreatorInviteRequest/, 'homepage never uses the deprecated helper');
+});
+
+// ── AuthGate stays the security boundary ────────────────────────────────────
+
+test('AuthGate remains the cockpit authorization boundary and drops public acquisition', () => {
+  has(authGate, /checkIsAgency\(\)/, 'agency allowlist check retained');
+  has(authGate, /agencyStatus === 'denied'/, 'denied branch retained');
+  has(authGate, /return <>\{children\}/, 'children only rendered once authorized');
+  missing(authGate, /createPublicAssessmentInvite/, 'no public acquisition left in the gate');
+  missing(authGate, /deliverAssessmentInvitation/, 'no public email delivery left in the gate');
+  missing(authGate, /successCopyForDelivery/, 'no public success copy left in the gate');
 });
 
 // ── Email seam ───────────────────────────────────────────────────────────────

@@ -1,10 +1,11 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // FYV-ONBOARD-2 — Public assessment-invite contract (pure isomorphic).
 //
-// This module is the small, pure seam between the public landing form
-// (AuthGate), the createPublicAssessmentInvite RPC in creators-api.ts, the
-// assessment-invitation email builder, and any tests. Keep it dependency-free
-// so both the browser and node --test can import it directly.
+// This module is the small, pure seam between the public assessment-start card
+// (components/public/PublicAssessmentStart), the createPublicAssessmentInvite
+// RPC in creators-api.ts, the assessment-invitation email builder, and any
+// tests. Keep it dependency-free so both the browser and node --test can import
+// it directly.
 //
 // The invite URL shape MUST match what agency's AssessmentTemplates modal
 // already emits — see src/components/cockpit/AssessmentTemplates.tsx
@@ -80,30 +81,40 @@ export function validatePublicAssessmentInviteInput(
   return null;
 }
 
-/** Success-state variant surfaced by AuthGate after a submit. `delivered`
- *  toggles the "we've emailed your secure sign-in link" vs "Email delivery is
- *  not configured" branches per the spec. */
+/** Success-state variant surfaced by PublicAssessmentStart after a submit.
+ *  `delivered` only records whether the invitation email actually went out;
+ *  the secure assessment URL is surfaced in EVERY state so an undelivered email
+ *  never blocks the creator. */
 export type PublicAssessmentInviteDeliveryState =
   | { state: 'delivered'; url: string }
   | { state: 'manual'; url: string }
   | { state: 'error'; url: string; reason: string };
 
-/** Compose the success message variants once so the UI and tests agree. */
+/** Compose the success message variants once so the UI and tests agree.
+ *
+ *  Copy is CUSTOMER-FACING only. Email is a convenience, never a gate: an
+ *  undelivered email (manual provider, or a provider error) must not expose
+ *  internal delivery/provider language to a public creator, and must not read
+ *  as a failure the creator has to act on. The difference between the variants
+ *  is simply whether we can tell the creator to also watch their inbox.
+ *
+ *  `showEmailFallback` means "no email was sent — keep/hold on to the link" and
+ *  drives the keep-this-link hint, NOT an error message. */
 export function successCopyForDelivery(
   delivery: PublicAssessmentInviteDeliveryState,
 ): { heading: string; body: string; showEmailFallback: boolean } {
   switch (delivery.state) {
     case 'delivered':
       return {
-        heading: 'Your assessment invite is ready.',
-        body: "We've emailed your secure sign-in link. You can begin your assessment immediately.",
+        heading: 'Your assessment is ready.',
+        body: "We've emailed your secure assessment link. You can start now, or use the link below any time.",
         showEmailFallback: false,
       };
     case 'manual':
     case 'error':
       return {
-        heading: 'Your assessment invite is ready.',
-        body: 'Email delivery is not configured. Use the secure invitation link below.',
+        heading: 'Your assessment is ready.',
+        body: 'Your secure assessment link is ready below. Use it to begin your assessment.',
         showEmailFallback: true,
       };
   }

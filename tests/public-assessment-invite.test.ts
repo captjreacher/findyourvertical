@@ -19,7 +19,8 @@ import {
 
 test('invite URL default origin matches AssessmentTemplates.PUBLIC_ASSESSMENT_ORIGIN', () => {
   // Locked so agency-issued and self-issued URLs stay identical in shape.
-  assert.equal(PUBLIC_ASSESSMENT_ORIGIN, 'https://findyourvertical.online');
+  // Canonical public origin after the Find My Vertical rebrand.
+  assert.equal(PUBLIC_ASSESSMENT_ORIGIN, 'https://findmyvertical.com');
 });
 
 test('invite URL is /a/<slug>?ref=<code> with optional email prefill', () => {
@@ -30,7 +31,7 @@ test('invite URL is /a/<slug>?ref=<code> with optional email prefill', () => {
   });
   assert.equal(
     url,
-    'https://findyourvertical.online/a/default?ref=abc123&email=emma%40example.com',
+    'https://findmyvertical.com/a/default?ref=abc123&email=emma%40example.com',
   );
 });
 
@@ -40,7 +41,7 @@ test('invite URL omits email when creatorEmail is null/empty', () => {
     inviteCode: 'abc123',
     creatorEmail: null,
   });
-  assert.equal(url, 'https://findyourvertical.online/a/default?ref=abc123');
+  assert.equal(url, 'https://findmyvertical.com/a/default?ref=abc123');
 });
 
 test('invite URL URL-encodes template slug', () => {
@@ -112,25 +113,39 @@ test('validator rejects handle over 200 chars', () => {
 
 // ── Success-copy selector ───────────────────────────────────────────────────
 
-test('delivered state shows we-emailed-you copy and hides fallback', () => {
+test('delivered state says the assessment is ready, mentions the email, hides the fallback hint', () => {
   const copy = successCopyForDelivery({ state: 'delivered', url: 'https://x' });
-  assert.equal(copy.heading, 'Your assessment invite is ready.');
-  assert.match(copy.body, /emailed your secure sign-in link/);
-  assert.match(copy.body, /begin your assessment immediately/);
+  assert.equal(copy.heading, 'Your assessment is ready.');
+  assert.match(copy.body, /emailed your secure assessment link/);
   assert.equal(copy.showEmailFallback, false);
 });
 
-test('manual state shows email-not-configured fallback', () => {
+test('manual state keeps the same customer-facing heading and points at the link', () => {
   const copy = successCopyForDelivery({ state: 'manual', url: 'https://x' });
-  assert.match(copy.body, /Email delivery is not configured/);
-  assert.match(copy.body, /Use the secure invitation link below/);
+  assert.equal(copy.heading, 'Your assessment is ready.');
+  assert.match(copy.body, /secure assessment link/);
   assert.equal(copy.showEmailFallback, true);
 });
 
-test('error state shows the same manual fallback so URL is always usable', () => {
+test('error state shows the same ready copy so the URL is always usable', () => {
   const copy = successCopyForDelivery({ state: 'error', url: 'https://x', reason: 'boom' });
-  assert.match(copy.body, /Email delivery is not configured/);
+  assert.equal(copy.heading, 'Your assessment is ready.');
+  assert.match(copy.body, /secure assessment link/);
   assert.equal(copy.showEmailFallback, true);
+});
+
+test('no delivery state leaks internal delivery/provider language to creators', () => {
+  for (const delivery of [
+    { state: 'delivered', url: 'https://x' } as const,
+    { state: 'manual', url: 'https://x' } as const,
+    { state: 'error', url: 'https://x', reason: 'boom' } as const,
+  ]) {
+    const copy = successCopyForDelivery(delivery);
+    const rendered = `${copy.heading} ${copy.body}`;
+    assert.doesNotMatch(rendered, /not configured/i);
+    assert.doesNotMatch(rendered, /manual delivery/i);
+    assert.doesNotMatch(rendered, /smtp|provider|resend|webhook/i);
+  }
 });
 
 // ── RPC result shape (compile-time lock) ────────────────────────────────────
