@@ -1,81 +1,35 @@
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
-import { createPublicAssessmentInvite } from '@/lib/creators-api';
-import {
-  buildPublicAssessmentInviteUrl,
-  successCopyForDelivery,
-  type PublicAssessmentInviteDeliveryState,
-  type PublicAssessmentInviteResult,
-} from '@/lib/public-assessment-invite';
-import { deliverAssessmentInvitation } from '@/lib/email/deliverAssessmentInvitation';
 import { checkIsAgency, signInWithOtp, signOut, supabase } from '@/lib/supabase';
 import brandLogo from '@/assets/fyv-brand-logo.png';
-import maximisedAiExplode from '@/assets/maximisedai-explode.png';
-import mgrnzLogo from '@/assets/mgrnz-logo-small.png';
 import type { Session } from '@supabase/supabase-js';
 
+// ─────────────────────────────────────────────────────────────────────────────
+// AuthGate — cockpit (/cockpit/*) security boundary.
+//
+// A valid Supabase session is necessary but NOT sufficient: the signed-in user
+// must also be in the agency allowlist (is_agency()) to reach the cockpit.
+//
+// Public creator acquisition (assessment start / free report) is NOT handled
+// here. It lives on the public homepage via
+// components/public/PublicAssessmentStart, which is the single presentation of
+// the self-service assessment-start flow. This gate only signs agency operators
+// in and hard-denies everyone else.
+// ─────────────────────────────────────────────────────────────────────────────
+
 type AuthMessageKind = 'success' | 'error';
-const MAGIC_LINK_SUCCESS_MESSAGE = 'Magic link sent. Check your inbox.';
-const LOGIN_ERROR_MESSAGE = 'Unable to send a magic link. Check the email address or contact the site owner for access.';
-const EMPTY_INVITE_REQUEST = { name: '', email: '', onlyfansHandle: '' };
-const INVITE_BENEFITS = [
-  'Discover your strongest niche opportunities',
-  'Understand your growth potential',
-  'Receive a personalised creator report',
-];
-const HOMEPAGE_LINKS = [
-  { label: 'How it works', section: 'how-it-works' },
-  { label: 'What you’ll discover', section: 'what-youll-discover' },
-  { label: 'For existing creators', section: 'existing-creators' },
-];
-const HOW_IT_WORKS = [
-  {
-    title: 'Complete your assessment',
-    description: 'Share your interests, strengths and creative preferences.',
-  },
-  {
-    title: 'Discover your strongest verticals',
-    description: 'See the creator directions most strongly supported by your responses.',
-  },
-  {
-    title: 'Shape your creator profiles',
-    description: 'Review, edit and refine the profiles generated from your results.',
-  },
-];
-
-// FYV-ONBOARD-2 — success-state shape returned by the public-assessment-invite
-// flow. Kept minimal: the RPC result + the delivery state + the assembled URL.
-interface InviteSuccess {
-  invite: PublicAssessmentInviteResult;
-  url: string;
-  delivery: PublicAssessmentInviteDeliveryState;
-  firstName: string;
-}
-
-function firstNameFrom(fullName: string): string {
-  const trimmed = fullName.trim();
-  if (!trimmed) return '';
-  return trimmed.split(/\s+/)[0] ?? trimmed;
-}
+const MAGIC_LINK_SUCCESS_MESSAGE = 'Sign-in link sent. Check your inbox.';
+const LOGIN_ERROR_MESSAGE = 'Unable to send a sign-in link. Check the email address or contact the site owner for access.';
 
 export function AuthGate({ children }: { children: ReactNode }) {
   const location = useLocation();
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
-  // Cockpit is agency-only. A valid session is necessary but NOT sufficient:
-  // the user must also be in the agency allowlist (is_agency()).
   const [agencyStatus, setAgencyStatus] = useState<'checking' | 'agency' | 'denied' | 'error'>('checking');
   const [email, setEmail] = useState('');
   const [sending, setSending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [messageKind, setMessageKind] = useState<AuthMessageKind | null>(null);
-  const [inviteRequest, setInviteRequest] = useState(EMPTY_INVITE_REQUEST);
-  const [requestingInvite, setRequestingInvite] = useState(false);
-  const [inviteError, setInviteError] = useState<string | null>(null);
-  const [inviteSuccess, setInviteSuccess] = useState<InviteSuccess | null>(null);
-  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'error'>('idle');
-  const loginSectionRef = useRef<HTMLDivElement | null>(null);
-  const loginEmailRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -101,19 +55,6 @@ export function AuthGate({ children }: { children: ReactNode }) {
     return () => { active = false; };
   }, [session]);
 
-  useEffect(() => {
-    if (loading || session) return;
-
-    const section = new URLSearchParams(location.search).get('section');
-    if (!HOMEPAGE_LINKS.some(link => link.section === section)) return;
-
-    const frame = window.requestAnimationFrame(() => {
-      document.getElementById(section!)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    });
-
-    return () => window.cancelAnimationFrame(frame);
-  }, [loading, location.search, session]);
-
   const handleLogin = async (e: FormEvent) => {
     e.preventDefault();
     setSending(true);
@@ -133,94 +74,6 @@ export function AuthGate({ children }: { children: ReactNode }) {
     setSending(false);
   };
 
-  // FYV-ONBOARD-2 — public assessment-invite submit.
-  // 1. Call the anon-callable create_public_assessment_invite RPC (issues an
-  //    assessment invite immediately — no approval gate, no pending queue).
-  // 2. Assemble the invite URL from the returned code + template slug (same
-  //    shape as agency-issued invites via AssessmentTemplates).
-  // 3. Best-effort email delivery through the existing PR#17 email seam. The
-  //    UI ALWAYS shows the URL regardless of delivery outcome.
-  const handleInviteRequest = async (e: FormEvent) => {
-    e.preventDefault();
-    setRequestingInvite(true);
-    setInviteError(null);
-    setInviteSuccess(null);
-    setCopyState('idle');
-
-    try {
-      const invite = await createPublicAssessmentInvite({
-        name: inviteRequest.name,
-        email: inviteRequest.email,
-        onlyfansHandle: inviteRequest.onlyfansHandle || null,
-      });
-
-      const url = buildPublicAssessmentInviteUrl({
-        templateSlug: invite.template_slug,
-        inviteCode: invite.invite_code,
-        creatorEmail: invite.creator_email ?? inviteRequest.email,
-      });
-
-      const firstName = firstNameFrom(invite.creator_name ?? inviteRequest.name);
-
-      // Delivery is best-effort. A provider failure is normalised inside the
-      // deliverer into a manual result so the URL is always shown.
-      let delivery: PublicAssessmentInviteDeliveryState;
-      try {
-        const attempted = await deliverAssessmentInvitation({
-          to: invite.creator_email ?? inviteRequest.email.trim().toLowerCase(),
-          firstName,
-          assessmentUrl: url,
-        });
-        if (attempted.result.delivered) {
-          delivery = { state: 'delivered', url };
-        } else {
-          delivery = { state: 'manual', url };
-        }
-      } catch (err) {
-        // Even a truly unexpected exception must not lose the URL for the user.
-        delivery = {
-          state: 'error',
-          url,
-          reason: err instanceof Error ? err.message : 'unknown_error',
-        };
-      }
-
-      setInviteSuccess({ invite, url, delivery, firstName });
-      setInviteRequest(EMPTY_INVITE_REQUEST);
-    } catch (error) {
-      setInviteError(error instanceof Error ? error.message : 'Unable to submit request. Please try again.');
-    } finally {
-      setRequestingInvite(false);
-    }
-  };
-
-  const handleCopyLink = async () => {
-    if (!inviteSuccess) return;
-    try {
-      // Prefer the async clipboard API; fall back to a legacy input+execCommand
-      // path only if the modern API is unavailable.
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        await navigator.clipboard.writeText(inviteSuccess.url);
-      } else {
-        const input = document.createElement('input');
-        input.value = inviteSuccess.url;
-        document.body.appendChild(input);
-        input.select();
-        document.execCommand('copy');
-        input.remove();
-      }
-      setCopyState('copied');
-      window.setTimeout(() => setCopyState('idle'), 2500);
-    } catch {
-      setCopyState('error');
-    }
-  };
-
-  const handleAdminLoginClick = () => {
-    loginSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    window.setTimeout(() => loginEmailRef.current?.focus(), 250);
-  };
-
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-surface-2">
@@ -230,267 +83,57 @@ export function AuthGate({ children }: { children: ReactNode }) {
   }
 
   if (!session) {
-    const copy = inviteSuccess ? successCopyForDelivery(inviteSuccess.delivery) : null;
-
     return (
-      <div className="fyv-homepage-background flex min-h-screen flex-col bg-surface-2 text-charcoal">
-        <div className="fyv-homepage-watermark" aria-hidden="true" />
-        <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-5 sm:px-6 sm:py-7 lg:px-8">
-          <section className="grid w-full gap-6 rounded-3xl border border-white/10 bg-surface/92 p-4 shadow-2xl shadow-black/25 backdrop-blur sm:p-6 lg:grid-cols-[0.92fr_1.08fr] lg:p-7">
-            <div className="flex flex-col justify-center">
-              <div className="flex flex-col items-start">
-                <img
-                  src={brandLogo}
-                  alt="Find My Vertical"
-                  className="fyv-logo-mark h-auto w-[min(100%,19rem)] object-contain sm:w-80"
-                />
-                <p className="mt-2 font-display text-lg font-semibold tracking-[0.08em] text-charcoal/80 sm:text-xl">
-                  Find the Creator in You
-                </p>
-              </div>
+      <div className="flex min-h-screen items-center justify-center bg-surface-2 px-4 py-10 text-charcoal">
+        <div className="w-full max-w-md rounded-3xl border border-white/10 bg-surface/92 p-6 shadow-2xl shadow-black/25">
+          <img src={brandLogo} alt="Find My Vertical" className="fyv-logo-mark h-16 w-auto object-contain sm:h-20" />
+          <h1 className="mt-5 text-xl font-bold text-charcoal">Agency operator sign in</h1>
+          <p className="mt-2 text-sm leading-6 text-charcoal-2">
+            The cockpit is available to agency operators. Enter your email address and we'll send you a secure sign-in
+            link.
+          </p>
 
-              <h1 className="mt-5 max-w-xl text-2xl font-bold leading-tight tracking-normal text-charcoal sm:text-3xl">
-                Find the creator niche you're most likely to succeed in.
-              </h1>
-              <div className="mt-4 max-w-[35rem] space-y-3 text-sm leading-7 sm:text-[0.9375rem]">
-                <p className="font-medium text-success">
-                  Find My Vertical helps creators identify their strongest content opportunities, business readiness, growth potential, and monetisation pathways.
-                </p>
-                <p className="text-charcoal/70">
-                  Complete an assessment, receive a personalised report, and discover opportunities to grow faster.
-                </p>
-              </div>
+          <form onSubmit={handleLogin} className="mt-5 grid gap-3">
+            <label className="sr-only" htmlFor="cockpit-login-email">Email address</label>
+            <input
+              id="cockpit-login-email"
+              type="email"
+              name="email"
+              autoComplete="email"
+              spellCheck={false}
+              value={email}
+              onChange={e => {
+                setEmail(e.target.value);
+                setMessage(null);
+                setMessageKind(null);
+              }}
+              placeholder="Email Address"
+              required
+              className="field-control w-full"
+            />
+            <button type="submit" disabled={sending} className="btn-primary w-full">
+              {sending ? 'Sending...' : messageKind === 'success' ? 'Send Again' : 'Send Sign-In Link'}
+            </button>
+          </form>
 
-              <nav className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-sm" aria-label="Homepage sections">
-                {HOMEPAGE_LINKS.map(link => (
-                  <a
-                    key={link.section}
-                    href={`#/cockpit?section=${link.section}`}
-                    className="font-semibold text-charcoal/75 underline decoration-accent/70 underline-offset-4 transition-colors hover:text-charcoal"
-                  >
-                    {link.label}
-                  </a>
-                ))}
-              </nav>
-            </div>
-
-            <div id="what-youll-discover" role="region" aria-label="What you’ll discover" className="grid scroll-mt-6 gap-3">
-              {inviteSuccess && copy ? (
-                // FYV-ONBOARD-2 — success state. Landing page layout unchanged;
-                // only the section under "Get Your Assessment Invite" swaps to
-                // this ready-to-start card when the RPC returns a working
-                // invite. Two buttons per spec: Start Assessment + Copy Invite
-                // Link. If email delivery is not configured, the fallback copy
-                // instructs the visitor to use the URL directly.
-                <div
-                  role="status"
-                  className="grid gap-3 rounded-2xl border border-success/40 bg-black/[0.15] p-4 shadow-xl shadow-black/20 sm:p-5"
-                >
-                  <div>
-                    <h2 className="text-xl font-bold leading-tight text-charcoal">{copy.heading}</h2>
-                    <p className="mt-2 text-sm leading-5 text-charcoal-2">{copy.body}</p>
-                    {copy.showEmailFallback && (
-                      <p className="mt-2 text-xs uppercase tracking-wide text-pink">Email not sent · manual delivery</p>
-                    )}
-                  </div>
-
-                  <div className="rounded-xl border border-white/10 bg-surface-3/70 p-3">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-charcoal-2">Your secure invitation link</p>
-                    <p className="mt-1 break-all font-mono text-xs text-charcoal">{inviteSuccess.url}</p>
-                  </div>
-
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    <a
-                      href={inviteSuccess.url}
-                      className="btn-primary min-h-12 w-full text-center text-base shadow-black/25"
-                      data-testid="start-assessment-cta"
-                    >
-                      Start Assessment
-                    </a>
-                    <button
-                      type="button"
-                      onClick={handleCopyLink}
-                      className="btn-secondary min-h-12 w-full text-base"
-                      data-testid="copy-invite-link"
-                    >
-                      {copyState === 'copied'
-                        ? 'Copied ✓'
-                        : copyState === 'error'
-                          ? 'Copy failed — select above'
-                          : 'Copy Invite Link'}
-                    </button>
-                  </div>
-
-                  {inviteSuccess.invite.reused && (
-                    <p className="text-xs text-charcoal-2">
-                      You've requested an invite recently — we've reused your existing link so you can pick up where you left off.
-                    </p>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setInviteSuccess(null);
-                      setCopyState('idle');
-                    }}
-                    className="text-left text-xs text-charcoal-2 underline underline-offset-2 hover:text-charcoal"
-                  >
-                    Request another invite
-                  </button>
-                </div>
-              ) : (
-                <form onSubmit={handleInviteRequest} className="grid gap-3 rounded-2xl border border-accent/35 bg-black/[0.15] p-4 shadow-xl shadow-black/20 sm:p-5">
-                  <div>
-                    <h2 className="text-xl font-bold leading-tight text-charcoal">Get Your Assessment Invite</h2>
-                    <p className="mt-1 text-sm font-semibold text-accent">Thinking about becoming a creator?</p>
-                    <p className="mt-2 text-sm leading-5 text-charcoal-2">
-                      Request an invitation to complete the Find My Vertical assessment.
-                    </p>
-                  </div>
-
-                  <ul className="grid gap-1.5 text-sm leading-5 text-charcoal">
-                    {INVITE_BENEFITS.map(benefit => (
-                      <li key={benefit} className="flex gap-2.5">
-                        <span aria-hidden="true" className="text-success">✓</span>
-                        <span>{benefit}</span>
-                      </li>
-                    ))}
-                  </ul>
-
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <input
-                      value={inviteRequest.name}
-                      onChange={e => setInviteRequest(current => ({ ...current, name: e.target.value }))}
-                      placeholder="Name"
-                      required
-                      className="field-control w-full"
-                    />
-                    <input
-                      type="email"
-                      value={inviteRequest.email}
-                      onChange={e => setInviteRequest(current => ({ ...current, email: e.target.value }))}
-                      placeholder="Email"
-                      required
-                      className="field-control w-full"
-                    />
-                  </div>
-                  <input
-                    value={inviteRequest.onlyfansHandle}
-                    onChange={e => setInviteRequest(current => ({ ...current, onlyfansHandle: e.target.value }))}
-                    placeholder="OnlyFans Handle (optional)"
-                    className="field-control w-full"
-                  />
-                  <button type="submit" disabled={requestingInvite} className="btn-primary min-h-12 w-full text-base shadow-black/25">
-                    {requestingInvite ? 'Requesting...' : 'Get My Assessment Invite →'}
-                  </button>
-                  {inviteError && (
-                    <p className="text-sm text-pink" role="alert">
-                      {inviteError}
-                    </p>
-                  )}
-                </form>
-              )}
-
-              <div id="existing-creators" ref={loginSectionRef} role="region" aria-labelledby="existing-creators-heading" className="scroll-mt-6 rounded-2xl border border-white/10 bg-surface-3/70 p-3.5">
-                <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
-                  <div>
-                    <h2 id="existing-creators-heading" className="text-base font-bold text-charcoal">Already Invited?</h2>
-                    <p className="mt-1 text-sm text-charcoal-2">Enter the email address that received your invitation.</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleAdminLoginClick}
-                    className="rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-xs font-semibold text-accent transition-colors hover:border-accent/60 hover:bg-accent/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
-                  >
-                    Admin / Invite Login
-                  </button>
-                </div>
-                <form onSubmit={handleLogin} className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_180px]">
-                  <input
-                    ref={loginEmailRef}
-                    type="email"
-                    name="email"
-                    autoComplete="email"
-                    spellCheck={false}
-                    value={email}
-                    onChange={e => {
-                      setEmail(e.target.value);
-                      setMessage(null);
-                      setMessageKind(null);
-                    }}
-                    placeholder="Email Address"
-                    required
-                    className="field-control w-full"
-                  />
-                  <button type="submit" disabled={sending} className="btn-secondary w-full">
-                    {sending ? 'Sending...' : messageKind === 'success' ? 'Send Again' : 'Send Magic Link'}
-                  </button>
-                </form>
-                {message && (
-                  <p
-                    className={`mt-3 text-sm ${messageKind === 'error' ? 'text-pink' : 'text-success'}`}
-                    role={messageKind === 'error' ? 'alert' : 'status'}
-                  >
-                    {message}
-                  </p>
-                )}
-              </div>
-            </div>
-          </section>
-
-          <section id="how-it-works" className="scroll-mt-6 px-1 pb-2 pt-9 sm:px-3 sm:pt-11" aria-labelledby="how-it-works-heading">
-            <div className="flex flex-col gap-2 border-b border-white/10 pb-5 sm:flex-row sm:items-end sm:justify-between">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-success">Your route to clarity</p>
-                <h2 id="how-it-works-heading" className="mt-2 text-xl font-bold text-charcoal sm:text-2xl">How it works</h2>
-              </div>
-              <p className="max-w-md text-sm leading-6 text-charcoal/65">Three focused steps from self-assessment to creator direction.</p>
-            </div>
-
-            <ol className="grid gap-0 md:grid-cols-3">
-              {HOW_IT_WORKS.map((step, index) => (
-                <li key={step.title} className="flex gap-4 border-b border-white/10 py-5 last:border-b-0 md:border-b-0 md:border-r md:px-5 md:first:pl-0 md:last:border-r-0 md:last:pr-0">
-                  <span className="font-display text-2xl font-bold leading-none text-accent" aria-hidden="true">{index + 1}</span>
-                  <div>
-                    <h3 className="text-sm font-semibold leading-5 text-charcoal">{step.title}</h3>
-                    <p className="mt-1.5 text-sm leading-6 text-charcoal/65">{step.description}</p>
-                  </div>
-                </li>
-              ))}
-            </ol>
-          </section>
-        </main>
-
-        <footer className="border-t border-white/10 px-4 py-4 sm:px-6 lg:px-8">
-          <div className="mx-auto flex w-full max-w-5xl flex-col gap-3 text-xs text-charcoal/55 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-2.5">
-              <img src={maximisedAiExplode} alt="" className="h-9 w-9 shrink-0 rounded-full object-contain" />
-              <span>
-                Powered by{' '}
-                <a
-                  href="https://www.maximisedai.com/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="font-semibold text-charcoal/75 underline-offset-4 transition-colors hover:text-charcoal hover:underline"
-                >
-                  MaximisedAI
-                </a>
-              </span>
-            </div>
-            <a
-              href="https://mgrnz.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex w-fit max-w-full items-center gap-2.5 rounded-lg text-charcoal/55 transition-colors hover:text-charcoal/75"
+          {message && (
+            <p
+              className={`mt-3 text-sm ${messageKind === 'error' ? 'text-pink' : 'text-success'}`}
+              role={messageKind === 'error' ? 'alert' : 'status'}
             >
-              <span className="whitespace-nowrap">A component of</span>
-              <img
-                src={mgrnzLogo}
-                alt="MGRNZ"
-                className="h-auto w-[6.5rem] shrink-0 rounded-[0.55rem] object-contain sm:w-[7rem]"
-              />
-            </a>
+              {message}
+            </p>
+          )}
+
+          <div className="mt-6 flex flex-col gap-3 border-t border-white/10 pt-5">
+            <a href="#/my" className="btn-secondary w-full text-center">Go to My Vertical</a>
+            <p className="text-xs leading-5 text-charcoal-2">
+              Creator looking to start an assessment?{' '}
+              <a href="#/" className="font-semibold text-accent underline underline-offset-4">Go to Find My Vertical</a>
+              .
+            </p>
           </div>
-        </footer>
+        </div>
       </div>
     );
   }

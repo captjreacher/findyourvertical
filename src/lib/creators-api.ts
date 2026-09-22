@@ -2368,11 +2368,11 @@ export async function createPublicAssessmentInvite(
 
 /**
  * @deprecated FYV-ONBOARD-2 (2026-07-14): the public assessment onboarding
- * flow no longer routes through creator_invite_requests. The public landing
- * form (AuthGate) now calls createPublicAssessmentInvite above, which issues
- * a working assessment invite immediately. This helper is kept only so
- * historic references keep compiling; it does not participate in the
- * assessment-invite path.
+ * flow no longer routes through creator_invite_requests. The public
+ * assessment-start card (components/public/PublicAssessmentStart) now calls
+ * createPublicAssessmentInvite above, which issues a working assessment invite
+ * immediately. This helper is kept only so historic references keep compiling;
+ * it does not participate in the assessment-invite path.
  */
 export async function createCreatorInviteRequest(input: {
   name: string;
